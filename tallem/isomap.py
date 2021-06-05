@@ -1,10 +1,10 @@
 # %% Isomap imports
 import numpy as np
 import numpy.typing as npt
-from distance import dist 
+from tallem.distance import dist 
+from tallem.mds import sammon, classical_MDS
 from scipy.spatial import KDTree
 from scipy.sparse import csc_matrix
-from mds import sammon, classical_MDS
 from scipy.sparse.csgraph import minimum_spanning_tree
 from scipy.sparse.csgraph import connected_components
 
@@ -83,41 +83,16 @@ def isomap(a: npt.ArrayLike, d: int, coord: str = "mMDS", **kwargs):
 		X = sammon(D, k=d)[0]
 	return(X)
 
-def partition_of_unity(a: npt.ArrayLike, centers: npt.ArrayLike, f = "tent"):
-	n = a.shape[0]
-	J = centers.shape[0]
-	P = np.zeros(shape = (J, n), dtype = np.float32)
-	for j in range(J):
-		for i in range(n):
-				P[j,i] = dist()	
-	dist()
-	
-
-
-
-## TODO: parallel coordinates plot
-from scipy.sparse.csgraph import floyd_warshall as fw
-
-# %%
-X = np.random.uniform(size=(15,2))
-isomap(X, d = 2, k = 3)
-
-
-# n = X.shape[0]
-# simplex 
-# D = -np.eye(4) + np.ones(shape=(4,4))
-
-
-# %%
-from mpl_toolkits import mplot3d
-import matplotlib.pyplot as plt
-plt.draw()
-ax = plt.axes(projection='3d')
-x = classical_MDS(D, k = 3, coords = True)
-ax.scatter3D(x[:,0], x[:,1], x[:,2])
-plt.show()
-
-# %%
-from sklearn.manifold import MDS
-embed = MDS(n_components=2, dissimilarity='euclidean')
-dist(embed.fit_transform(D), as_matrix=True)
+def partition_of_unity(a: npt.ArrayLike, centers: npt.ArrayLike, radius: np.float64):
+	'''
+	Partitions 'a' into a partition of unity using a tent function. 
+	If m points are partitioned by n center points, then 
+	the result is a (m x n) matrix of weights yielding the normalized 
+	distance from each point to the given set of centers. Each row 
+	is normalized to sum to 1. 
+	'''
+	a = np.array(a)
+	centers = np.array(centers)
+	P = np.array(radius - dist(a, centers), dtype = np.float32)
+	P = (P.T / np.sum(P, axis = 1)).T
+	return(P)

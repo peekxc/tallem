@@ -1,11 +1,11 @@
-# %% 
+# %% MDS imports 
 import numpy as np
 import numpy.typing as npt
+from tallem.distance import dist
 from scipy.sparse.linalg import eigs as truncated_eig
 from scipy.linalg import eig as dense_eig
-from distance import dist
 
-# %% 
+# %% MDS definitions
 def sammon(data, k: int = 2, max_iterations: int = 250, max_halves: int = 10):
     """
     This implementation is adapted from a (1) GSOC 2016 project by Daniel McNeela (1) 
@@ -75,6 +75,3 @@ def classical_MDS(a: npt.ArrayLike, k: np.int32 = 2, coords: bool = True):
 	## Eigenvalues should be real since matrix was symmetric 
 	E = (np.real(E[0]), np.real(E[1]))
 	return(E[0] * E[1] if coords else E)
-
-
-# %%
