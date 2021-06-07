@@ -58,14 +58,8 @@ R, s = orthog_pro(X, Y)
 # %% Test scaled Procrustes rotation 
 R, s = orthog_pro(X, Y*0.50)
 
-# %% Cover 
-from tallem.landmark import landmarks
-X = np.random.uniform(size=(30,2))
-L = landmarks(X, k = 5)
-
 # %% Draw the cover
 pyplot.draw()
-r = np.min(L['radii'])
 fig, ax = pyplot.subplots()
 ax.scatter(X[:,0], X[:,1])
 ax.scatter(X[L["indices"],0], X[L["indices"],1], s=10)
@@ -77,5 +71,55 @@ pyplot.show()
 # %% Partition of unity 
 from tallem.isomap import partition_of_unity
 P = partition_of_unity(X, centers = X[L['indices'],:], radius = r)
+
+# %% Phi Map 
+# k == index of cover set, i = index of point 
+from tallem.procrustes import ord_procrustes
+from itertools import combinations
+
+## Construct cover membership dictionary by landmark index
+cover_membership = { i : [] for i in range(len(L['indices'])) }
+for i in range(P.shape[0]):
+	membership = np.where(P[i,:] > 0.0)[0]
+	for c_idx in membership:
+		cover_membership[c_idx].append(i)
+
+## Create the local euclidean models 
+from sklearn.manifold import MDS
+metric_mds = MDS(n_components = 2, eps = 1e-14)
+local_coords = [metric_mds.fit_transform(X[v,:]) for k, v in cover_membership.items()]
+
+## Create the Phi map for each pair of cover sets
+J = len(cover_membership.keys())
+
+Omega = { "{},{}".format(j,k) : [] for j,k in combinations(range(J),2) }
+for j,k in combinations(range(J),2):
+	key = "{},{}".format(j,k)
+	j_idx = cover_membership[j]
+	k_idx = cover_membership[k]
+	jk_idx = np.intersect1d(j_idx, k_idx)
+	if len(jk_idx) > 1:
+		rel_j_idx = np.array([cover_membership[j].index(elem) for elem in jk_idx])
+		rel_k_idx = np.array([cover_membership[k].index(elem) for elem in jk_idx])
+		j_coords = local_coords[j][rel_j_idx,:]
+		k_coords = local_coords[k][rel_k_idx,:]
+		Omega[key] = ord_procrustes(j_coords, k_coords, transform=False)
+	else:
+		Omega[key] = None
+
+
+
+
+# %% Trying out joshes stuff 
+import numpy as np
+from tallem.landmark import landmarks
+from tallem.sc import simp_comp, simp_search, delta0, delta0A, delta0D, landmark_cover, eucl_dist
+
+## Get random data + landmarks 
+X = np.random.uniform(size=(15,2))
+L = landmarks(X, k = 5)
+r = np.min(L['radii'])
+
+cover = landmark_cover(X, L['indices'], r)
 
 # %%

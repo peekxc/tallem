@@ -1,10 +1,11 @@
 # %% Landmark Imports 
+import itertools as it
 import numpy as np
 import numpy.typing as npt
-import itertools as it
-from tallem.distance import dist 
 from greedypermutation import clarksongreedy
 from greedypermutation.point import Point
+from tallem.distance import dist
+
 
 # %% Landmark Definitions
 def find_points(query: npt.ArrayLike, reference: npt.ArrayLike):

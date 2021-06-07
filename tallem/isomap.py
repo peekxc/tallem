@@ -93,6 +93,6 @@ def partition_of_unity(a: npt.ArrayLike, centers: npt.ArrayLike, radius: np.floa
 	'''
 	a = np.array(a)
 	centers = np.array(centers)
-	P = np.array(radius - dist(a, centers), dtype = np.float32)
+	P = np.array(np.maximum(0, radius - dist(a, centers)), dtype = np.float32)
 	P = (P.T / np.sum(P, axis = 1)).T
 	return(P)
