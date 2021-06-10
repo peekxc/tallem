@@ -492,7 +492,6 @@ def point_nerve(cover,maxdim=2):
                 cov = intersect(precov,cover[vert])
                 if len(cov) > 0:
                     simps[j+1] = simps[j+1] + [presimp + [vert]]
-    
     return simps
     
 # give entry value for things in the nerve

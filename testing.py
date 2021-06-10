@@ -76,6 +76,12 @@ P = partition_of_unity(X, centers = X[L['indices'],:], radius = r)
 # k == index of cover set, i = index of point 
 from tallem.procrustes import ord_procrustes
 from itertools import combinations
+from tallem.distance import dist
+from tallem.mds import classical_MDS
+
+X = np.random.uniform(size=(15,2))
+L = landmarks(X, k = 5)
+r = np.min(L['radii'])
 
 ## Construct cover membership dictionary by landmark index
 cover_membership = { i : [] for i in range(len(L['indices'])) }
@@ -85,9 +91,10 @@ for i in range(P.shape[0]):
 		cover_membership[c_idx].append(i)
 
 ## Create the local euclidean models 
-from sklearn.manifold import MDS
-metric_mds = MDS(n_components = 2, eps = 1e-14)
-local_coords = [metric_mds.fit_transform(X[v,:]) for k, v in cover_membership.items()]
+# from sklearn.manifold import MDS
+# metric_mds = MDS(n_components = 2)
+# local_coords = [metric_mds.fit_transform(X[v,:]) for k, v in cover_membership.items()]
+local_coords = [classical_MDS(dist(X[v,:], as_matrix=True)) for k, v in cover_membership.items()]
 
 ## Create the Phi map for each pair of cover sets
 J = len(cover_membership.keys())
@@ -108,8 +115,6 @@ for j,k in combinations(range(J),2):
 		Omega[key] = None
 
 
-
-
 # %% Trying out joshes stuff 
 import numpy as np
 from tallem.landmark import landmarks
@@ -119,7 +124,39 @@ from tallem.sc import simp_comp, simp_search, delta0, delta0A, delta0D, landmark
 X = np.random.uniform(size=(15,2))
 L = landmarks(X, k = 5)
 r = np.min(L['radii'])
-
 cover = landmark_cover(X, L['indices'], r)
 
+## 0-dimensional boundary matrix
+S = [
+	[0,1,2,3,4,5], 
+	[[0,1], [2,3], [4,5]], 
+	[1,2,3], [2,3,4]
+]
+delta0(S)
+
+delta0A(S, w=dist(X[0:7,:], as_matrix=True))
+
 # %%
+import autograd.numpy as np
+from pymanopt.manifolds import Stiefel
+from pymanopt import Problem
+from pymanopt.solvers import SteepestDescent
+
+# Need Stiefel(n=d*J,p=D) as Stiefel(n,p) := space of (n x p) orthonormal matrices
+manifold = Stiefel(5*1000, 5)
+
+def cost(X): 
+	return np.sum(X)
+
+problem = Problem(manifold=manifold, cost=cost)
+solver = SteepestDescent()
+Xopt = solver.solve(problem)
+
+
+print(Xopt)
+
+
+
+
+
+# %% TALLEM

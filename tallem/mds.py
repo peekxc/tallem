@@ -63,7 +63,10 @@ def classical_MDS(a: npt.ArrayLike, k: np.int32 = 2, coords: bool = True):
 	''' computes cmdscale(a) w/ a being a distance matrix '''
 	a = np.asarray(a)
 	n = a.shape[0]
-	C = np.eye(n) - (1/n)*np.ones(shape=(n,n))
+	d = a.shape[1]
+	if n <= 1: 
+		return(np.repeat(0.0, d))
+	C = np.eye(n) - (1.0/n)*np.ones(shape=(n,n))
 	B = (-1/2)*(C @ a @ C)
 	if k >= (n-1):
 		E = dense_eig(B)

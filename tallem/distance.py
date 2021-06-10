@@ -14,6 +14,8 @@ def dist(x: npt.ArrayLike, y=None, pairwise=False, as_matrix=False):
 		(4) the distance between x and y, if both are 1 dimensional vectors
 	'''
 	x = np.array(x)
+	if x.shape[0] == 1 or x.ndim == 1 and y is None: 
+		return(np.zeros((0, np.prod(x.shape))))
 	if y is None:
 		if (as_matrix):
 			#d = np.zeros((n, n))
