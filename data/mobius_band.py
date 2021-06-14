@@ -4,7 +4,7 @@ import matplotlib.pyplot as pyplot
 from matplotlib.tri import Triangulation
 np.set_printoptions(linewidth=160)
 
-n = 150 													# desired sample size (2*x.shape[0] - 2 - nt)
+n = 500 													# desired sample size (2*x.shape[0] - 2 - nt)
 ratio = 30/8											# ratio of samples along parametric coordinates
 nt = np.int32((0.5*n)/ratio)			# loosely nuber of theta parameters
 ns = np.int32(np.ceil(nt/ratio))  # loosely number of radii parameters 
@@ -94,4 +94,5 @@ print(np.linalg.norm(dist(embedded_cmds) - dist_truth))
 # %% For TALLEM: the coordinates + the local euclidean models 
 X = M
 F = polar_sample
+f = F[:,1]
 pyplot.scatter(F[:,0], F[:,1])

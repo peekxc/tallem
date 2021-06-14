@@ -3,6 +3,15 @@ __pycache__/
 *.py[cod]
 *$py.class
 
+# Junk 
+.vs_code/
+CMakeFiles/
+**/CMakeFiles/
+_skbuild/
+**/*.cmake
+CMakeCache.txt
+install_manifest.txt
+
 # C extensions
 *.so
 

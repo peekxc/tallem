@@ -3,13 +3,17 @@
 
 ## Assume as input: point cloud X and embedded coordinates F 
 import numpy as np
+import numpy.typing as npt
+
+D = 3
+d = 2
 
 ## Map f: X -> B onto topological space 
 f = F[:,1]
 n = F.shape[0]
 
 ## Form basic partition of unity
-## Note: nonzero entries describ the cover entirely 
+## Note: nonzero entries describe the cover entirely 
 from tallem.distance import dist
 from tallem.isomap import partition_of_unity
 poles = np.linspace(0, 2*np.pi, 10)
@@ -58,10 +62,13 @@ for (i,j) in combinations(range(nc), 2):
 	if len(F_models["indices"]) > 1:
 		Omega_map[(i,j)] = ord_procrustes(F_models["model1"], F_models["model2"], transform=False)
 
+# %% Define the Phi map 
+from functools import lru_cache
 
 ## Phi map: supplying i returns the phi map for the largest 
 ## value in the partition of unity; supplying j as well returns 
 ## the specific phi map for the jth cover element (possibly 0)
+@lru_cache
 def phi(i, j = None):
 	J, d = P.shape[1], F.shape[1]
 	k = np.argmax(P[i,:]) if j is None else j
@@ -74,9 +81,11 @@ def phi(i, j = None):
 			return(w*np.eye(d))
 		return(w*Omega_map[(k,j)]['rotation'] if pair_exists[0] else w*Omega_map[(j,k)]['rotation'].T)
 	return(np.vstack([weighted_omega(j) for j in range(J)]))
+phi_cache = [phi(i) for i in range(n)]
 
 # %% Optimization to find the best A matrix 
 %%time
+from typing import Callable, Iterable
 
 ## First get the initial guess A_0
 ## Based on joshes frame_init.m code 
@@ -99,22 +108,145 @@ from pymanopt.solvers import SteepestDescent
 D = 3 # desired embedding dimension 
 manifold = Stiefel(d*nc, D)
 
-def huber_loss(epsilon: auto_np.float32 = 1.0, update_eps = lambda eps: eps):
+## Huber loss function to optimize
+def huber_loss(subsetter: Callable[[], Iterable[int]], epsilon: auto_np.float32 = 1.0, update_eps = lambda eps: eps):
 	def cost_function(A):
 		nonlocal epsilon 
 		nuclear_norm = 0.0
-		for j in range(n):
+		for j in subsetter():
 			M = auto_np.array(A.T @ phi(j), dtype='float')
+			# M = A.T @ phi_cache[j]
 			svals = auto_np.linalg.svd(M, full_matrices=False, compute_uv=False)
 			nuclear_norm += auto_np.sum([t if t >= epsilon else (t**2)/epsilon for t in auto_np.abs(svals)])
 		epsilon = update_eps(epsilon)
 		return(-nuclear_norm)
 	return(cost_function)
 
-problem = Problem(manifold=manifold, cost=huber_loss(1.0))
+## Uniform sampler
+# from tallem.samplers import uniform_sampler
+# subsetter = uniform_sampler(n)
+# cost_function = huber_loss(lambda: subsetter(n)), epsilon=0.30)
+
+## Trivial iterable 
+cost_function = huber_loss(lambda: range(n), epsilon=1.0)
+
+problem = Problem(manifold=manifold, cost=cost_function, verbosity=2)
 solver = SteepestDescent()
 A0 = initial_frame(D, phi, X.shape[0])
 Xopt = solver.solve(problem=problem, x=A0)
+
+# %% Try different matrix multipliers 
+from scipy.sparse import csr_matrix, csc_matrix
+A, At = A0, A0.T
+phi_dense = [phi(i) for i in range(n)]
+phi_sparse_r = [csr_matrix(phi(i)) for i in range(n)]
+phi_sparse_c = [csc_matrix(phi(i)) for i in range(n)]
+phi_dense_stacked = np.hstack(phi_dense)
+phi_sparse_r_stacked = csr_matrix(phi_dense_stacked)
+phi_sparse_c_stacked = csc_matrix(phi_dense_stacked)
+
+# %% Test implicitly generated 
+%%time 
+for i in range(n): At @ phi(i)
+
+# %%time -- Dense cached 
+%%time 
+for i in range(n): At @ phi_dense[i]
+
+# %%time -- Sparse row cached 
+%%time 
+# for i in range(n): At @ phi_sparse_r[i]
+for i in range(n): csr_matrix.dot(At, phi_sparse_r[0])
+
+# %%time -- Sparse col cached 
+%%time 
+for i in range(n): At @ phi_sparse_c[i]
+
+# %% Stacked dense 
+%%time 
+res = At @ phi_dense_stacked
+
+# %% Stacked sparse row 
+%%time 
+res = At @ phi_sparse_r_stacked
+
+# %% Stacked sparse column  
+%%time 
+res = At @ phi_sparse_c_stacked
+
+# %% SVD 3x3 '
+import numpy as np 
+import example
+from numpy.linalg import svd
+x = np.random.uniform(size=(3,3))
+y = example.svd_3x3(x)
+
+print(y[0])
+print(svd(x)[0])
+print("\n")
+
+print(y[1])
+print(svd(x)[1])
+print("\n")
+
+print(example.svd_3x3(x)[2])
+print(svd(x)[2])
+
+# %% pybind11 idea
+d, D, n, J = 3, 3, 10000, 500
+m = d*J
+import numpy as np
+import example
+phi = np.random.uniform(size=(d*J, d*n))
+bn = example.BetaNuclearDense(n, d, D)
+At = np.random.uniform(size=(D, d*J))
+
+# %% Time to do one matrix multiplication
+%%time
+bn.output = At @ phi
+
+# %% Loop to get sum nuclear norm
+%%time
+cc = 0
+nuclear_norm = 0.0
+for _ in range(n):
+	nuclear_norm += np.sum(np.abs(np.linalg.svd(bn.output[:,cc:(cc+d)], compute_uv=False)))
+	cc += d
+
+# %% C++ version
+%%time
+out = bn.numpy_svd()
+
+# %% 3x3 SVD
+%%time
+if d == 3 and D == 3:
+	out = bn.three_svd()
+
+# %% SVD timings
+%%time 
+c = 0
+for _ in range(n):
+	s = np.linalg.svd(res[:,c:(c+3)], full_matrices=False)
+	c += 3
+
+# %% test sparse matrix multply
+from scipy.sparse import csr_matrix
+from scipy.sparse import random
+d, D, n, J = 2, 5, 15000, 300
+m = d*J
+phi_fake = random(m,d*n, density=(d**2)/(d*J*d), format='csr')
+phi_fake_dense = phi_fake.todense()
+a_fake = np.random.uniform(size=(D, d*J))
+print(phi_fake.shape)
+print(a_fake.shape)
+
+# %% dense %*% sparse
+%%time
+res = a_fake @ phi_fake
+
+# %% dense %*% dense
+%%time
+res = a_fake @ phi_fake_dense
 
 # %% Get optimal translation vectors 
 %%time
@@ -152,13 +284,15 @@ for i in range(n):
 			coords += w * (A_opt.T @ (u @ vt) @ f_x.T).T
 	assembly[i,:] = coords
 
-## View the assembly 
-ax = pyplot.axes(projection='3d')
-ax.scatter3D(assembly[:,0], assembly[:,1], assembly[:,2], c=F[:,0],s=1.50)
+# ## View the assembly 
+# ax = pyplot.axes(projection='3d')
+# ax.scatter3D(assembly[:,0], assembly[:,1], assembly[:,2], c=F[:,0],s=1.50)
 
-ax = pyplot.axes(projection='3d')
-ax.scatter3D(assembly[:,0], assembly[:,1], assembly[:,2], c=F[:,1],s=1.50)
+# ax = pyplot.axes(projection='3d')
+# ax.scatter3D(assembly[:,0], assembly[:,1], assembly[:,2], c=F[:,1],s=1.50)
 
+# import pickle as pd
+# pd.dump({ "data": X, "f_map": f }, open('mobius_band.pickle', 'wb'))
 
 
 # %% Benchmarking various SVD solutions to computing singular values
