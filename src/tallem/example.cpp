@@ -1,3 +1,4 @@
+// cppimport
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h>
 #include <pybind11/numpy.h>
@@ -57,3 +58,10 @@ PYBIND11_MODULE(example, m) {
 		.def("numpy_svd", &BetaNuclearDense::numpy_svd)
 		.def("three_svd", &BetaNuclearDense::three_svd);
 }
+
+/* 
+<% 
+cfg['extra_compile_args'] = ['-std=c++17']
+setup_pybind11(cfg) 
+%> 
+*/

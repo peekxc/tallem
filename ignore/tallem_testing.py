@@ -4,19 +4,22 @@
 ## Assume as input: point cloud X and embedded coordinates F 
 import numpy as np
 import numpy.typing as npt
+from tallem.datasets import mobius_band
 
+## Ensure X, f are defined
+M = mobius_band(embed=6)
+X = M['points']
+f = M['parameters'][:,0]
 D = 3
 d = 2
-
-## Map f: X -> B onto topological space 
-f = F[:,1]
-n = F.shape[0]
+n = X.shape[0]
+J = 30
 
 ## Form basic partition of unity
 ## Note: nonzero entries describe the cover entirely 
 from tallem.distance import dist
 from tallem.isomap import partition_of_unity
-poles = np.linspace(0, 2*np.pi, 10)
+poles = np.linspace(0, 2*np.pi, J)
 eps = 0.75*np.min(np.diff(poles))
 f_mat = np.reshape(f, (len(f), 1))
 p_mat = np.reshape(poles, (len(poles), 1))
@@ -37,7 +40,7 @@ cover_point_map = { i : np.ravel(P[:,i].nonzero()) for i in range(nc) }
 from tallem.mds import classical_MDS
 Fj = { i : [] for i in range(nc) }
 for i in range(nc):
-	dx = dist(mobius_sample[cover_point_map[i],:], as_matrix=True) 
+	dx = dist(X[cover_point_map[i],:], as_matrix=True) 
 	Fj[i] = classical_MDS(dx, k=2)
 
 ## Extract intersection maps 
@@ -70,7 +73,7 @@ from functools import lru_cache
 ## the specific phi map for the jth cover element (possibly 0)
 @lru_cache
 def phi(i, j = None):
-	J, d = P.shape[1], F.shape[1]
+	J = P.shape[1]
 	k = np.argmax(P[i,:]) if j is None else j
 	out = np.zeros((d*J, d))
 	def weighted_omega(j):
@@ -83,7 +86,7 @@ def phi(i, j = None):
 	return(np.vstack([weighted_omega(j) for j in range(J)]))
 phi_cache = [phi(i) for i in range(n)]
 
-# %% Optimization to find the best A matrix 
+# %% Get initial frame
 %%time
 from typing import Callable, Iterable
 
@@ -98,6 +101,9 @@ def initial_frame(D, phi, n):
 	Eval, Evec = np.linalg.eigh(Phi_N)
 	return(Evec[:,np.argsort(-Eval)[:D]])
 
+A0 = initial_frame(D, phi, X.shape[0])
+
+# %% Optimization to find the best A matrix 
 import autograd.scipy.linalg as auto_scipy 
 import autograd.numpy as auto_np
 from pymanopt.manifolds import Stiefel
@@ -105,7 +111,6 @@ from pymanopt import Problem
 from pymanopt.solvers import SteepestDescent
 
 # Need Stiefel(n=d*J,p=D) as Stiefel(n,p) := space of (n x p) orthonormal matrices
-D = 3 # desired embedding dimension 
 manifold = Stiefel(d*nc, D)
 
 ## Huber loss function to optimize
@@ -132,7 +137,6 @@ cost_function = huber_loss(lambda: range(n), epsilon=1.0)
 
 problem = Problem(manifold=manifold, cost=cost_function, verbosity=2)
 solver = SteepestDescent()
-A0 = initial_frame(D, phi, X.shape[0])
 Xopt = solver.solve(problem=problem, x=A0)
 
 # %% Try different matrix multipliers 
@@ -156,7 +160,7 @@ for i in range(n): At @ phi_dense[i]
 # %%time -- Sparse row cached 
 %%time 
 # for i in range(n): At @ phi_sparse_r[i]
-for i in range(n): csr_matrix.dot(At, phi_sparse_r[0])
+for i in range(n): csr_matrix.dot(At, phi_sparse_r[i])
 
 # %%time -- Sparse col cached 
 %%time 
@@ -165,14 +169,17 @@ for i in range(n): At @ phi_sparse_c[i]
 # %% Stacked dense 
 %%time 
 res = At @ phi_dense_stacked
+print("Memory: {} MB".format((np.prod(phi_dense_stacked.shape) * 64)/8/1024/1024))
 
 # %% Stacked sparse row 
 %%time 
 res = At @ phi_sparse_r_stacked
+print("Memory: {} MB".format((phi_sparse_r_stacked.nnz * 64)/8/1024/1024))
 
 # %% Stacked sparse column  
 %%time 
 res = At @ phi_sparse_c_stacked
+print("Memory: {} MB".format((phi_sparse_c_stacked.nnz * 64)/8/1024/1024))
 
 # %% SVD 3x3 '
 import numpy as np 
@@ -293,6 +300,13 @@ for i in range(n):
 
 # import pickle as pd
 # pd.dump({ "data": X, "f_map": f }, open('mobius_band.pickle', 'wb'))
+
+# %% Gradient comparison using coresets 
+from tallem.landmark import landmarks
+
+# L = landmarks(X, k = X.shape[0])['indices']
+
+
 
 
 # %% Benchmarking various SVD solutions to computing singular values

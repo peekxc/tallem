@@ -1,12 +1,10 @@
 // cppimport
-
+#include <carma>
 #include <armadillo>
 
 #include <pybind11/pybind11.h>
 #include <pybind11/numpy.h>
 #include <pybind11/pytypes.h>
-
-#include "carma/carma.h"
 
 
 py::tuple ols(arma::mat& X, arma::colvec& y) {

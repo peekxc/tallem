@@ -187,6 +187,21 @@ _carma_svd/fast:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/_carma_svd.dir/build.make CMakeFiles/_carma_svd.dir/build
 .PHONY : _carma_svd/fast
 
+# target to build an object file
+cmake_pch.hxx.pch:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/_carma_svd.dir/build.make CMakeFiles/_carma_svd.dir/cmake_pch.hxx.pch
+.PHONY : cmake_pch.hxx.pch
+
+# target to preprocess a source file
+cmake_pch.hxx.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/_carma_svd.dir/build.make CMakeFiles/_carma_svd.dir/cmake_pch.hxx.i
+.PHONY : cmake_pch.hxx.i
+
+# target to generate assembly for a file
+cmake_pch.hxx.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/_carma_svd.dir/build.make CMakeFiles/_carma_svd.dir/cmake_pch.hxx.s
+.PHONY : cmake_pch.hxx.s
+
 src/carma_svd.o: src/carma_svd.cpp.o
 .PHONY : src/carma_svd.o
 
@@ -249,6 +264,9 @@ help:
 	@echo "... rebuild_cache"
 	@echo "... _carma_svd"
 	@echo "... _example"
+	@echo "... cmake_pch.hxx.pch"
+	@echo "... cmake_pch.hxx.i"
+	@echo "... cmake_pch.hxx.s"
 	@echo "... src/carma_svd.o"
 	@echo "... src/carma_svd.i"
 	@echo "... src/carma_svd.s"

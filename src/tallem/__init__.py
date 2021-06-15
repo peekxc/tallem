@@ -21,14 +21,13 @@ from pymanopt.solvers import SteepestDescent
 from functools import lru_cache
 
 ## TALLEM dimennsionality reduction algorithm -- Full wrapper
-## TODO: Need to supply cover options 
-@profile
-def tallem_transform(a: npt.ArrayLike, f: npt.ArrayLike, d: int = 2, D: int = 3):
+## TODO: Need to supply cover options
+def tallem_transform(a: npt.ArrayLike, f: npt.ArrayLike, d: int = 2, D: int = 3, J: int = 10):
 	X = np.array(a)
 	n = X.shape[0]
 
 	## Form basic partition of unity
-	poles = np.linspace(0, 2*np.pi, 10)
+	poles = np.linspace(0, 2*np.pi, J)
 	eps = 0.75*np.min(np.diff(poles))
 	f_mat = np.reshape(f, (len(f), 1))
 	p_mat = np.reshape(poles, (len(poles), 1))
