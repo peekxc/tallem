@@ -55,7 +55,26 @@ import fast_svd
 fast_svd.fast_svd(x)
 
 # %% carma 
+import numpy as np
 from tallem import carma_svd
-X = np.random.uniform(shape=(10,10))
-y = np.random.uniform(shape=(10,1))
+X = np.random.uniform(size=(10,10))
+y = np.random.uniform(size=(10,1))
 print(carma_svd.ols(X, y))
+
+
+# %% stiefel loss 
+import numpy as np 
+from tallem import fast_svd
+d, D, J, n = 10, 10, 150, 5000
+A = np.random.uniform(size=(d*J, D))
+Phi = np.random.uniform(size=(d*J,d*n))
+
+stf = fast_svd.StiefelLoss(n, d, D)
+stf.output = A.T @ Phi
+
+# %% stiefel gradient
+%%time
+f, gf = stf.gradient(Phi)
+
+## Compare with python loop 
+
