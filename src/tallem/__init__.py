@@ -18,7 +18,6 @@ from pymanopt.manifolds import Stiefel
 from pymanopt import Problem
 from pymanopt.solvers import SteepestDescent
 
-from functools import lru_cache
 
 ## TALLEM dimennsionality reduction algorithm -- Full wrapper
 ## TODO: Need to supply cover options
@@ -143,11 +142,12 @@ def tallem_transform(a: npt.ArrayLike, f: npt.ArrayLike, d: int = 2, D: int = 3,
 		for j in idx:
 			w = P[i,j]
 			if i in cover_point_map[j] and w > 0.0:
-				u, s, vt = np.linalg.svd(A_cov @ phi(i, j), full_matrices=False)
+				u, s, vt = np.linalg.svd(A_opt @ (A_opt.T @ phi(i, j)), full_matrices=False)
 				i_idx = np.ravel(np.where(cover_point_map[j] == i))
 				f_x = Fj[j][i_idx,:] + offsets[j]
-				coords += w * (A_opt.T @ (u @ vt) @ f_x.T).T
+				coords += w * (((A_opt.T @ u) @ vt) @ f_x.T).T
 		assembly[i,:] = coords
 
 	## Return the assembled coordinates 
 	return(assembly)
+	

@@ -16,7 +16,7 @@ from pybind11.setup_helpers import Pybind11Extension, build_ext, ParallelCompile
 ext_modules = [
 	Pybind11Extension(
 		"python_example",
-		["src/tallem/example.cpp", "src/tallem/carma_svd.cpp"],
+		["src/tallem/fast_svd.cpp", "src/tallem/carma_svd.cpp"],
 		cxx_std=17
 	),
 ]

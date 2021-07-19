@@ -31,6 +31,9 @@ default_target: all
 
 .SUFFIXES: .hpux_make_needs_suffix_list
 
+# Produce verbose output by default.
+VERBOSE = 1
+
 # Command-line flag to silence nested $(MAKE).
 $(VERBOSE)MAKESILENT = -s
 
@@ -64,18 +67,6 @@ CMAKE_BINARY_DIR = /Users/mpiekenbrock/tallem
 
 #=============================================================================
 # Targets provided globally by CMake.
-
-# Special rule for the target install/local
-install/local: preinstall
-	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --cyan "Installing only the local directory..."
-	/usr/local/Cellar/cmake/3.20.1/bin/cmake -DCMAKE_INSTALL_LOCAL_ONLY=1 -P cmake_install.cmake
-.PHONY : install/local
-
-# Special rule for the target install/local
-install/local/fast: preinstall/fast
-	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --cyan "Installing only the local directory..."
-	/usr/local/Cellar/cmake/3.20.1/bin/cmake -DCMAKE_INSTALL_LOCAL_ONLY=1 -P cmake_install.cmake
-.PHONY : install/local/fast
 
 # Special rule for the target install/strip
 install/strip: preinstall
@@ -130,6 +121,18 @@ edit_cache:
 edit_cache/fast: edit_cache
 .PHONY : edit_cache/fast
 
+# Special rule for the target install/local
+install/local: preinstall
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --cyan "Installing only the local directory..."
+	/usr/local/Cellar/cmake/3.20.1/bin/cmake -DCMAKE_INSTALL_LOCAL_ONLY=1 -P cmake_install.cmake
+.PHONY : install/local
+
+# Special rule for the target install/local
+install/local/fast: preinstall/fast
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --cyan "Installing only the local directory..."
+	/usr/local/Cellar/cmake/3.20.1/bin/cmake -DCMAKE_INSTALL_LOCAL_ONLY=1 -P cmake_install.cmake
+.PHONY : install/local/fast
+
 # The main all target
 all: cmake_check_build_system
 	$(CMAKE_COMMAND) -E cmake_progress_start /Users/mpiekenbrock/tallem/CMakeFiles /Users/mpiekenbrock/tallem//CMakeFiles/progress.marks
@@ -162,93 +165,93 @@ depend:
 .PHONY : depend
 
 #=============================================================================
-# Target rules for targets named _example
+# Target rules for targets named fast_svd
 
 # Build rule for target.
-_example: cmake_check_build_system
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 _example
-.PHONY : _example
+fast_svd: cmake_check_build_system
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 fast_svd
+.PHONY : fast_svd
 
 # fast build rule for target.
-_example/fast:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/_example.dir/build.make CMakeFiles/_example.dir/build
-.PHONY : _example/fast
+fast_svd/fast:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/fast_svd.dir/build.make CMakeFiles/fast_svd.dir/build
+.PHONY : fast_svd/fast
 
 #=============================================================================
-# Target rules for targets named _carma_svd
+# Target rules for targets named carma_svd
 
 # Build rule for target.
-_carma_svd: cmake_check_build_system
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 _carma_svd
-.PHONY : _carma_svd
+carma_svd: cmake_check_build_system
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 carma_svd
+.PHONY : carma_svd
 
 # fast build rule for target.
-_carma_svd/fast:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/_carma_svd.dir/build.make CMakeFiles/_carma_svd.dir/build
-.PHONY : _carma_svd/fast
+carma_svd/fast:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/carma_svd.dir/build.make CMakeFiles/carma_svd.dir/build
+.PHONY : carma_svd/fast
 
 # target to build an object file
 cmake_pch.hxx.pch:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/_carma_svd.dir/build.make CMakeFiles/_carma_svd.dir/cmake_pch.hxx.pch
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/carma_svd.dir/build.make CMakeFiles/carma_svd.dir/cmake_pch.hxx.pch
 .PHONY : cmake_pch.hxx.pch
 
 # target to preprocess a source file
 cmake_pch.hxx.i:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/_carma_svd.dir/build.make CMakeFiles/_carma_svd.dir/cmake_pch.hxx.i
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/carma_svd.dir/build.make CMakeFiles/carma_svd.dir/cmake_pch.hxx.i
 .PHONY : cmake_pch.hxx.i
 
 # target to generate assembly for a file
 cmake_pch.hxx.s:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/_carma_svd.dir/build.make CMakeFiles/_carma_svd.dir/cmake_pch.hxx.s
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/carma_svd.dir/build.make CMakeFiles/carma_svd.dir/cmake_pch.hxx.s
 .PHONY : cmake_pch.hxx.s
 
-src/carma_svd.o: src/carma_svd.cpp.o
-.PHONY : src/carma_svd.o
+src/tallem/carma_svd.o: src/tallem/carma_svd.cpp.o
+.PHONY : src/tallem/carma_svd.o
 
 # target to build an object file
-src/carma_svd.cpp.o:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/_carma_svd.dir/build.make CMakeFiles/_carma_svd.dir/src/carma_svd.cpp.o
-.PHONY : src/carma_svd.cpp.o
+src/tallem/carma_svd.cpp.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/carma_svd.dir/build.make CMakeFiles/carma_svd.dir/src/tallem/carma_svd.cpp.o
+.PHONY : src/tallem/carma_svd.cpp.o
 
-src/carma_svd.i: src/carma_svd.cpp.i
-.PHONY : src/carma_svd.i
+src/tallem/carma_svd.i: src/tallem/carma_svd.cpp.i
+.PHONY : src/tallem/carma_svd.i
 
 # target to preprocess a source file
-src/carma_svd.cpp.i:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/_carma_svd.dir/build.make CMakeFiles/_carma_svd.dir/src/carma_svd.cpp.i
-.PHONY : src/carma_svd.cpp.i
+src/tallem/carma_svd.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/carma_svd.dir/build.make CMakeFiles/carma_svd.dir/src/tallem/carma_svd.cpp.i
+.PHONY : src/tallem/carma_svd.cpp.i
 
-src/carma_svd.s: src/carma_svd.cpp.s
-.PHONY : src/carma_svd.s
+src/tallem/carma_svd.s: src/tallem/carma_svd.cpp.s
+.PHONY : src/tallem/carma_svd.s
 
 # target to generate assembly for a file
-src/carma_svd.cpp.s:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/_carma_svd.dir/build.make CMakeFiles/_carma_svd.dir/src/carma_svd.cpp.s
-.PHONY : src/carma_svd.cpp.s
+src/tallem/carma_svd.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/carma_svd.dir/build.make CMakeFiles/carma_svd.dir/src/tallem/carma_svd.cpp.s
+.PHONY : src/tallem/carma_svd.cpp.s
 
-src/example.o: src/example.cpp.o
-.PHONY : src/example.o
+src/tallem/fast_svd.o: src/tallem/fast_svd.cpp.o
+.PHONY : src/tallem/fast_svd.o
 
 # target to build an object file
-src/example.cpp.o:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/_example.dir/build.make CMakeFiles/_example.dir/src/example.cpp.o
-.PHONY : src/example.cpp.o
+src/tallem/fast_svd.cpp.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/fast_svd.dir/build.make CMakeFiles/fast_svd.dir/src/tallem/fast_svd.cpp.o
+.PHONY : src/tallem/fast_svd.cpp.o
 
-src/example.i: src/example.cpp.i
-.PHONY : src/example.i
+src/tallem/fast_svd.i: src/tallem/fast_svd.cpp.i
+.PHONY : src/tallem/fast_svd.i
 
 # target to preprocess a source file
-src/example.cpp.i:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/_example.dir/build.make CMakeFiles/_example.dir/src/example.cpp.i
-.PHONY : src/example.cpp.i
+src/tallem/fast_svd.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/fast_svd.dir/build.make CMakeFiles/fast_svd.dir/src/tallem/fast_svd.cpp.i
+.PHONY : src/tallem/fast_svd.cpp.i
 
-src/example.s: src/example.cpp.s
-.PHONY : src/example.s
+src/tallem/fast_svd.s: src/tallem/fast_svd.cpp.s
+.PHONY : src/tallem/fast_svd.s
 
 # target to generate assembly for a file
-src/example.cpp.s:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/_example.dir/build.make CMakeFiles/_example.dir/src/example.cpp.s
-.PHONY : src/example.cpp.s
+src/tallem/fast_svd.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/fast_svd.dir/build.make CMakeFiles/fast_svd.dir/src/tallem/fast_svd.cpp.s
+.PHONY : src/tallem/fast_svd.cpp.s
 
 # Help Target
 help:
@@ -262,17 +265,17 @@ help:
 	@echo "... install/strip"
 	@echo "... list_install_components"
 	@echo "... rebuild_cache"
-	@echo "... _carma_svd"
-	@echo "... _example"
+	@echo "... carma_svd"
+	@echo "... fast_svd"
 	@echo "... cmake_pch.hxx.pch"
 	@echo "... cmake_pch.hxx.i"
 	@echo "... cmake_pch.hxx.s"
-	@echo "... src/carma_svd.o"
-	@echo "... src/carma_svd.i"
-	@echo "... src/carma_svd.s"
-	@echo "... src/example.o"
-	@echo "... src/example.i"
-	@echo "... src/example.s"
+	@echo "... src/tallem/carma_svd.o"
+	@echo "... src/tallem/carma_svd.i"
+	@echo "... src/tallem/carma_svd.s"
+	@echo "... src/tallem/fast_svd.o"
+	@echo "... src/tallem/fast_svd.i"
+	@echo "... src/tallem/fast_svd.s"
 .PHONY : help
 
 

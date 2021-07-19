@@ -39,9 +39,17 @@ struct BetaNuclearDense {
 		return(nuclear_norm);
 	}
 
+	// Assuming output contains the result of (A^* x Phi)
+	// std::list< np_array_t > loss_gradient(){
+	// 	double nuclear_norm = 0.0;
+	// 	fast_svd_stream(output, d, [](np_array_t& U, np_array_t& S, np_array_t& Vt){
+			
+	// 	});
+	// }
+	
 	double three_svd(){
 		double nuclear_norm = 0.0;
-		svd_3x3_stream< false >(output, [&nuclear_norm](np_array_t& S){
+		svd3_stream< false, 3, 3 >(output, [&nuclear_norm](np_array_t& S){
 			nuclear_norm += std::fabs(S.data()[0]);
 			nuclear_norm += std::fabs(S.data()[1]);
 			nuclear_norm += std::fabs(S.data()[2]);	
@@ -50,8 +58,11 @@ struct BetaNuclearDense {
 	}
 };
 
-PYBIND11_MODULE(example, m) {
-	m.def("svd_3x3", &svd_3x3, "Yields the svd of a 3x3 matrix");
+PYBIND11_MODULE(fast_svd, m) {
+	//m.def("svd_2", &svd_2, "Yields the svd of a dimension 2 matrix");
+	//m.def("svd_3", &svd_3, "Yields the svd of a dimension 3 matrix");
+	m.def("fast_svd", &fast_svd, "Yields the svd of a matrix of low dimension");
+	m.def("lapack_svd", &lapack_svd, "Yields the svd of a matrix of low dimension");
 	py::class_<BetaNuclearDense>(m, "BetaNuclearDense")
 		.def(py::init< int, int, int >())
 		.def_readwrite("output", &BetaNuclearDense::output)

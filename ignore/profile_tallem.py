@@ -9,5 +9,5 @@ f = M['parameters'][:,0]
 profile = line_profiler.LineProfiler()
 profile.add_function(tallem_transform)
 profile.enable_by_count()
-tallem_transform(X, f, D=3)
+Y = tallem_transform(X, f, D=3)
 profile.print_stats()
