@@ -82,17 +82,3 @@ def isomap(a: npt.ArrayLike, d: int, coord: str = "mMDS", **kwargs):
 	elif coord == "sammon":
 		X = sammon(D, k=d)[0]
 	return(X)
-
-def partition_of_unity(a: npt.ArrayLike, centers: npt.ArrayLike, radius: np.float64, d = dist):
-	'''
-	Partitions 'a' into a partition of unity using a tent function. 
-	If m points are partitioned by n center points, then 
-	the result is a (m x n) matrix of weights yielding the normalized 
-	distance from each point to the given set of centers. Each row 
-	is normalized to sum to 1. 
-	'''
-	a = np.array(a)
-	centers = np.array(centers)
-	P = np.array(np.maximum(0, radius - d(a, centers)), dtype = np.float32)
-	P = (P.T / np.sum(P, axis = 1)).T
-	return(P)

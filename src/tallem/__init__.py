@@ -3,11 +3,11 @@
 
 import numpy as np
 import numpy.typing as npt
-from typing import Callable, Iterable
+from typing import Callable, Iterable, List, Set, Dict, Optional, Tuple, Any, Union, Sequence
 from itertools import combinations
 from tallem.sc import delta0D
 from tallem.distance import dist
-from tallem.isomap import partition_of_unity
+from tallem.cover import partition_of_unity
 from tallem.mds import classical_MDS
 from tallem.procrustes import ord_procrustes
 from tallem.samplers import uniform_sampler
@@ -18,6 +18,22 @@ from pymanopt.manifolds import Stiefel
 from pymanopt import Problem
 from pymanopt.solvers import SteepestDescent
 
+
+
+class TALLEM():
+	'''
+	TALLEM class
+	'''
+	
+	def __init__(self, X: npt.ArrayLike, cover: Iterable):
+		'''
+			X := data set, either as point cloud data, a distance matrix, or a set of pairwise distances
+			cover := Iterable whose contents contain the subsets form a cover over X, representing from f : X -> B
+		'''
+		# f: Callable[], d: int = 2, D: int = 3
+
+	def __repr__(self) -> str:
+		return("TALLEM")
 
 ## TALLEM dimennsionality reduction algorithm -- Full wrapper
 ## TODO: Need to supply cover options
