@@ -82,3 +82,4 @@ def isomap(a: npt.ArrayLike, d: int, coord: str = "mMDS", **kwargs):
 	elif coord == "sammon":
 		X = sammon(D, k=d)[0]
 	return(X)
+

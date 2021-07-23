@@ -25,12 +25,28 @@ class TALLEM():
 	TALLEM class
 	'''
 	
-	def __init__(self, X: npt.ArrayLike, cover: Iterable):
+	def __init__(self, X: npt.ArrayLike, B: npt.ArrayLike, cover: Iterable, local_map: Callable[npt.ArrayLike, npt.ArrayLike]):
 		'''
 			X := data set, either as point cloud data, a distance matrix, or a set of pairwise distances
-			cover := Iterable whose contents contain the subsets form a cover over X, representing from f : X -> B
+			cover := Iterable whose contents contain the subsets form a cover over some topological space B, where B is the image of some 
+			map f : X -> B
+
+
 		'''
+
 		# f: Callable[], d: int = 2, D: int = 3
+		X, B = np.array(X), np.array(B)
+		n = X.shape[0]
+
+		## Checks 
+		if X.shape[0] != B.shape[0]: raise ValueError("X and B must have the same number of rows.")
+
+		## Build local euclidean models from the preimages, like Mapper  
+		Fj = { (index, local_map(X[idx,:])) for index, subset in cover }
+		self.models = Fj
+
+		## 
+
 
 	def __repr__(self) -> str:
 		return("TALLEM")
