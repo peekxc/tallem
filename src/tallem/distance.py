@@ -33,7 +33,7 @@ def dist(x: npt.ArrayLike, y: Optional[npt.ArrayLike] = None, pairwise = False, 
 			if x.shape != y.shape: raise Exception("x and y must have same shape.")
 			d = np.array([cdist(x[ii:(ii+1),:], y[ii:(ii+1),:], metric, **kwargs).item() for ii in range(n)])
 		else:
-			if x.ndim == 1: x = np.reshape(x, (1, len(x)))
-			if y.ndim == 1: y = np.reshape(y, (1, len(y)))
+			if x.ndim == 1: x = np.reshape(x, (len(x), 1))
+			if y.ndim == 1: y = np.reshape(y, (len(y), 1))
 			d = cdist(x, y, metric, **kwargs)
 	return(d)

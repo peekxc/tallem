@@ -1,6 +1,21 @@
 # %% Procrustes imports
 import numpy as np
 import numpy.typing as npt
+from typing import Iterable, Dict
+from itertools import combinations
+
+## Solve Procrustes problem for each non-empty intersection	
+def align_models(cover: Iterable, models: Dict):
+	if len(cover) != len(models): raise ValueError("There should be a local euclidean model associated with each subset of the cover.")
+	J = cover.index_set
+	PA_map = {} # Procrustes analysis map
+	for i, j in combinations(J, 2):
+		subset_i, subset_j, ii, jj = cover[i], cover[j], J.index(i), J.index(j)
+		ij_ind = np.intersect1d(subset_i, subset_j)
+		if len(ij_ind) > 0:
+			i_idx, j_idx = np.searchsorted(subset_i, ij_ind), np.searchsorted(subset_j, ij_ind) # assume subsets are ordered
+			PA_map[(ii,jj)] = ord_procrustes(models[i][i_idx,:], models[j][j_idx,:], transform=False)
+	return(PA_map)
 
 # %% Procrustes definitions
 def ord_procrustes(a: npt.ArrayLike, b: npt.ArrayLike, transform=False, rotation_only=False):

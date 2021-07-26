@@ -18,7 +18,45 @@ from pymanopt.manifolds import Stiefel
 from pymanopt import Problem
 from pymanopt.solvers import SteepestDescent
 
+from scipy.sparse import csc_matrix
+# %% debug 
+# PoU = partition_of_unity(B, cover = cover, beta = "triangular")
 
+def global_translations(alignments: Dict):
+		alignments.size
+		## Get optimal translation vectors 
+		rotations = { k: v['rotation'] for k,v in alignments.items() }
+		translations = { k: v['translation'] for k,v in alignments.items() }
+		
+		## Evaluates pseudo-inverse on the coboundary matrix    
+		S = (np.fromiter(range(len(cover)), dtype=int), list(alignments.keys()))
+		deltaX = np.linalg.pinv(delta0D(S, rotations))
+		shiftE = np.zeros(d*len(S[1]))
+		for (index,(i1,i2)) in enumerate(S[1]):
+			shiftE[index*d:(index+1)*d] = translations[(i1,i2)]
+		shiftV = np.matmul(deltaX,shiftE)
+
+		## Offsets contain the translation vectors, keyed by edge indices in the nerve complex 
+		offsets = { (index, shiftV[index*d:(index+1)*d]) for index in range(len(cover)) }
+		return(offsets)
+
+	## Phi map: supplying i returns the phi map for the largest 
+	## value in the partition of unity; supplying j as well returns 
+	## the specific phi map for the jth cover element (possibly 0)
+	# def phi(i, j = None):
+	# 	J = P.shape[1]
+	# 	k = np.argmax(P[i,:]) if j is None else j
+	# 	out = np.zeros((d*J, d))
+	# 	def weighted_omega(j):
+	# 		nonlocal i, k
+	# 		w = np.sqrt(P[i,j])
+	# 		pair_exists = np.array([pair in Omega_map.keys() for pair in [(k,j), (j,k)]])
+	# 		if w == 0.0 or not(pair_exists.any()):
+	# 			return(w*np.eye(d))
+	# 		return(w*Omega_map[(k,j)]['rotation'] if pair_exists[0] else w*Omega_map[(j,k)]['rotation'].T)
+	# 	return(np.vstack([weighted_omega(j) for j in range(J)]))
+
+	
 
 class TALLEM():
 	'''
@@ -35,17 +73,33 @@ class TALLEM():
 		'''
 
 		# f: Callable[], d: int = 2, D: int = 3
-		X, B = np.array(X), np.array(B)
+		X, B = np.array(X, copy=False), np.array(B, copy=False)
 		n = X.shape[0]
 
 		## Checks 
 		if X.shape[0] != B.shape[0]: raise ValueError("X and B must have the same number of rows.")
 
-		## Build local euclidean models from the preimages, like Mapper  
-		Fj = { (index, local_map(X[idx,:])) for index, subset in cover }
-		self.models = Fj
+		## Build local euclidean models from the cover preimages, like Mapper  
+		local_models = { (index, local_map(X[idx,:])) for index, subset in cover }
+		self.models = local_models
 
-		## 
+		## Construct a partition of unity
+		PoU = partition_of_unity(B, cover = cover, beta = "triangular")
+
+		## Align the local reference frames using Procrustes
+		alignments = align_models(cover, local_models)
+
+		## Setup phi map 
+		iota = PoU.argmax(axis = 1)
+
+
+		## Solve the Stiefel manifold optimization for the projection matrix 
+		
+
+		## Get global translation vectors using cocyle condition 	
+		offsets = global_translations(alignments)
+		
+		
 
 
 	def __repr__(self) -> str:

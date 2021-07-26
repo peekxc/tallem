@@ -168,10 +168,8 @@ void svd3_stream(np_array_t& x, Lambda f) {
 			U(2,0) = Su31.f; U(2,1) = Su32.f; U(2,2) = Su33.f;
 			S(0) = Sa11.f; 
 			V(0,0) = Sv11.f; 
-		} else {
-			throw std::runtime_error("Input size must have one dimension be by 3.");
-		}
-
+		} 
+		
 		// Call the function 
 		if constexpr(compute_uv){ f(Um, Sm, Vm); } else { f(Sm); }
 

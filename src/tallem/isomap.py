@@ -5,8 +5,7 @@ from tallem.distance import dist
 from tallem.mds import sammon, classical_MDS
 from scipy.spatial import KDTree
 from scipy.sparse import csc_matrix
-from scipy.sparse.csgraph import minimum_spanning_tree
-from scipy.sparse.csgraph import connected_components
+from scipy.sparse.csgraph import minimum_spanning_tree, connected_components
 
 # %% Isomap Definitions
 def neighborhood_graph(a: npt.ArrayLike, radius: float = None, k: int = None, **kwargs):
