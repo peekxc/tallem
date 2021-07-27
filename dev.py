@@ -107,7 +107,7 @@ from tallem.datasets import mobius_band
 from tallem.cover import IntervalCover
 from tallem.cover import partition_of_unity
 
-M, f = mobius_band(n_polar = 26, n_wide = 6, embed = 3).values()
+M, f = mobius_band(n_polar = 26, n_wide = 6, scale_band = 0.1, embed = 3).values()
 B = f[:,1:2]
 cover = IntervalCover(B, n_sets = 10, overlap = 0.75, gluing=[1])
 PoU = partition_of_unity(B, cover, beta="triangular")
@@ -116,7 +116,23 @@ PoU = partition_of_unity(B, cover, beta="triangular")
 import matplotlib.pyplot as plt
 fig = plt.figure()
 ax = fig.add_subplot(projection='3d')
+plt.axis('scaled')
 ax.scatter(M[:,0], M[:,1], M[:,2], marker='o', c=f[:,1])
+
+# %% IPyVolume plot  
+# import ipyvolume as ipv
+# import matplotlib.cm as cm
+# import bqplot.scales
+# scales = {
+#     'x': bqplot.scales.LogScale(min=10**-3, max=10**3),
+#     'y': bqplot.scales.LinearScale(min=-3, max=3),
+#     'z': bqplot.scales.LinearScale(min=-3, max=3),
+# }
+# color_scale = bqplot.scales.ColorScale(min=0, max=3, colors=["#f00", "#0f0", "#00f"])
+# cm.viridis(B).
+# fig = ipv.figure()
+# sp = ipv.scatter(M[:,0], M[:,1], M[:,2], size=5, marker="sphere", color=cm.viridis(B))
+# ipv.show()
 
 # %% Local models
 from tallem.mds import classical_MDS
@@ -129,20 +145,20 @@ local_models = { index : local_map(M[subset,:]) for index, subset in cover }
 from tallem.procrustes import align_models
 alignments = align_models(cover, local_models)
 
-
 # %% Frame reduction (optimization)
 from tallem.stiefel import frame_reduction
+D = 3 # chosen dimension 
 A, stf = frame_reduction(alignments, PoU, D, fast_gradient=True)
 
 # %% Run the assembly
 from tallem.procrustes import global_translations
 
 ## Construct the global assembly function 
-assembly = np.zeros((n, D), dtype=np.float64)
+assembly = np.zeros((stf.n, D), dtype=np.float64)
 coords = np.zeros((1,D), dtype=np.float64)
 index_set = list(local_models.keys())
 translations = global_translations(alignments)
-for i in range(n):
+for i in range(stf.n):
 	w_i = np.ravel(PoU[i,:].todense())
 	nz_ind = np.where(w_i > 0)[0]
 	d_frame = stf.get_frame(i) # already weighted 
@@ -162,6 +178,14 @@ import matplotlib.pyplot as plt
 fig = plt.figure()
 ax = fig.add_subplot(projection='3d')
 ax.scatter(assembly[:,0], assembly[:,1], assembly[:,2], marker='o', c=f[:,0])
+
+# %% Plot embedding 2
+from tallem import tallem_transform
+assembly2 = tallem_transform(M, B)
+fig = plt.figure()
+ax = fig.add_subplot(projection='3d')
+ax.scatter(assembly2[:,0], assembly2[:,1], assembly2[:,2], marker='o', c=f[:,0])
+
 
 # %% Reference old method
 ref_M = tallem_transform(M, B)
@@ -255,18 +279,20 @@ check_gradient(problem, x=A0)
 
 # %% Procrustes 
 import matplotlib.pyplot as plt
+import numpy as np
 star1 = np.array([[131,38], [303, 39], [357, 204], [217,305], [78,204]])
 star2 = np.array([[61, 33],[120, 73],[103,162],[32,177],[7,97]])
 plt.scatter(star1[:,0], star1[:,1], c="red")
 plt.scatter(star2[:,0], star2[:,1], c="blue")
 
-from tallem.procrustes import opa
-pa = ord_procrustes(star1, star2)
+from tallem.procrustes import opa, old_procrustes
+pa = old_procrustes(star1, star2)
 
 plt.scatter(A[:,0], A[:,1])
 plt.scatter(B[:,0], B[:,1])
 
-r,s,t,d = ord_procrustes(star1, star2).values()
+
+r,s,t,d = old_procrustes(star1, star2).values()
 
 plt.scatter(star1[:,0], star1[:,1], c="red")
 #Star2 = (pa['rotation'] @ star2.T).T + pa['translation']
@@ -283,4 +309,65 @@ plt.scatter(b[:,0], b[:,1], c="blue")
 
 Z = s*a@r+t 
 plt.scatter(Z[:,0], Z[:,1], c="orange")
+
+
+
+
+#%% Debug 
+import numpy as np 
+from tallem.mds import classical_MDS
+from tallem.distance import dist
+from tallem.procrustes import align_models, global_translations
+from tallem.stiefel import frame_reduction
+from tallem.datasets import mobius_band
+from tallem.cover import IntervalCover, partition_of_unity
+
+d, D = 2, 3 # chosen dimensions
+#M, f = mobius_band(n_polar = 26, n_wide = 6, embed = 3).values()
+#B = f[:,1]
+M, f = X, F[:,1].reshape((X.shape[0], 1))
+cover = IntervalCover(f, n_sets = 10, overlap = 0.20, gluing=[1])
+PoU = partition_of_unity(f, cover, beta="triangular")
+local_map = lambda x: classical_MDS(dist(x, as_matrix=True), k = d)
+local_models = { index : local_map(M[subset,:]) for index, subset in cover }
+alignments = align_models(cover, local_models)
+A, stf = frame_reduction(alignments, PoU, D, fast_gradient=False)
+
+## Construct the global assembly function 
+assembly = np.zeros((stf.n, D), dtype=np.float64)
+coords = np.zeros((1,D), dtype=np.float64)
+index_set = list(local_models.keys())
+translations = global_translations(alignments)
+for i in range(stf.n):
+	w_i = np.ravel(PoU[i,:].todense())
+	nz_ind = np.where(w_i > 0)[0]
+	d_frame = stf.get_frame(i) # already weighted 
+	coords.fill(0)
+	## Construct assembly functions F_j(x) for x_i
+	for j in nz_ind: 
+		subset_j = cover[index_set[j]]
+		relative_index = np.searchsorted(subset_j, i)
+		u, s, vt = np.linalg.svd(A @ (A.T @ stf.generate_frame(j, w_i)), full_matrices=False, compute_uv=True) 
+		d_coords = local_models[index_set[j]][relative_index,:]
+		coords += w_i[j]*A.T @ (u @ vt) @ (d_coords + translations[j])
+	assembly[i,:] = coords
+
+fig = plt.figure()
+ax = fig.add_subplot(projection='3d')
+ax.scatter(assembly[:,0], assembly[:,1], assembly[:,2], marker='o', c=f)
+
+# %% debug old
+from tallem import tallem_transform
+d, D = 2, 3 # chosen dimensions
+# M, f = mobius_band(n_polar = 26, n_wide = 6, embed = 3).values()
+M, f = X, F[:,1]
+Y = tallem_transform(M, f)
+
+fig = plt.figure()
+ax = fig.add_subplot(111, projection='3d')
+ax.scatter(Y[:,0], Y[:,1], Y[:,2], marker='o', c=f,s=1)
+for angle in range(0, 360, 15):
+	ax.view_init(30, angle)
+	plt.draw()
+	plt.pause(0.5)
 

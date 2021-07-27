@@ -2,6 +2,7 @@
 __pycache__/
 *.py[cod]
 *$py.class
+**/*.so
 
 # Junk 
 .vs_code/
@@ -11,6 +12,10 @@ _skbuild/
 **/*.cmake
 CMakeCache.txt
 install_manifest.txt
+_deps/
+**/*.egg-info/
+**/__pycache__/
+buildir
 
 # C extensions
 *.so

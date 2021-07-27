@@ -1,10 +1,7 @@
 import numpy as np
+import matplotlib.pyplot as plt
 # from https://github.com/sylvchev/pymanopt/blob/checkgrad/pymanopt/tools/diagnostics.py
 
-try:
-    import matplotlib.pyplot as plt
-except ImportError:
-    plt = None
 
 
 def identify_linear_piece(x, y, window_length):

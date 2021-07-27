@@ -3,6 +3,27 @@ import numpy as np
 import numpy.typing as npt
 from typing import Iterable, Dict
 from itertools import combinations
+from tallem.sc import delta0D
+
+def global_translations(alignments: Dict):
+	## Get optimal translation vectors 
+	index_pairs = list(alignments.keys())
+	d = len(alignments[index_pairs[0]]['translation'])
+	rotations = { k: v['rotation'] for k,v in alignments.items() }
+	translations = { k: v['translation'] for k,v in alignments.items() }
+	
+	## Evaluates pseudo-inverse on the coboundary matrix    
+	S = (np.fromiter(range(len(alignments)), dtype=int), index_pairs)
+	deltaX = np.linalg.pinv(delta0D(S, rotations))
+	shiftE = np.zeros(d*len(S[1]))
+	for (index,(i1,i2)) in enumerate(S[1]):
+		shiftE[index*d:(index+1)*d] = translations[(i1,i2)]
+	shiftV = np.matmul(deltaX,shiftE)
+
+	## Offsets contain the translation vectors, keyed by edge indices in the nerve complex 
+	offsets = { index : shiftV[index*d:(index+1)*d] for index in range(len(alignments)) }
+	return(offsets)
+
 
 ## Solve Procrustes problem for each non-empty intersection	
 def align_models(cover: Iterable, models: Dict):
@@ -14,7 +35,7 @@ def align_models(cover: Iterable, models: Dict):
 		ij_ind = np.intersect1d(subset_i, subset_j)
 		if len(ij_ind) > 0:
 			i_idx, j_idx = np.searchsorted(subset_i, ij_ind), np.searchsorted(subset_j, ij_ind) # assume subsets are ordered
-			PA_map[(ii,jj)] = opa(models[i][i_idx,:], models[j][j_idx,:], transform=False)
+			PA_map[(ii,jj)] = old_procrustes(models[i][i_idx,:], models[j][j_idx,:], transform=False)
 	return(PA_map)
 
 # %% Procrustes definitions
@@ -119,27 +140,6 @@ def old_procrustes(a: npt.ArrayLike, b: npt.ArrayLike, transform=False, rotation
 		Z = (s*bS) * np.dot(B, aR) + c
 		output["coordinates"] = Z
 	return(output)
-
-
-from tallem.sc import delta0D
-def global_translations(alignments: Dict):
-	## Get optimal translation vectors 
-	index_pairs = list(alignments.keys())
-	d = len(alignments[index_pairs[0]]['translation'])
-	rotations = { k: v['rotation'] for k,v in alignments.items() }
-	translations = { k: v['translation'] for k,v in alignments.items() }
-	
-	## Evaluates pseudo-inverse on the coboundary matrix    
-	S = (np.fromiter(range(len(alignments)), dtype=int), index_pairs)
-	deltaX = np.linalg.pinv(delta0D(S, rotations))
-	shiftE = np.zeros(d*len(S[1]))
-	for (index,(i1,i2)) in enumerate(S[1]):
-		shiftE[index*d:(index+1)*d] = translations[(i1,i2)]
-	shiftV = np.matmul(deltaX,shiftE)
-
-	## Offsets contain the translation vectors, keyed by edge indices in the nerve complex 
-	offsets = { index : shiftV[index*d:(index+1)*d] for index in range(len(alignments)) }
-	return(offsets)
 
 # %% Write the flywing data set to disk
 # import numpy as np

@@ -142,7 +142,7 @@ def tallem_transform(a: npt.ArrayLike, f: npt.ArrayLike, d: int = 2, D: int = 3,
 	for (i,j) in combinations(range(nc), 2):
 		F_models = intersection_map((i,j))
 		if len(F_models["indices"]) > 1:
-			Omega_map[(i,j)] = opa(F_models["model1"], F_models["model2"], transform=False)
+			Omega_map[(i,j)] = old_procrustes(F_models["model1"], F_models["model2"], transform=False)
 
 	## Phi map: supplying i returns the phi map for the largest 
 	## value in the partition of unity; supplying j as well returns 
