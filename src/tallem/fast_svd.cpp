@@ -51,7 +51,13 @@ struct StiefelLoss {
 	}
 
 	// Assuming output contains the result of (A^* x Phi)
-	auto gradient() -> std::list< np_array_t > {
+	auto gradient(const py::array_t< double >& At, bool normalize=false) -> std::list< np_array_t > {
+		
+		// First project the alignment to a D-dimensional space
+		arma::Mat< double > A_star { carma::arr_to_mat< double >(At) };
+		output = carma::mat_to_arr< double >(A_star * frames);
+		
+		// Calculate all the SVDs
 		const size_t J = frames.n_rows / d;
 		auto nuclear_norm = (float) 0.0;
 		auto G = arma::mat(D, d*n);
@@ -69,12 +75,23 @@ struct StiefelLoss {
 			nuclear_norm += arma::trace(S);
 			i += d;
 		});
+		// Calculate gradient
 		arma::mat GF = frames * G.t(); // (dJ x dn)*(dn x D) => (dJ x D)
+		if (normalize){
+			GF /= n;
+			nuclear_norm /= n;
+		}
 		auto out = std::list< np_array_t >();
 		out.push_back(carma::mat_to_arr(arma::Mat< float >(&nuclear_norm, 1, 1)));
 		out.push_back(carma::mat_to_arr(GF));
 		return(out);
 	}
+
+	// auto gradient(const py::array_t< double >& At) -> std::list< np_array_t >{
+	// 	arma::Mat< double > A_star { carma::arr_to_mat< double >(At) };
+	// 	output = carma::mat_to_arr< double >(A_star * frames);
+	// 	return(gradient());
+	// }
 
 	// Assuming output contains the result of (A^* x Phi)
 	auto benchmark_gradient(const np_array_t& frames) -> std::list< np_array_t > {

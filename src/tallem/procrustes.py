@@ -14,26 +14,32 @@ def align_models(cover: Iterable, models: Dict):
 		ij_ind = np.intersect1d(subset_i, subset_j)
 		if len(ij_ind) > 0:
 			i_idx, j_idx = np.searchsorted(subset_i, ij_ind), np.searchsorted(subset_j, ij_ind) # assume subsets are ordered
-			PA_map[(ii,jj)] = ord_procrustes(models[i][i_idx,:], models[j][j_idx,:], transform=False)
+			PA_map[(ii,jj)] = opa(models[i][i_idx,:], models[j][j_idx,:], transform=False)
 	return(PA_map)
 
 # %% Procrustes definitions
-def ord_procrustes(a: npt.ArrayLike, b: npt.ArrayLike, transform=False, rotation_only=False):
+def opa(a: npt.ArrayLike, b: npt.ArrayLike, transform=False, rotation_only=True):
 	''' 
 	Ordinary Procrustes Analysis:
 	Determines the translation, orthogonal transformation, and uniform scaling of factor 
-	that when applied to 'b' yields a point set that is as close to the points in 'a' under
+	that when applied to 'a' yields a point set that is as close to the points in 'b' under
 	with respect to the sum of squared errors criterion.
+
+	Example: 
+		r,s,t,d = opa(a, b).values()
+		
+		## Rotate and scale a, then translate it => 'a' superimposed onto 'b'
+		aligned_a = s * a @ r + t
 
 	Returns:
 		dictionary with rotation matrix R, relative scaling 's', and translation vector 't' 
-		such that a \approx (s*norm(b)) * b@R + t where norm(*) denotes the Frobenius norm.
+		such that a approx (s*norm(b)) * b@R + t where norm(*) denotes the Frobenius norm.
 	'''
-	a, b = np.array(a), np.array(b)
+	a, b = np.array(a, copy=False), np.array(b, copy=False)
 	
 	# Translation
-	aT, bT = a.mean(0), b.mean(0)
-	A, B = a - aT, b - bT
+	aC, bC = a.mean(0), b.mean(0) # centroids
+	A, B = a - aC, b - bC
 	
 	# Scaling 
 	aS, bS = np.linalg.norm(A), np.linalg.norm(B)
@@ -41,32 +47,49 @@ def ord_procrustes(a: npt.ArrayLike, b: npt.ArrayLike, transform=False, rotation
 	B /= bS
 
 	# Rotation / Reflection
-	U, Sigma, Vt = np.linalg.svd(np.dot(B.T, A), full_matrices=False)
-	aR = np.dot(U, Vt)
+	U, Sigma, Vt = np.linalg.svd(A.T @ B, full_matrices=False)
+	R = U @ Vt
 	
 	# Correct to rotation if requested
 	if rotation_only and np.linalg.det(aR) < 0:
-		Vt[:,-1] *= -1 # note that Sigma is changing implicitly here
-		Sigma = np.repeat(1.0, len(Sigma))
-		Sigma[-1] = -1.0
-		aR = np.dot(np.dot(U, np.diag(Sigma)), Vt)
+		d = np.sign(np.linalg.det(Vt.T @ U.T))
+		Sigma = np.append(np.repeat(1.0, len(Sigma)-1), d)
+		R = Vt.T @ np.diag(Sigma) @ U.T
 
 	# Normalize scaling + translation 
-	s = np.sum(Sigma) * (aS / bS)  	 # How big is A relative to B?
-	c = aT - s * np.dot(bT, aR) # place translation vector relative to A
+	s = np.sum(Sigma) * (bS / aS)  	 # How big is B relative to A?
+	t = bC - s * aC @ R              # place translation vector relative to B
 
 	# Procrustes distance
-	# aD = np.sqrt(np.sum((A - B.dot(aR))**2) / len(a))
-	D = 1.0 - np.sum(Sigma)**2
+	z = (s * a @ R + t)
+	d = np.linalg.norm(z - b)**2
 	
 	# The transformed/superimposed coordinates
 	# Note: (s*bS) * np.dot(B, aR) + c
-	output = { "rotation": aR, "scaling": s, "translation": c, "distance": D }
-	if transform:
-		Z = (s*bS) * np.dot(B, aR) + c
-		output["coordinates"] = Z
+	output = { "rotation": R, "scaling": s, "translation": t, "distance": d }
+	if transform: output["coordinates"] = z
 	return(output)
 
+
+from tallem.sc import delta0D
+def global_translations(alignments: Dict):
+	## Get optimal translation vectors 
+	index_pairs = list(alignments.keys())
+	d = len(alignments[index_pairs[0]]['translation'])
+	rotations = { k: v['rotation'] for k,v in alignments.items() }
+	translations = { k: v['translation'] for k,v in alignments.items() }
+	
+	## Evaluates pseudo-inverse on the coboundary matrix    
+	S = (np.fromiter(range(len(alignments)), dtype=int), index_pairs)
+	deltaX = np.linalg.pinv(delta0D(S, rotations))
+	shiftE = np.zeros(d*len(S[1]))
+	for (index,(i1,i2)) in enumerate(S[1]):
+		shiftE[index*d:(index+1)*d] = translations[(i1,i2)]
+	shiftV = np.matmul(deltaX,shiftE)
+
+	## Offsets contain the translation vectors, keyed by edge indices in the nerve complex 
+	offsets = { index : shiftV[index*d:(index+1)*d] for index in range(len(alignments)) }
+	return(offsets)
 
 # %% Write the flywing data set to disk
 # import numpy as np

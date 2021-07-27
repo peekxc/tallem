@@ -22,24 +22,6 @@ from scipy.sparse import csc_matrix
 # %% debug 
 # PoU = partition_of_unity(B, cover = cover, beta = "triangular")
 
-def global_translations(alignments: Dict):
-		alignments.size
-		## Get optimal translation vectors 
-		rotations = { k: v['rotation'] for k,v in alignments.items() }
-		translations = { k: v['translation'] for k,v in alignments.items() }
-		
-		## Evaluates pseudo-inverse on the coboundary matrix    
-		S = (np.fromiter(range(len(cover)), dtype=int), list(alignments.keys()))
-		deltaX = np.linalg.pinv(delta0D(S, rotations))
-		shiftE = np.zeros(d*len(S[1]))
-		for (index,(i1,i2)) in enumerate(S[1]):
-			shiftE[index*d:(index+1)*d] = translations[(i1,i2)]
-		shiftV = np.matmul(deltaX,shiftE)
-
-		## Offsets contain the translation vectors, keyed by edge indices in the nerve complex 
-		offsets = { (index, shiftV[index*d:(index+1)*d]) for index in range(len(cover)) }
-		return(offsets)
-
 	## Phi map: supplying i returns the phi map for the largest 
 	## value in the partition of unity; supplying j as well returns 
 	## the specific phi map for the jth cover element (possibly 0)
@@ -57,22 +39,25 @@ def global_translations(alignments: Dict):
 	# 	return(np.vstack([weighted_omega(j) for j in range(J)]))
 
 	
+## Rotation, scaling, translation, and distance information for each intersecting cover subset
+from tallem.procrustes import align_models
+
 
 class TALLEM():
 	'''
-	TALLEM class
+	TALLEM: Topological Assembly of Locally Euclidean Models
+
+	Parameters: 
+		X := an (n x p) numpy array representing *n* points in *p* space.
+		B := an (n x q) numpy array representing the image of f : X -> B, where f is a map that cpatures the topology and non-linearity of X. 
+		cover := Iterable of length J that covers some topological space B, where B is the image of some map f : X -> B
+		local_map := a callable mapping (m x p) subsets of X to some (m x d) space, where d < p, which approximately preserves the metric on X. 
+		pou := partition of unity, either one of ['triangular', 'quadratic'], or an (n x J) ArrayLike object whose rows
+					 yield weights indicating the strength of membership of that point with each set in the cover.
+		
 	'''
 	
 	def __init__(self, X: npt.ArrayLike, B: npt.ArrayLike, cover: Iterable, local_map: Callable[npt.ArrayLike, npt.ArrayLike]):
-		'''
-			X := data set, either as point cloud data, a distance matrix, or a set of pairwise distances
-			cover := Iterable whose contents contain the subsets form a cover over some topological space B, where B is the image of some 
-			map f : X -> B
-
-
-		'''
-
-		# f: Callable[], d: int = 2, D: int = 3
 		X, B = np.array(X, copy=False), np.array(B, copy=False)
 		n = X.shape[0]
 
@@ -92,7 +77,9 @@ class TALLEM():
 		## Setup phi map 
 		iota = PoU.argmax(axis = 1)
 
-
+		Fb = stf.all_frames()
+		Eval, Evec = np.linalg.eigh(Fb @ Fb.T)
+		A0 = Evec[:,np.argsort(-Eval)[:D]]
 		## Solve the Stiefel manifold optimization for the projection matrix 
 		
 

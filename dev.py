@@ -143,7 +143,7 @@ Fb = stf.all_frames()
 Eval, Evec = np.linalg.eigh(Fb @ Fb.T)
 A0 = Evec[:,np.argsort(-Eval)[:D]]
 
-def stiefel_gradient(d_frame, stf):
+def stiefel_gradient(d_frame):
 	stf.embed(d_frame.T) ## populates (D x dn) output array
 	F, GF = stf.gradient()
 	return(F / stf.n, GF / stf.n)
@@ -201,3 +201,65 @@ Xopt = solver.solve(problem, x=A0)
 
 from tallem.diagnostics import check_gradient
 check_gradient(problem, x=A0)
+
+
+# %% Test frame reduction (optimization)
+from tallem.stiefel import frame_reduction
+A, stf = frame_reduction(alignments, PoU, D, True)
+
+
+
+# %% Run the assembly
+## Construct the global assembly function 
+assembly = np.zeros((n, D), dtype=np.float64)
+coords = np.zeros((1,D), dtype=np.float64)
+index_set = list(local_models.keys())
+translations = global_translations(alignments)
+for i in range(n):
+	w_i = np.ravel(PoU[i,:].todense())
+	nz_ind = np.where(w_i > 0)[0]
+	d_frame = stf.get_frame(i) # already weighted 
+	coords.fill(0)
+	for j in nz_ind: 
+		subset_j = cover[index_set[j]]
+		relative_index = np.searchsorted(subset_j, i)
+		if relative_index < len(subset_j) and subset_j[relative_index] == i:	
+			# TODO: make dynamically weighted and determine whether it's bettier to precompute A @ A.T 
+			u, s, vt = np.linalg.svd(A @ (A.T @ d_frame), full_matrices=False, compute_uv=True) 
+			d_coords = local_models[index_set[j]][relative_index,:]
+			coords += w_i[j]*A.T @ (u @ vt) @ (d_coords + translations[j])
+	assembly[i,:] = coords
+
+
+
+# %% Procrustes 
+import matplotlib.pyplot as plt
+star1 = np.array([[131,38], [303, 39], [357, 204], [217,305], [78,204]])
+star2 = np.array([[61, 33],[120, 73],[103,162],[32,177],[7,97]])
+plt.scatter(star1[:,0], star1[:,1], c="red")
+plt.scatter(star2[:,0], star2[:,1], c="blue")
+
+from tallem.procrustes import ord_procrustes
+pa = ord_procrustes(star1, star2)
+
+plt.scatter(A[:,0], A[:,1])
+plt.scatter(B[:,0], B[:,1])
+
+r,s,t,d = ord_procrustes(star1, star2).values()
+
+plt.scatter(star1[:,0], star1[:,1], c="red")
+#Star2 = (pa['rotation'] @ star2.T).T + pa['translation']
+Star2 = s * star2 @ r + t
+plt.scatter(Star2[:,0], Star2[:,1], c="blue")
+
+plt.scatter(star2[:,0], star2[:,1], c="blue")
+#Star1 = ((star1 * 1/pa['scaling']) @ pa['rotation'].T) + pa['translation']
+plt.scatter(Star1[:,0], Star1[:,1], c="red")
+
+r,s,t,d = ord_procrustes(a, b).values()
+plt.scatter(a[:,0], a[:,1], c="red")
+plt.scatter(b[:,0], b[:,1], c="blue")
+
+Z = s*a@r+t 
+plt.scatter(Z[:,0], Z[:,1], c="orange")
+
