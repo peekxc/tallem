@@ -9,7 +9,7 @@ from tallem.sc import delta0D
 from tallem.distance import dist
 from tallem.cover import partition_of_unity
 from tallem.mds import classical_MDS
-from tallem.procrustes import ord_procrustes
+from tallem.procrustes import opa
 from tallem.samplers import uniform_sampler
 
 import autograd.scipy.linalg as auto_scipy 
@@ -107,7 +107,8 @@ def tallem_transform(a: npt.ArrayLike, f: npt.ArrayLike, d: int = 2, D: int = 3,
 		ddist = dist(a,b)
 		odist = np.abs(ddist - 2*np.pi)
 		return(np.minimum(ddist, odist))
-	P = partition_of_unity(f_mat, p_mat, eps, d=angular_dist)
+	from tallem.cover import partition_of_unity_old
+	P = partition_of_unity_old(f_mat, p_mat, eps, d=angular_dist)
 
 	## Identify the cover set for each point
 	point_cover_map = [np.ravel(P[i,:].nonzero())for i in range(n)]
@@ -137,15 +138,15 @@ def tallem_transform(a: npt.ArrayLike, f: npt.ArrayLike, d: int = 2, D: int = 3,
 	## Solve Procrustes problem for each non-empty intersection	
 	Omega_map = {}
 	edges = []
+	from tallem.procrustes import old_procrustes
 	for (i,j) in combinations(range(nc), 2):
 		F_models = intersection_map((i,j))
 		if len(F_models["indices"]) > 1:
-			Omega_map[(i,j)] = ord_procrustes(F_models["model1"], F_models["model2"], transform=False)
+			Omega_map[(i,j)] = opa(F_models["model1"], F_models["model2"], transform=False)
 
 	## Phi map: supplying i returns the phi map for the largest 
 	## value in the partition of unity; supplying j as well returns 
 	## the specific phi map for the jth cover element (possibly 0)
-	@lru_cache
 	def phi(i, j = None):
 		J = P.shape[1]
 		k = np.argmax(P[i,:]) if j is None else j

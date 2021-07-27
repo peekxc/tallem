@@ -107,11 +107,18 @@ from tallem.datasets import mobius_band
 from tallem.cover import IntervalCover
 from tallem.cover import partition_of_unity
 
-M, f = mobius_band(n_polar = 25, n_wide = 9, embed = 3).values()
+M, f = mobius_band(n_polar = 26, n_wide = 6, embed = 3).values()
 B = f[:,1:2]
-cover = IntervalCover(B, n_sets = 8, overlap = 0.25, gluing=[1])
+cover = IntervalCover(B, n_sets = 10, overlap = 0.75, gluing=[1])
 PoU = partition_of_unity(B, cover, beta="triangular")
 
+# %% Plot data set 
+import matplotlib.pyplot as plt
+fig = plt.figure()
+ax = fig.add_subplot(projection='3d')
+ax.scatter(M[:,0], M[:,1], M[:,2], marker='o', c=f[:,1])
+
+# %% Local models
 from tallem.mds import classical_MDS
 from tallem.distance import dist
 local_dim = 2
@@ -122,6 +129,45 @@ local_models = { index : local_map(M[subset,:]) for index, subset in cover }
 from tallem.procrustes import align_models
 alignments = align_models(cover, local_models)
 
+
+# %% Frame reduction (optimization)
+from tallem.stiefel import frame_reduction
+A, stf = frame_reduction(alignments, PoU, D, fast_gradient=True)
+
+# %% Run the assembly
+from tallem.procrustes import global_translations
+
+## Construct the global assembly function 
+assembly = np.zeros((n, D), dtype=np.float64)
+coords = np.zeros((1,D), dtype=np.float64)
+index_set = list(local_models.keys())
+translations = global_translations(alignments)
+for i in range(n):
+	w_i = np.ravel(PoU[i,:].todense())
+	nz_ind = np.where(w_i > 0)[0]
+	d_frame = stf.get_frame(i) # already weighted 
+	coords.fill(0)
+	## Construct assembly functions F_j(x) for x_i
+	for j in nz_ind: 
+		subset_j = cover[index_set[j]]
+		relative_index = np.searchsorted(subset_j, i)
+		u, s, vt = np.linalg.svd(A @ (A.T @ stf.generate_frame(j, w_i)), full_matrices=False, compute_uv=True) 
+		d_coords = local_models[index_set[j]][relative_index,:]
+		coords += w_i[j]*A.T @ (u @ vt) @ (d_coords + translations[j])
+	assembly[i,:] = coords
+
+
+# %% Plot embedding 
+import matplotlib.pyplot as plt
+fig = plt.figure()
+ax = fig.add_subplot(projection='3d')
+ax.scatter(assembly[:,0], assembly[:,1], assembly[:,2], marker='o', c=f[:,0])
+
+# %% Reference old method
+ref_M = tallem_transform(M, B)
+fig = plt.figure()
+ax = fig.add_subplot(projection='3d')
+ax.scatter(ref_M[:,0], ref_M[:,1], ref_M[:,2], marker='o', c=f[:,0])
 
 # %% Initialize Frame stuff
 from tallem import fast_svd
@@ -203,32 +249,7 @@ from tallem.diagnostics import check_gradient
 check_gradient(problem, x=A0)
 
 
-# %% Test frame reduction (optimization)
-from tallem.stiefel import frame_reduction
-A, stf = frame_reduction(alignments, PoU, D, True)
 
-
-
-# %% Run the assembly
-## Construct the global assembly function 
-assembly = np.zeros((n, D), dtype=np.float64)
-coords = np.zeros((1,D), dtype=np.float64)
-index_set = list(local_models.keys())
-translations = global_translations(alignments)
-for i in range(n):
-	w_i = np.ravel(PoU[i,:].todense())
-	nz_ind = np.where(w_i > 0)[0]
-	d_frame = stf.get_frame(i) # already weighted 
-	coords.fill(0)
-	for j in nz_ind: 
-		subset_j = cover[index_set[j]]
-		relative_index = np.searchsorted(subset_j, i)
-		if relative_index < len(subset_j) and subset_j[relative_index] == i:	
-			# TODO: make dynamically weighted and determine whether it's bettier to precompute A @ A.T 
-			u, s, vt = np.linalg.svd(A @ (A.T @ d_frame), full_matrices=False, compute_uv=True) 
-			d_coords = local_models[index_set[j]][relative_index,:]
-			coords += w_i[j]*A.T @ (u @ vt) @ (d_coords + translations[j])
-	assembly[i,:] = coords
 
 
 
@@ -239,7 +260,7 @@ star2 = np.array([[61, 33],[120, 73],[103,162],[32,177],[7,97]])
 plt.scatter(star1[:,0], star1[:,1], c="red")
 plt.scatter(star2[:,0], star2[:,1], c="blue")
 
-from tallem.procrustes import ord_procrustes
+from tallem.procrustes import opa
 pa = ord_procrustes(star1, star2)
 
 plt.scatter(A[:,0], A[:,1])
@@ -256,7 +277,7 @@ plt.scatter(star2[:,0], star2[:,1], c="blue")
 #Star1 = ((star1 * 1/pa['scaling']) @ pa['rotation'].T) + pa['translation']
 plt.scatter(Star1[:,0], Star1[:,1], c="red")
 
-r,s,t,d = ord_procrustes(a, b).values()
+r,s,t,d = opa(a, b).values()
 plt.scatter(a[:,0], a[:,1], c="red")
 plt.scatter(b[:,0], b[:,1], c="blue")
 

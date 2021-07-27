@@ -96,3 +96,10 @@ X = M
 F = polar_sample
 f = F[:,1]
 pyplot.scatter(F[:,0], F[:,1])
+
+from tallem import tallem_transform
+Y = tallem_transform(X, f)
+ax = pyplot.axes(projection='3d')
+ax.scatter3D(Y[:,0], Y[:,1], Y[:,2], c=f, s=0.20)
+
+

@@ -3,10 +3,11 @@ import numpy.typing as npt
 from typing import Callable, Iterable, List, Set, Dict, Optional, Tuple, Any, Union, Sequence
 from itertools import combinations
 
+from tallem import fast_svd
 from tallem.sc import delta0D
 from tallem.distance import dist
 from tallem.cover import partition_of_unity
-from tallem import fast_svd
+from tallem.samplers import uniform_sampler
 
 import autograd.scipy.linalg as auto_scipy 
 import autograd.numpy as auto_np

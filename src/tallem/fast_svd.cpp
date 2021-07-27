@@ -216,7 +216,7 @@ struct StiefelLoss {
 	// Using the rotations from the omega map, initialize the phi matrix representing the concatenation 
 	// of the weighted frames for some choice of iota 
 	// py::array_t< double > iota, bool sparse = false
-	void populate_frame(const size_t i, py::array_t< double > weights, bool sparse = true){
+	void populate_frame(const size_t i, py::array_t< double > weights, bool sparse = false){
 		// if (iota.size() != n || weights.size() != ){
 		// 	throw std::invalid_argument("Invalid input. Must have one weight for each cover element.")
 		// }
@@ -249,6 +249,30 @@ struct StiefelLoss {
 		}
 		
 	}
+
+	// Generates a weighted (dJ x d) frame relative to some origin subset 
+	// This is equivalent to Phi_{origin}(x) where 'weights' are specific to 'x'
+	auto generate_frame(const size_t origin, py::array_t< double > weights) -> py::array_t< double > {
+		const size_t J = weights.size();
+		auto w = weights.unchecked< 1 >();		
+		arma::mat d_frame(d*J, d); // output 
+		arma::mat I = arma::eye(d, d);
+		for (size_t j = 0; j < J; ++j){
+			auto r_rng = arma::span(j*d,(j+1)*d-1); 
+			double w_j = static_cast< double >(w(j));
+			if (j == origin || w_j == 0.0){ 
+				d_frame(r_rng, arma::span::all) = w_j * I; 
+				continue;
+			} else {
+				// If pair exists, load it up, otherwise use identity
+				const size_t key = rank_comb2(origin, j, n); 
+				bool key_exists = rotations.find(key) != rotations.end();
+				d_frame(r_rng, arma::span::all) = double(w(j))*(key_exists ? (origin < j ? rotations[key] : rotations[key].t()) : I);
+			}
+		}
+		return(carma::mat_to_arr< double >(d_frame));
+	}
+
 
 	// Returns the i'th frame of the matrix
 	auto get_frame(const size_t i) -> py::array_t< double > {
@@ -317,6 +341,7 @@ PYBIND11_MODULE(fast_svd, m) {
 		.def("three_svd_carma", &StiefelLoss::three_svd_carma)
 		.def("init_rotations", &StiefelLoss::init_rotations)
 		.def("populate_frame", &StiefelLoss::populate_frame)
+		.def("generate_frame", &StiefelLoss::generate_frame)
 		.def("get_frame", &StiefelLoss::get_frame)
 		.def("all_frames", &StiefelLoss::all_frames)
 		.def("embed", &StiefelLoss::embed)

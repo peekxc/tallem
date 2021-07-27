@@ -10,6 +10,7 @@ from sklearn.neighbors import BallTree
 from scipy.sparse import csc_matrix, diags
 from scipy.sparse.csgraph import minimum_spanning_tree,connected_components 
 from tallem.distance import dist 
+import bisect
 
 # GridCover ?
 # LandmarkCover ? 
@@ -158,10 +159,16 @@ class IntervalCover():
 # 	def __init__(self):
 # 			self.neighbor = BallTree(a, kwargs)
 
+def match(a: npt.ArrayLike, b: npt.ArrayLike):
+	def index(a, x):
+		i = bisect.bisect_left(a, x)
+		return(i if i != len(a) and a[i] == x else None)
+	return(np.array([index(b,v) for v in a], dtype=object))
+
 ## A Partition oif unity is 
 ## B := point cloud topologiucal space
 ## phi := function mapping a subset of m points to (m x J) matrix 
-def partition_of_unity(B: npt.ArrayLike, cover: Iterable, beta: Union[str, Callable[npt.ArrayLike, npt.ArrayLike]] = "triangular", weights: Optional[npt.ArrayLike] = None):
+def partition_of_unity(B: npt.ArrayLike, cover: Iterable, beta: Union[str, Callable[npt.ArrayLike, npt.ArrayLike]] = "triangular", weights: Optional[npt.ArrayLike] = None) -> csc_matrix:
 	J = len(cover)
 	weights = np.ones(J) if weights is None else np.array(weights)
 	if len(weights) != J:
@@ -171,7 +178,7 @@ def partition_of_unity(B: npt.ArrayLike, cover: Iterable, beta: Union[str, Calla
 	
 	## Derive centroids, use dB metric to define distances => partition of unity to each subset 
 	if isinstance(cover, IntervalCover):
-		max_r = np.linalg.norm(cover.set_width)
+		max_r = np.linalg.norm(cover.set_width)/2.0
 		def beta(cover_set):
 			index, subset = cover_set
 			centroid = cover.bbox[0:1,:] + (np.array(index) * cover.base_width) + cover.base_width/2.0
@@ -201,19 +208,22 @@ def partition_of_unity(B: npt.ArrayLike, cover: Iterable, beta: Union[str, Calla
 	#pou /= np.sum(pou, axis = 1)
 
 	## The final partition of unity weights elements in the cover over B
+	is_invalid_pou = np.any([np.any(match(np.where(pou[:,i].todense() > 0)[0], cover[cover.index_set[i]]) is None) for i in range(J)])
+	if (is_invalid_pou):
+		raise ValueError("The partition of unity must be supported on the closure of the cover elements.")
 	return(pou)
 	
 
-# def partition_of_unity(a: npt.ArrayLike, centers: npt.ArrayLike, radius: np.float64, d = dist) -> csc_matrix:
-# 	'''
-# 	Partitions 'a' into a partition of unity using a tent function. 
-# 	If m points are partitioned by n center points, then 
-# 	the result is a (m x n) matrix of weights yielding the normalized 
-# 	distance from each point to the given set of centers. Each row 
-# 	is normalized to sum to 1. 
-# 	'''
-# 	a = np.array(a)
-# 	centers = np.array(centers)
-# 	P = np.array(np.maximum(0, radius - d(a, centers)), dtype = np.float32)
-# 	P = (P.T / np.sum(P, axis = 1)).T
-# 	return(P)
+def partition_of_unity_old(a: npt.ArrayLike, centers: npt.ArrayLike, radius: np.float64, d = dist) -> csc_matrix:
+	'''
+	Partitions 'a' into a partition of unity using a tent function. 
+	If m points are partitioned by n center points, then 
+	the result is a (m x n) matrix of weights yielding the normalized 
+	distance from each point to the given set of centers. Each row 
+	is normalized to sum to 1. 
+	'''
+	a = np.array(a)
+	centers = np.array(centers)
+	P = np.array(np.maximum(0, radius - d(a, centers)), dtype = np.float32)
+	P = (P.T / np.sum(P, axis = 1)).T
+	return(P)

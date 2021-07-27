@@ -33,7 +33,7 @@ def opa(a: npt.ArrayLike, b: npt.ArrayLike, transform=False, rotation_only=True)
 
 	Returns:
 		dictionary with rotation matrix R, relative scaling 's', and translation vector 't' 
-		such that a approx (s*norm(b)) * b@R + t where norm(*) denotes the Frobenius norm.
+		such that norm(b - (s * a @ r + t)) where norm(*) denotes the Frobenius norm.
 	'''
 	a, b = np.array(a, copy=False), np.array(b, copy=False)
 	
@@ -51,7 +51,7 @@ def opa(a: npt.ArrayLike, b: npt.ArrayLike, transform=False, rotation_only=True)
 	R = U @ Vt
 	
 	# Correct to rotation if requested
-	if rotation_only and np.linalg.det(aR) < 0:
+	if rotation_only and np.linalg.det(R) < 0:
 		d = np.sign(np.linalg.det(Vt.T @ U.T))
 		Sigma = np.append(np.repeat(1.0, len(Sigma)-1), d)
 		R = Vt.T @ np.diag(Sigma) @ U.T
@@ -68,6 +68,56 @@ def opa(a: npt.ArrayLike, b: npt.ArrayLike, transform=False, rotation_only=True)
 	# Note: (s*bS) * np.dot(B, aR) + c
 	output = { "rotation": R, "scaling": s, "translation": t, "distance": d }
 	if transform: output["coordinates"] = z
+	return(output)
+
+
+# %% Procrustes definitions
+def old_procrustes(a: npt.ArrayLike, b: npt.ArrayLike, transform=False, rotation_only=False):
+	''' 
+	Ordinary Procrustes Analysis:
+	Determines the translation, orthogonal transformation, and uniform scaling of factor 
+	that when applied to 'b' yields a point set that is as close to the points in 'a' under
+	with respect to the sum of squared errors criterion.
+	Returns:
+		dictionary with rotation matrix R, relative scaling 's', and translation vector 't' 
+		such that a \approx (s*norm(b)) * b@R + t where norm(*) denotes the Frobenius norm.
+	'''
+	a, b = np.array(a), np.array(b)
+	
+	# Translation
+	aT, bT = a.mean(0), b.mean(0)
+	A, B = a - aT, b - bT
+	
+	# Scaling 
+	aS, bS = np.linalg.norm(A), np.linalg.norm(B)
+	A /= aS 
+	B /= bS
+
+	# Rotation / Reflection
+	U, Sigma, Vt = np.linalg.svd(np.dot(B.T, A), full_matrices=False)
+	aR = np.dot(U, Vt)
+	
+	# Correct to rotation if requested
+	if rotation_only and np.linalg.det(aR) < 0:
+		Vt[:,-1] *= -1 # note that Sigma is changing implicitly here
+		Sigma = np.repeat(1.0, len(Sigma))
+		Sigma[-1] = -1.0
+		aR = np.dot(np.dot(U, np.diag(Sigma)), Vt)
+
+	# Normalize scaling + translation 
+	s = np.sum(Sigma) * (aS / bS)  	 # How big is A relative to B?
+	c = aT - s * np.dot(bT, aR) # place translation vector relative to A
+
+	# Procrustes distance
+	# aD = np.sqrt(np.sum((A - B.dot(aR))**2) / len(a))
+	D = 1.0 - np.sum(Sigma)**2
+	
+	# The transformed/superimposed coordinates
+	# Note: (s*bS) * np.dot(B, aR) + c
+	output = { "rotation": aR, "scaling": s, "translation": c, "distance": D }
+	if transform:
+		Z = (s*bS) * np.dot(B, aR) + c
+		output["coordinates"] = Z
 	return(output)
 
 
