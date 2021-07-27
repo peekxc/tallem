@@ -1,0 +1,46 @@
+{
+	"sources" : 
+	[
+		{
+			"file" : "/Users/mpiekenbrock/tallem/_deps/carmaarmadillo-subbuild/CMakeFiles/carmaarmadillo-populate"
+		},
+		{
+			"file" : "/Users/mpiekenbrock/tallem/_deps/carmaarmadillo-subbuild/CMakeFiles/carmaarmadillo-populate.rule"
+		},
+		{
+			"file" : "/Users/mpiekenbrock/tallem/_deps/carmaarmadillo-subbuild/CMakeFiles/carmaarmadillo-populate-complete.rule"
+		},
+		{
+			"file" : "/Users/mpiekenbrock/tallem/_deps/carmaarmadillo-subbuild/carmaarmadillo-populate-prefix/src/carmaarmadillo-populate-stamp/carmaarmadillo-populate-build.rule"
+		},
+		{
+			"file" : "/Users/mpiekenbrock/tallem/_deps/carmaarmadillo-subbuild/carmaarmadillo-populate-prefix/src/carmaarmadillo-populate-stamp/carmaarmadillo-populate-configure.rule"
+		},
+		{
+			"file" : "/Users/mpiekenbrock/tallem/_deps/carmaarmadillo-subbuild/carmaarmadillo-populate-prefix/src/carmaarmadillo-populate-stamp/carmaarmadillo-populate-download.rule"
+		},
+		{
+			"file" : "/Users/mpiekenbrock/tallem/_deps/carmaarmadillo-subbuild/carmaarmadillo-populate-prefix/src/carmaarmadillo-populate-stamp/carmaarmadillo-populate-install.rule"
+		},
+		{
+			"file" : "/Users/mpiekenbrock/tallem/_deps/carmaarmadillo-subbuild/carmaarmadillo-populate-prefix/src/carmaarmadillo-populate-stamp/carmaarmadillo-populate-mkdir.rule"
+		},
+		{
+			"file" : "/Users/mpiekenbrock/tallem/_deps/carmaarmadillo-subbuild/carmaarmadillo-populate-prefix/src/carmaarmadillo-populate-stamp/carmaarmadillo-populate-patch.rule"
+		},
+		{
+			"file" : "/Users/mpiekenbrock/tallem/_deps/carmaarmadillo-subbuild/carmaarmadillo-populate-prefix/src/carmaarmadillo-populate-stamp/carmaarmadillo-populate-test.rule"
+		},
+		{
+			"file" : "/Users/mpiekenbrock/tallem/_deps/carmaarmadillo-subbuild/carmaarmadillo-populate-prefix/src/carmaarmadillo-populate-stamp/carmaarmadillo-populate-update.rule"
+		}
+	],
+	"target" : 
+	{
+		"labels" : 
+		[
+			"carmaarmadillo-populate"
+		],
+		"name" : "carmaarmadillo-populate"
+	}
+}

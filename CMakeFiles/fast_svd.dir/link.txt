@@ -1,0 +1,1 @@
+/usr/local/Cellar/llvm/12.0.0_1/bin/clang++ -O3 -DNDEBUG -isysroot /Library/Developer/CommandLineTools/SDKs/MacOSX11.0.sdk -mmacosx-version-min=10.15 -bundle -Wl,-headerpad_max_install_names -Xlinker -undefined -Xlinker dynamic_lookup -o src/tallem/fast_svd.cpython-39-darwin.so CMakeFiles/fast_svd.dir/src/tallem/fast_svd.cpp.o 
