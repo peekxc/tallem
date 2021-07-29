@@ -49,7 +49,7 @@ def frame_reduction(alignments: Dict, pou: npt.ArrayLike, D: int, optimize=True,
 	stf.init_rotations(I1, I2, R, J)
 
 	## Populate frame matrix map
-	for i in range(n): stf.populate_frame(i, np.ravel(pou[i,:].todense()), False)
+	for i in range(n): stf.populate_frame(i, np.sqrt(np.ravel(pou[i,:].todense())), False)
 
 	## Get the initial frame 
 	Fb = stf.all_frames()

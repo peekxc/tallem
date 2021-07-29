@@ -124,6 +124,25 @@ class IntervalCover():
 
 	def __repr__(self) -> str:
 		return("Interval Cover")
+	
+	def plot(self):
+		if self.dimension == 1:
+			import matplotlib.pyplot as plt
+			import matplotlib.patches as patches
+			fig, ax = plt.subplots(figsize=(12, 6))
+			rng = np.abs(self.bbox[1] - self.bbox[0])
+			plt.xlim([self.bbox[0]-(0.15*rng), self.bbox[1]+(0.15*rng)])
+			plt.ylim([-1, 1])
+			plt.hlines(0,self.bbox[0],self.bbox[1], colors="black")
+			frame = plt.gca()
+			frame.axes.get_yaxis().set_visible(False)
+			for index, _ in self:
+				centroid = self.bbox[0:1,:] + (np.array(index) * self.base_width) + self.base_width/2.0 
+				anchor = (centroid - self.set_width/2.0, -0.5)
+				rect = patches.Rectangle(anchor, self.set_width, 1.0, linewidth=0.5, edgecolor='black', facecolor='#BEBEBE33')
+				ax.add_patch(rect)
+			plt.eventplot(np.ravel(self._data), orientation = "horizontal", linewidths=0.05, lineoffsets=0)
+
 
 	@property
 	def data(self):

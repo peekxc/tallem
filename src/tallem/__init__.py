@@ -168,7 +168,7 @@ def tallem_transform(a: npt.ArrayLike, f: npt.ArrayLike, d: int = 2, D: int = 3,
 	## --- Optimization to find the best A matrix --- 
 	def initial_frame(D, phi, n):
 		Fb = np.vstack([phi(j).T for j in range(n)])
-		Phi_N = Fb.T @ Fb
+		Phi_N = Fb.T @ Fb # (dJ x dJ)
 		Eval, Evec = np.linalg.eigh(Phi_N)
 		return(Evec[:,np.argsort(-Eval)[:D]])
 

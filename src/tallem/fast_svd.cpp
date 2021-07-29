@@ -67,9 +67,9 @@ struct StiefelLoss {
 			auto u_copy = py::array_t< double >(u);
 			auto v_copy = py::array_t< double >(vt);
 			auto s_copy = py::array_t< double >(s);
-			arma::mat U { carma::arr_to_mat< double >(u_copy) };
-			S.diag() = carma::arr_to_col< double >(s_copy);
-			arma::mat V { carma::arr_to_mat< double >(v_copy) };
+			arma::mat U { carma::arr_to_mat< double >(u_copy, true) };
+			S.diag() = carma::arr_to_col< double >(s_copy, true);
+			arma::mat V { carma::arr_to_mat< double >(v_copy, true) };
 			// py::print(U.n_rows, U.n_cols, S.n_rows, S.n_cols, V.n_rows, V.n_cols);
 			G(arma::span::all, arma::span(i, i+d-1)) = U * S * V;
 			nuclear_norm += arma::trace(S);
@@ -137,8 +137,8 @@ struct StiefelLoss {
 			auto v_copy = py::array_t< float >(vt);
 			auto s_copy = py::array_t< float >(s);
 			// arma::Mat< float > U { carma::arr_to_mat< float >(u, false) };
-			arma::Mat< float > S { arma::diagmat(carma::arr_to_col< float >(s_copy)) };
-			arma::Mat< float > V { carma::arr_to_mat< float >(v_copy) };
+			arma::Mat< float > S { arma::diagmat(carma::arr_to_col< float >(s_copy, true)) };
+			arma::Mat< float > V { carma::arr_to_mat< float >(v_copy, true) };
 			G(arma::span::all, arma::span(i, i+d-1)) = U * S * V;
 			nuclear_norm -= arma::trace(S);
 			i += d;
@@ -204,7 +204,8 @@ struct StiefelLoss {
 	void init_rotations(py::list I_ind, py::list J_ind, py::array_t< double > omega_, const size_t J){
 		std::vector< size_t > I1 = py::cast< std::vector< size_t > >(I_ind);
 		std::vector< size_t > I2 = py::cast< std::vector< size_t > >(J_ind);
-		arma::mat omega = carma::arr_to_mat< double >(omega_);
+		// np_array_t O = static_cast< np_array_t >(omega_);
+		arma::mat omega = carma::arr_to_mat< double >(omega_, true);
 		for (size_t j = 0; j < I1.size(); ++j){
 			size_t ii = I1[j], jj = I2[j];
 			size_t key = rank_comb2(ii,jj,J);
@@ -213,43 +214,14 @@ struct StiefelLoss {
 		}
 	}
 
-	// Using the rotations from the omega map, initialize the phi matrix representing the concatenation 
-	// of the weighted frames for some choice of iota 
-	// py::array_t< double > iota, bool sparse = false
-	void populate_frame(const size_t i, py::array_t< double > weights, bool sparse = false){
-		// if (iota.size() != n || weights.size() != ){
-		// 	throw std::invalid_argument("Invalid input. Must have one weight for each cover element.")
-		// }
-		const size_t J = weights.size();
-		auto w = weights.unchecked< 1 >();
-
-		if (sparse && frames_sparse.is_empty()){
-			frames_sparse.resize(d*J, d*n);
-		} else if (!sparse && frames.is_empty()){
-			frames.resize(d*J, d*n);
-		}	 
-		
-		arma::mat d_frame(d*J, d); // output 
-		arma::mat I = arma::eye(d, d);
-		for (size_t j = 0; j < J; ++j){
-			auto r_rng = arma::span(j*d,(j+1)*d-1); 
-			if (j == i){ d_frame(r_rng, arma::span::all) = I; }
-			
-			// If pair exists, load it up, otherwise use identity
-			size_t key = rank_comb2(j, i, n); 
-			bool key_exists = rotations.find(key) != rotations.end();
-			d_frame(r_rng, arma::span::all) = double(w(j))*(key_exists ? (j < i ? rotations[key] : rotations[key].t()) : I);
+	auto get_rotation(const size_t i, const size_t j, const size_t J) -> py::array_t< double > {
+		size_t key = rank_comb2(i,j,J);
+		if (rotations.find(key) != rotations.end()){
+			return(carma::mat_to_arr(rotations[key], true));
 		}
-
-		// Assign the frame to right position in the frames matrix
-		if (sparse){
-			frames_sparse(arma::span::all, arma::span(i*d, (i+1)*d-1)) = d_frame; 
-		} else {
-			frames(arma::span::all, arma::span(i*d, (i+1)*d-1)) = d_frame; 
-		}
-		
+		throw std::invalid_argument("Invalid key given");
 	}
-
+	
 	// Generates a weighted (dJ x d) frame relative to some origin subset 
 	// This is equivalent to Phi_{origin}(x) where 'weights' are specific to 'x'
 	auto generate_frame(const size_t origin, py::array_t< double > weights) -> py::array_t< double > {
@@ -265,12 +237,61 @@ struct StiefelLoss {
 				continue;
 			} else {
 				// If pair exists, load it up, otherwise use identity
-				const size_t key = rank_comb2(origin, j, n); 
+				const size_t key = rank_comb2(origin, j, J); 
 				bool key_exists = rotations.find(key) != rotations.end();
 				d_frame(r_rng, arma::span::all) = double(w(j))*(key_exists ? (origin < j ? rotations[key] : rotations[key].t()) : I);
 			}
 		}
-		return(carma::mat_to_arr< double >(d_frame));
+		return(carma::mat_to_arr< double >(d_frame, true));
+	}
+
+	// Using the rotations from the omega map, initialize the phi matrix representing the concatenation 
+	// of the weighted frames for some choice of iota 
+	// py::array_t< double > iota, bool sparse = false
+	void populate_frame(const size_t i, py::array_t< double > weights, bool sparse = false){
+		// if (iota.size() != n || weights.size() != ){
+		// 	throw std::invalid_argument("Invalid input. Must have one weight for each cover element.")
+		// }
+		const size_t J = weights.size();
+		auto w = weights.unchecked< 1 >();
+		
+		// Find the reference frame
+		size_t k = 0; 
+		double max_weight = 0.0; 
+		for (size_t j = 0; j < J; ++j){
+			if (w(j) > max_weight){
+				max_weight = w(j);
+				k = j; 
+			}
+		}
+
+		if (sparse && frames_sparse.is_empty()){
+			frames_sparse.resize(d*J, d*n);
+		} else if (!sparse && frames.is_empty()){
+			frames.resize(d*J, d*n);
+		}	 
+
+		py::array_t< double > _d_frame = generate_frame(k, weights);
+		arma::mat d_frame = carma::arr_to_mat(_d_frame, true);
+
+		// arma::mat d_frame(d*J, d); // output 
+		// arma::mat I = arma::eye(d, d);
+		// for (size_t j = 0; j < J; ++j){
+		// 	auto r_rng = arma::span(j*d,(j+1)*d-1); 
+		// 	if (j == k){ d_frame(r_rng, arma::span::all) = I; }
+			
+		// 	// If pair exists, load it up, otherwise use identity
+		// 	size_t key = rank_comb2(k, j, J); 
+		// 	bool key_exists = rotations.find(key) != rotations.end();
+		// 	d_frame(r_rng, arma::span::all) = double(w(j))*(key_exists ? (k < j ? rotations[key] : rotations[key].t()) : I);
+		// }
+
+		// Assign the frame to right position in the frames matrix
+		if (sparse){
+			frames_sparse(arma::span::all, arma::span(i*d, (i+1)*d-1)) = d_frame; 
+		} else {
+			frames(arma::span::all, arma::span(i*d, (i+1)*d-1)) = d_frame; 
+		}
 	}
 
 
@@ -278,7 +299,7 @@ struct StiefelLoss {
 	auto get_frame(const size_t i) -> py::array_t< double > {
 		if (i >= n){ throw std::invalid_argument("Invalid index supplied."); }
 		arma::mat d_frame = frames(arma::span::all, arma::span(i*d, (i+1)*d-1));
-		py::array_t< double > res = carma::mat_to_arr< double >(d_frame);
+		py::array_t< double > res = carma::mat_to_arr< double >(d_frame, true);
 		return(res);
 	}
 
@@ -295,7 +316,7 @@ struct StiefelLoss {
 
 	void benchmark_embedding(py::array_t< double >& At, const size_t m){
 		if (frames_sparse.is_empty()){ frames_sparse = arma::sp_mat(frames); }
-		arma::Mat< double > A_star { carma::arr_to_mat< double >(At, false) };
+		arma::Mat< double > A_star { carma::arr_to_mat< double >(At, true) };
 		
 		size_t ms_dense = 0, ms_sparse = 0;
 		
@@ -334,12 +355,14 @@ PYBIND11_MODULE(fast_svd, m) {
 		.def_readonly("n", &StiefelLoss::n)
 		.def_readonly("D", &StiefelLoss::D)
 		.def_readwrite("output", &StiefelLoss::output)
+		// .def_readwrite("rotations", &StiefelLoss::rotations)
 		.def("numpy_svd", &StiefelLoss::numpy_svd)
 		//.def("benchmark_gradient", &StiefelLoss::benchmark_gradient)
 		.def("gradient", &StiefelLoss::gradient)
 		.def("three_svd", &StiefelLoss::three_svd)
 		.def("three_svd_carma", &StiefelLoss::three_svd_carma)
 		.def("init_rotations", &StiefelLoss::init_rotations)
+		.def("get_rotation", &StiefelLoss::get_rotation)		
 		.def("populate_frame", &StiefelLoss::populate_frame)
 		.def("generate_frame", &StiefelLoss::generate_frame)
 		.def("get_frame", &StiefelLoss::get_frame)

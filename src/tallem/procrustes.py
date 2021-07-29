@@ -35,7 +35,7 @@ def align_models(cover: Iterable, models: Dict):
 		ij_ind = np.intersect1d(subset_i, subset_j)
 		if len(ij_ind) > 0:
 			i_idx, j_idx = np.searchsorted(subset_i, ij_ind), np.searchsorted(subset_j, ij_ind) # assume subsets are ordered
-			PA_map[(ii,jj)] = old_procrustes(models[i][i_idx,:], models[j][j_idx,:], transform=False)
+			PA_map[(ii,jj)] = old_procrustes(models[i][i_idx,:], models[j][j_idx,:], rotation_only=False, transform=False)
 	return(PA_map)
 
 # %% Procrustes definitions

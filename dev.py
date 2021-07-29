@@ -323,19 +323,63 @@ from tallem.datasets import mobius_band
 from tallem.cover import IntervalCover, partition_of_unity
 from tallem.utility import find_where
 
+
 d, D = 2, 3 # chosen dimensions
-#M, f = mobius_band(n_polar = 26, n_wide = 6, embed = 3).values()
-#B = f[:,1]
-M, f = X, F[:,1].reshape((X.shape[0], 1))
-cover = IntervalCover(f, n_sets = 10, overlap = 0.40, gluing=[1])
-PoU = partition_of_unity(f, cover, beta="triangular")
+M, f = mobius_band(n_polar = 26, n_wide = 6, embed = 3).values()
+f = f[:,1].reshape((f.shape[0], 1))
+# M, f = X, F[:,1].reshape((X.shape[0], 1))
+cover = IntervalCover(f, n_sets = 10, overlap = 0.30, gluing=[1])
 local_map = lambda x: classical_MDS(dist(x, as_matrix=True), k = d)
 local_models = { index : local_map(M[subset,:]) for index, subset in cover }
+
+PoU = partition_of_unity(f, cover, beta="triangular")
 alignments = align_models(cover, local_models)
 A, stf = frame_reduction(alignments, PoU, D, fast_gradient=False, optimize = False)
 
+## Verify rotation matrices stored correctly 
+for i1,i2 in alignments.keys():
+	diff = np.sum(np.abs(alignments[(i1,i2)]['rotation'] - stf.get_rotation(i1,i2,len(cover))))
+	print(diff)
+	# print(stf.get_rotation(i1,i2,len(cover)))
 
-# %% 
+def phi_debug(point, cover_set = None):
+	J = PoU.shape[1]
+	k = np.argmax(PoU[point,:]) if cover_set is None else cover_set
+	out = np.zeros((d*J, d))
+	def weighted_omega(j):
+		nonlocal point, k
+		w = np.sqrt(PoU[point,j])
+		pair_exists = np.array([pair in list(alignments.keys()) for pair in [(k,j), (j,k)]])
+		if w == 0.0 or not(pair_exists.any()):
+			return(w*np.eye(d))
+		return(w*alignments[(k,j)]['rotation'] if pair_exists[0] else w*alignments[(j,k)]['rotation'].T)
+	return(np.vstack([weighted_omega(j) for j in range(J)]))
+	
+### Verify Phi maps match 
+for i in range(cover.n_points):
+	for j in range(len(cover)):
+		p1 = phi_debug(point=i, cover_set=j)
+		p2 = stf.generate_frame(j, np.ravel(np.sqrt(PoU[i,:]).todense()))
+		diff = np.sum(np.abs(p1-p2))
+		if (diff > 0.0):
+			break
+
+## Verify all_frames() is working 
+for i in range(cover.n_points): 
+	stf.populate_frame(i, np.sqrt(np.ravel(PoU[i,:].todense())), False)
+Fb = np.hstack([phi_debug(point=i, cover_set=np.argmax(PoU[i,:])) for i in range(cover.n_points)])
+np.sum(np.abs(Fb - stf.all_frames()))
+
+## Verify initial frame guess is the same
+Phi_N = Fb @ Fb.T # (dJ x dJ)
+Eval, Evec = np.linalg.eigh(Phi_N)
+a0_debug = Evec[:,np.argsort(-Eval)[:D]]
+Fb = stf.all_frames()
+Eval, Evec = np.linalg.eigh(Fb @ Fb.T)
+a0_test = Evec[:,np.argsort(-Eval)[:D]]
+np.sum(np.abs(a0_test - a0_debug))
+
+# %% Assembly 
 #cover = IntervalCover(f, n_sets = 10, overlap = 0.20, gluing=[1])
 #PoU = partition_of_unity(f, cover, beta="triangular")
 
@@ -360,7 +404,7 @@ for i in range(stf.n):
 		else: 
 			relative_index = np.array(relative_index, dtype = np.int32)
 		# relative_index = find_where(i, PoU[:,j].nonzero()[0])
-		u, s, vt = np.linalg.svd(A @ (A.T @ stf.generate_frame(j, w_i)), full_matrices=False, compute_uv=True) 
+		u, s, vt = np.linalg.svd(((A @ A.T) @ stf.generate_frame(j, w_i)), full_matrices=False, compute_uv=True) 
 		d_coords = local_models[index_set[j]][relative_index,:]
 		coords += (w_i[j]*A.T @ (u @ vt) @ (d_coords + translations[j]).T).T
 	assembly[i,:] = coords

@@ -89,6 +89,7 @@
 		"valarray": "cpp",
 		"variant": "cpp",
 		"armadillo": "cpp",
-		"carma": "cpp"
+		"carma": "cpp",
+		"filesystem": "cpp"
 	}
 }
