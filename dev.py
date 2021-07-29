@@ -321,18 +321,25 @@ from tallem.procrustes import align_models, global_translations
 from tallem.stiefel import frame_reduction
 from tallem.datasets import mobius_band
 from tallem.cover import IntervalCover, partition_of_unity
+from tallem.utility import find_where
 
 d, D = 2, 3 # chosen dimensions
 #M, f = mobius_band(n_polar = 26, n_wide = 6, embed = 3).values()
 #B = f[:,1]
 M, f = X, F[:,1].reshape((X.shape[0], 1))
-cover = IntervalCover(f, n_sets = 10, overlap = 0.20, gluing=[1])
+cover = IntervalCover(f, n_sets = 10, overlap = 0.40, gluing=[1])
 PoU = partition_of_unity(f, cover, beta="triangular")
 local_map = lambda x: classical_MDS(dist(x, as_matrix=True), k = d)
 local_models = { index : local_map(M[subset,:]) for index, subset in cover }
 alignments = align_models(cover, local_models)
-A, stf = frame_reduction(alignments, PoU, D, fast_gradient=False)
+A, stf = frame_reduction(alignments, PoU, D, fast_gradient=False, optimize = False)
 
+
+# %% 
+#cover = IntervalCover(f, n_sets = 10, overlap = 0.20, gluing=[1])
+#PoU = partition_of_unity(f, cover, beta="triangular")
+
+## PART OF IT IS THE ASSEMBLY
 ## Construct the global assembly function 
 assembly = np.zeros((stf.n, D), dtype=np.float64)
 coords = np.zeros((1,D), dtype=np.float64)
@@ -346,10 +353,16 @@ for i in range(stf.n):
 	## Construct assembly functions F_j(x) for x_i
 	for j in nz_ind: 
 		subset_j = cover[index_set[j]]
-		relative_index = np.searchsorted(subset_j, i)
+		relative_index = find_where(i, subset_j)
+		if np.any(relative_index == None):
+			# raise ValueError("Point index not found in cover subset")
+			continue
+		else: 
+			relative_index = np.array(relative_index, dtype = np.int32)
+		# relative_index = find_where(i, PoU[:,j].nonzero()[0])
 		u, s, vt = np.linalg.svd(A @ (A.T @ stf.generate_frame(j, w_i)), full_matrices=False, compute_uv=True) 
 		d_coords = local_models[index_set[j]][relative_index,:]
-		coords += w_i[j]*A.T @ (u @ vt) @ (d_coords + translations[j])
+		coords += (w_i[j]*A.T @ (u @ vt) @ (d_coords + translations[j]).T).T
 	assembly[i,:] = coords
 
 fig = plt.figure()
@@ -361,13 +374,15 @@ from tallem import tallem_transform
 d, D = 2, 3 # chosen dimensions
 # M, f = mobius_band(n_polar = 26, n_wide = 6, embed = 3).values()
 M, f = X, F[:,1]
+f = f.reshape((len(f), 1))
 Y = tallem_transform(M, f)
 
 fig = plt.figure()
 ax = fig.add_subplot(111, projection='3d')
 ax.scatter(Y[:,0], Y[:,1], Y[:,2], marker='o', c=f,s=1)
-for angle in range(0, 360, 15):
-	ax.view_init(30, angle)
-	plt.draw()
-	plt.pause(0.5)
+
+# for angle in range(0, 360, 15):
+# 	ax.view_init(30, angle)
+# 	plt.draw()
+# 	plt.pause(0.5)
 

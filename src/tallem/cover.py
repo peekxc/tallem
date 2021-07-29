@@ -10,7 +10,7 @@ from sklearn.neighbors import BallTree
 from scipy.sparse import csc_matrix, diags
 from scipy.sparse.csgraph import minimum_spanning_tree,connected_components 
 from tallem.distance import dist 
-import bisect
+from tallem.utility import find_where
 
 # GridCover ?
 # LandmarkCover ? 
@@ -159,16 +159,11 @@ class IntervalCover():
 # 	def __init__(self):
 # 			self.neighbor = BallTree(a, kwargs)
 
-def match(a: npt.ArrayLike, b: npt.ArrayLike):
-	def index(a, x):
-		i = bisect.bisect_left(a, x)
-		return(i if i != len(a) and a[i] == x else None)
-	return(np.array([index(b,v) for v in a], dtype=object))
-
 ## A Partition oif unity is 
 ## B := point cloud topologiucal space
 ## phi := function mapping a subset of m points to (m x J) matrix 
 def partition_of_unity(B: npt.ArrayLike, cover: Iterable, beta: Union[str, Callable[npt.ArrayLike, npt.ArrayLike]] = "triangular", weights: Optional[npt.ArrayLike] = None) -> csc_matrix:
+	if (B.ndim != 2): raise ValueError("Error: filter must be matrix.")
 	J = len(cover)
 	weights = np.ones(J) if weights is None else np.array(weights)
 	if len(weights) != J:
@@ -182,7 +177,9 @@ def partition_of_unity(B: npt.ArrayLike, cover: Iterable, beta: Union[str, Calla
 		def beta(cover_set):
 			index, subset = cover_set
 			centroid = cover.bbox[0:1,:] + (np.array(index) * cover.base_width) + cover.base_width/2.0
-			beta_j = np.maximum(max_r - dist(B, centroid), 0.0) ## use triangular
+			# beta_j = np.maximum(max_r - dist(B, centroid), 0.0) ## use triangular
+			dist_to_poles = np.sqrt(np.sum(cover._diff_to(B, centroid)**2, axis = 1))
+			beta_j = np.maximum(max_r - dist_to_poles, 0.0)
 			return(beta_j)
 	else: 
 		raise ValueError("Only interval cover is supported for now.")
@@ -208,7 +205,7 @@ def partition_of_unity(B: npt.ArrayLike, cover: Iterable, beta: Union[str, Calla
 	#pou /= np.sum(pou, axis = 1)
 
 	## The final partition of unity weights elements in the cover over B
-	is_invalid_pou = np.any([np.any(match(np.where(pou[:,i].todense() > 0)[0], cover[cover.index_set[i]]) is None) for i in range(J)])
+	is_invalid_pou = np.any([np.any(find_where(np.where(pou[:,i].todense() > 0)[0], cover[cover.index_set[i]]) is None) for i in range(J)])
 	if (is_invalid_pou):
 		raise ValueError("The partition of unity must be supported on the closure of the cover elements.")
 	return(pou)

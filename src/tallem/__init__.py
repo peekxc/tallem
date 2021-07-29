@@ -92,6 +92,8 @@ class TALLEM():
 	def __repr__(self) -> str:
 		return("TALLEM")
 
+from tallem.cover import IntervalCover
+from tallem.cover import partition_of_unity
 ## TALLEM dimennsionality reduction algorithm -- Full wrapper
 ## TODO: Need to supply cover options
 def tallem_transform(a: npt.ArrayLike, f: npt.ArrayLike, d: int = 2, D: int = 3, J: int = 10):
@@ -109,13 +111,16 @@ def tallem_transform(a: npt.ArrayLike, f: npt.ArrayLike, d: int = 2, D: int = 3,
 		return(np.minimum(ddist, odist))
 	from tallem.cover import partition_of_unity_old
 	P = partition_of_unity_old(f_mat, p_mat, eps, d=angular_dist)
+	# cover = IntervalCover(f, n_sets = 10, overlap = 0.40, gluing=[1])
+	# PoU = partition_of_unity(f, cover, beta="triangular")
+	# P = PoU.todense()
 
 	## Identify the cover set for each point
-	point_cover_map = [np.ravel(P[i,:].nonzero())for i in range(n)]
+	point_cover_map = [np.ravel(P[i,:].nonzero()[0])for i in range(n)]
 
 	## Aggregate points into cover->point map
 	nc = P.shape[1] # number of cover sets
-	cover_point_map = { i : np.ravel(P[:,i].nonzero()) for i in range(nc) }
+	cover_point_map = { i : np.ravel(P[:,i].nonzero()[0]) for i in range(nc) }
 
 	## Use MDS coordinates to create the local euclidean models
 	Fj = { i : [] for i in range(nc) }
@@ -188,6 +193,9 @@ def tallem_transform(a: npt.ArrayLike, f: npt.ArrayLike, d: int = 2, D: int = 3,
 	solver = SteepestDescent()
 	A0 = initial_frame(D, phi, X.shape[0])
 	Xopt = solver.solve(problem=problem, x=A0)
+	
+	## TODO: remove
+	Xopt = A0
 
 	## Get optimal translation vectors 
 	S = (np.fromiter(range(nc), dtype=int), list(Omega_map.keys()))

@@ -36,7 +36,7 @@ def huber_loss(embed_map: Callable, subsetter: Callable[[], Iterable[int]], epsi
 	return(cost_function)
 
 ## --- Optimization to find the best A matrix --- 
-def frame_reduction(alignments: Dict, pou: npt.ArrayLike, D: int, fast_gradient = True):
+def frame_reduction(alignments: Dict, pou: npt.ArrayLike, D: int, optimize=True, fast_gradient = True):
 	n, J, d = pou.shape[0], pou.shape[1], len(alignments[list(alignments.keys())[0]]['translation'])
 	
 	## Start off with StiefelLoss pybind11 module
@@ -55,6 +55,7 @@ def frame_reduction(alignments: Dict, pou: npt.ArrayLike, D: int, fast_gradient 
 	Fb = stf.all_frames()
 	Eval, Evec = np.linalg.eigh(Fb @ Fb.T)
 	A0 = Evec[:,np.argsort(-Eval)[:D]]
+	if (not(optimize)): return(A0, stf)
 
 	## Setup optimization using Pymanopt
 	manifold = Stiefel(d*J, D)
@@ -66,11 +67,9 @@ def frame_reduction(alignments: Dict, pou: npt.ArrayLike, D: int, fast_gradient 
 	else: 
 		sampler = uniform_sampler(n)
 		problem = Problem(manifold=manifold, cost=huber_loss(lambda i: stf.get_frame(i), lambda: sampler(n), 0.30))
-	
-	## Perform the optimization 
-	Xopt = solver.solve(problem, x=A0)
+		Xopt = solver.solve(problem, x=A0)
 	return(Xopt, stf)
-
+	
 	# Need Stiefel(n=d*J,p=D) as Stiefel(n,p) := space of (n x p) orthonormal matrices
 
 
