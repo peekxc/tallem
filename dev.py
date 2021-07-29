@@ -325,8 +325,8 @@ from tallem.utility import find_where
 
 
 d, D = 2, 3 # chosen dimensions
-M, f = mobius_band(n_polar = 26, n_wide = 6, embed = 3).values()
-f = f[:,1].reshape((f.shape[0], 1))
+M, B = mobius_band(n_polar = 26, n_wide = 6, embed = 3).values()
+f = B[:,1].reshape((B.shape[0], 1))
 # M, f = X, F[:,1].reshape((X.shape[0], 1))
 cover = IntervalCover(f, n_sets = 10, overlap = 0.30, gluing=[1])
 local_map = lambda x: classical_MDS(dist(x, as_matrix=True), k = d)
@@ -409,9 +409,11 @@ for i in range(stf.n):
 		coords += (w_i[j]*A.T @ (u @ vt) @ (d_coords + translations[j]).T).T
 	assembly[i,:] = coords
 
+import matplotlib.pyplot as plt
 fig = plt.figure()
 ax = fig.add_subplot(projection='3d')
-ax.scatter(assembly[:,0], assembly[:,1], assembly[:,2], marker='o', c=f)
+# ax.scatter(assembly[:,0], assembly[:,1], assembly[:,2], marker='o', c=f)
+ax.scatter(assembly[:,0], assembly[:,1], assembly[:,2], marker='o', c=B[:,1])
 
 # %% debug old
 from tallem import tallem_transform
