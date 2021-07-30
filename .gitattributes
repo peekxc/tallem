@@ -2,3 +2,4 @@
 
 *.md linguist-documentation
 *.ipynb linguist-documentation
+ignore/ linguist-vendored=true
