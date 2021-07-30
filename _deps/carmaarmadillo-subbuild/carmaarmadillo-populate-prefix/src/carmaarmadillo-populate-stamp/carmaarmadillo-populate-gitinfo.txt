@@ -1,3 +1,0 @@
-repository='https://gitlab.com/conradsnicta/armadillo-code.git'
-module=''
-tag='origin'

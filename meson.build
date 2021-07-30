@@ -26,5 +26,4 @@ add_project_arguments('-DCARMA_DONT_REQUIRE_F_CONTIGUOUS=OFF', language : 'cpp')
 ## Targets
 src_dir = meson.current_source_dir()
 install_dir = src_dir / 'src' / 'tallem'
-# py_mod.extension_module('carma_svd', sources : 'src/tallem/carma_svd.cpp', dependencies : dependencies + [arma], include_directories : includes + [carma_include], install : true, install_dir : install_dir)
 py_mod.extension_module('fast_svd', sources : 'src/tallem/fast_svd.cpp', dependencies : dependencies + [arma], include_directories : includes +  [carma_include], install : true, install_dir : install_dir)
