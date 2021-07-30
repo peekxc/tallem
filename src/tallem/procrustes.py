@@ -5,7 +5,7 @@ from typing import Iterable, Dict
 from itertools import combinations
 from tallem.sc import delta0D
 
-def global_translations(alignments: Dict):
+def global_translations(cover: Iterable, alignments: Dict):
 	## Get optimal translation vectors 
 	index_pairs = list(alignments.keys())
 	d = len(alignments[index_pairs[0]]['translation'])
@@ -13,15 +13,18 @@ def global_translations(alignments: Dict):
 	translations = { k: v['translation'] for k,v in alignments.items() }
 	
 	## Evaluates pseudo-inverse on the coboundary matrix    
-	S = (np.fromiter(range(len(alignments)), dtype=int), index_pairs)
-	deltaX = np.linalg.pinv(delta0D(S, rotations))
+	J = len(cover)
+	S = (np.fromiter(range(J), dtype=int), index_pairs) ## vertex/edge simplicial complex
+	coboundary = delta0D(S, rotations)
+	coboundary[np.isnan(coboundary)] = 0.0
+	deltaX = np.linalg.pinv(coboundary)
 	shiftE = np.zeros(d*len(S[1]))
 	for (index,(i1,i2)) in enumerate(S[1]):
 		shiftE[index*d:(index+1)*d] = translations[(i1,i2)]
 	shiftV = np.matmul(deltaX,shiftE)
 
 	## Offsets contain the translation vectors, keyed by edge indices in the nerve complex 
-	offsets = { index : shiftV[index*d:(index+1)*d] for index in range(len(alignments)) }
+	offsets = { index : shiftV[index*d:(index+1)*d] for index in range(J) }
 	return(offsets)
 
 
@@ -33,9 +36,10 @@ def align_models(cover: Iterable, models: Dict):
 	for i, j in combinations(J, 2):
 		subset_i, subset_j, ii, jj = cover[i], cover[j], J.index(i), J.index(j)
 		ij_ind = np.intersect1d(subset_i, subset_j)
-		if len(ij_ind) > 0:
+		if len(ij_ind) > 2:
 			i_idx, j_idx = np.searchsorted(subset_i, ij_ind), np.searchsorted(subset_j, ij_ind) # assume subsets are ordered
-			PA_map[(ii,jj)] = old_procrustes(models[i][i_idx,:], models[j][j_idx,:], rotation_only=False, transform=False)
+			# PA_map[(ii,jj)] = old_procrustes(models[i][i_idx,:], models[j][j_idx,:], rotation_only=False, transform=False)
+			PA_map[(ii,jj)] = opa(models[j][j_idx,:], models[i][i_idx,:], rotation_only=False, transform=False)
 	return(PA_map)
 
 # %% Procrustes definitions

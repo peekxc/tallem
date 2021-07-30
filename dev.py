@@ -322,7 +322,7 @@ from tallem.stiefel import frame_reduction
 from tallem.datasets import mobius_band
 from tallem.cover import IntervalCover, partition_of_unity
 from tallem.utility import find_where
-
+from tallem.assembly import assemble_frames
 
 d, D = 2, 3 # chosen dimensions
 M, B = mobius_band(n_polar = 26, n_wide = 6, embed = 3).values()
@@ -335,6 +335,9 @@ local_models = { index : local_map(M[subset,:]) for index, subset in cover }
 PoU = partition_of_unity(f, cover, beta="triangular")
 alignments = align_models(cover, local_models)
 A, stf = frame_reduction(alignments, PoU, D, fast_gradient=False, optimize = False)
+
+translations = global_translations(alignments)
+Y = assemble_frames(stf, A, cover, PoU, local_models, translations)
 
 ## Verify rotation matrices stored correctly 
 for i1,i2 in alignments.keys():
@@ -379,6 +382,29 @@ Eval, Evec = np.linalg.eigh(Fb @ Fb.T)
 a0_test = Evec[:,np.argsort(-Eval)[:D]]
 np.sum(np.abs(a0_test - a0_debug))
 
+
+# %% Test new interface 
+from tallem import TALLEM
+from tallem.cover import IntervalCover
+from tallem.cover import partition_of_unity
+
+X, B = mobius_band(n_polar=26, n_wide=6, embed=3).values()
+B_polar = B[:,1].reshape((B.shape[0], 1))
+cover = IntervalCover(B_polar, n_sets = 10, overlap = 0.30, gluing=[1])
+# cover = IntervalCover(B, n_sets = 10, overlap = 0.30, gluing=[1, 0])
+f = lambda x: classical_MDS(dist(x, as_matrix=True), k = 2)
+
+## Parameterize the TALLEM instance and transform the data
+embedding = TALLEM(cover=cover, local_map=f, n_components=3)
+X_transformed = embedding.fit_transform(X, B_polar)
+# X_transformed = embedding.fit_transform(X, B)
+
+## Draw a 3D projection
+fig = plt.figure()
+ax = fig.add_subplot(projection='3d')
+# ax.scatter(X_transformed[:,0], X_transformed[:,1], X_transformed[:,2], marker='o', c=B_polar)
+ax.scatter(X_transformed[:,0], X_transformed[:,1], X_transformed[:,2], marker='o', c=B[:,0])
+
 # %% Assembly 
 #cover = IntervalCover(f, n_sets = 10, overlap = 0.20, gluing=[1])
 #PoU = partition_of_unity(f, cover, beta="triangular")
@@ -397,13 +423,7 @@ for i in range(stf.n):
 	## Construct assembly functions F_j(x) for x_i
 	for j in nz_ind: 
 		subset_j = cover[index_set[j]]
-		relative_index = find_where(i, subset_j)
-		if np.any(relative_index == None):
-			# raise ValueError("Point index not found in cover subset")
-			continue
-		else: 
-			relative_index = np.array(relative_index, dtype = np.int32)
-		# relative_index = find_where(i, PoU[:,j].nonzero()[0])
+		relative_index = find_where(i, subset_j, True) ## This should always be true!
 		u, s, vt = np.linalg.svd(((A @ A.T) @ stf.generate_frame(j, w_i)), full_matrices=False, compute_uv=True) 
 		d_coords = local_models[index_set[j]][relative_index,:]
 		coords += (w_i[j]*A.T @ (u @ vt) @ (d_coords + translations[j]).T).T

@@ -5,12 +5,19 @@ import numpy as np
 import numpy.typing as npt
 from typing import Callable, Iterable, List, Set, Dict, Optional, Tuple, Any, Union, Sequence
 from itertools import combinations
+from scipy.sparse import csc_matrix
+
 from tallem.sc import delta0D
 from tallem.distance import dist
-from tallem.cover import partition_of_unity
+from tallem.procrustes import align_models, global_translations
 from tallem.mds import classical_MDS
 from tallem.procrustes import opa
 from tallem.samplers import uniform_sampler
+from tallem.stiefel import frame_reduction
+from tallem.cover import IntervalCover, partition_of_unity
+from tallem.utility import find_where
+from tallem.assembly import assemble_frames
+
 
 import autograd.scipy.linalg as auto_scipy 
 import autograd.numpy as auto_np
@@ -18,7 +25,7 @@ from pymanopt.manifolds import Stiefel
 from pymanopt import Problem
 from pymanopt.solvers import SteepestDescent
 
-from scipy.sparse import csc_matrix
+
 # %% debug 
 # PoU = partition_of_unity(B, cover = cover, beta = "triangular")
 
@@ -41,7 +48,7 @@ from scipy.sparse import csc_matrix
 	
 ## Rotation, scaling, translation, and distance information for each intersecting cover subset
 from tallem.procrustes import align_models
-
+# from collections.abc import Iterable
 
 class TALLEM():
 	'''
@@ -57,40 +64,73 @@ class TALLEM():
 		
 	'''
 	
-	def __init__(self, X: npt.ArrayLike, B: npt.ArrayLike, cover: Iterable, local_map: Callable[npt.ArrayLike, npt.ArrayLike]):
+	def __init__(self, cover: Iterable, local_map: Callable[npt.ArrayLike, npt.ArrayLike], n_components: int = 2, pou: Union[str, csc_matrix] = "triangular"):
+		if not(isinstance(cover, Iterable)): raise ValueError("cover argument must be an Iterable.")		
+		
+		## Store callable as part of the cover's initialization
+		self.D = n_components ## Target dimension of the embedding 
+		self.local_map = local_map
+		
+		## Validate cover 
+		## TODO: use generic to generalize this to a type-erased generic! 
+		if not(isinstance(cover, Iterable)):
+			raise ValueError("Cover must be Iterable!")
+		self.cover = cover 
+
+		## Validate the partition of unity respects the closure condition relative to the cover 
+		if isinstance(pou, csc_matrix):
+			if pou.shape[1] != len(self.cover):
+				raise ValueError("Partition of unity must have one column per element of the cover")
+		self.pou = pou
+
+	
+	def fit(self, X: npt.ArrayLike, B: npt.ArrayLike, pou: Optional[Union[str, csc_matrix]] = None):
 		X, B = np.array(X, copy=False), np.array(B, copy=False)
-		n = X.shape[0]
-
-		## Checks 
 		if X.shape[0] != B.shape[0]: raise ValueError("X and B must have the same number of rows.")
-
-		## Build local euclidean models from the cover preimages, like Mapper  
-		local_models = { (index, local_map(X[idx,:])) for index, subset in cover }
-		self.models = local_models
+		if X.ndim == 1: X = X.reshape((len(X), 1))
+		if B.ndim == 1: B = B.reshape((len(B), 1))
+		
+		## Map the local euclidean models
+		## Note: the extra array constructor ensures singleton subsets are reported as matrices
+		self.models = { index : self.local_map(X[np.array(subset),:]) for index, subset in self.cover }
 
 		## Construct a partition of unity
-		PoU = partition_of_unity(B, cover = cover, beta = "triangular")
+		J = len(self.cover)
+		if not(pou is None): self.pou = pou
+		if isinstance(self.pou, str):
+			self.pou = partition_of_unity(B, cover = self.cover, beta = self.pou)
+		elif isinstance(pou, csc_matrix): 
+			if pou.shape[1] != len(self.cover):
+				raise ValueError("Partition of unity must have one column per element of the cover")
+			for i in range(J):
+				pou_nonzero = np.where(pou[:,i].todense() > 0)[0]
+				cover_subset = self.cover[self.cover.index_set[i]]
+				is_invalid_pou = np.any(find_where(pou_nonzero, cover_subset) is None)
+				if (is_invalid_pou):
+					raise ValueError("The partition of unity must be supported on the closure of the cover elements.")
+		else: 
+			raise ValueError("Invalid partition of unity supplied. Must be either a string or a csc_matrix")
 
 		## Align the local reference frames using Procrustes
-		alignments = align_models(cover, local_models)
-
-		## Setup phi map 
-		iota = PoU.argmax(axis = 1)
-
-		Fb = stf.all_frames()
-		Eval, Evec = np.linalg.eigh(Fb @ Fb.T)
-		A0 = Evec[:,np.argsort(-Eval)[:D]]
-		## Solve the Stiefel manifold optimization for the projection matrix 
+		self.alignments = align_models(self.cover, self.models)
 		
-
 		## Get global translation vectors using cocyle condition 	
-		offsets = global_translations(alignments)
-		
-		
+		translations = global_translations(self.cover, self.alignments)
 
+		## Solve the Stiefel manifold optimization for the projection matrix 
+		self.A, self._stf = frame_reduction(self.alignments, self.pou, self.D, fast_gradient=False, optimize = False)
+
+		## Assemble the frames!
+		self.embedding_ = assemble_frames(self._stf, self.A, self.cover, self.pou, self.models, translations)
+
+		return(self)
+
+	def fit_transform(self, X: npt.ArrayLike, B: npt.ArrayLike, **fit_params) -> npt.ArrayLike:
+		self.fit(X, B, **fit_params)
+		return(self.embedding_)
 
 	def __repr__(self) -> str:
-		return("TALLEM")
+		return("TALLEM instance")
 
 from tallem.cover import IntervalCover
 from tallem.cover import partition_of_unity

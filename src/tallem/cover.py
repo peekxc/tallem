@@ -34,42 +34,60 @@ class IntervalCover():
 	A Cover *is* an iterable
 	Cover -> divides data into subsets, satisfying covering property, retains underlying neighbor structures + metric (if any) 
 	parameters: 
+		space := the type of space to construct a cover on. Can be a point set, a set of intervals (per column) indicating the domain of the cover, 
+						 or a string indicating a common configuration space. 
 		n_sets := number of cover elements to use to create the cover 
-		method := method to create the cover. Can be 'landmark', in which case landmarks are used to define the subsets, or 
-		optionally 'grid', in which case a uniformly-spaced grid is imposed over the data. 
+		overlap := proportion of overlap between adjacent sets per dimension, as a number in [0,1). It is recommended, but not required, to keep this parameter below 0.5. 
+		gluing := optional, whether to identify the sides of the cover as aligned in the same direction (1), in inverted directions (-1), or no identification (0) (default). 
+		implicit := optional, whether to store all the subsets in a precomputed dictionary, or construct them on-demand. Defaults to the former.
 	'''
-	def __init__(self, a: npt.ArrayLike, n_sets: List[int], overlap: List[float], gluing: Optional[List[Gluing]] = None, implicit: bool = False, **kwargs):
-		a = np.array(a, copy=False)
-		if len(a.shape) == 1: a = np.reshape(a, (len(a), 1))
-		if len(a.shape) != 2: raise ValueError("Invalid data shape. Must be a matrix with 2 dimensions.")
+	def __init__(self, space: Union[npt.ArrayLike, str], n_sets: List[int], overlap: List[float], gluing: Optional[List[Gluing]] = None, implicit: bool = False, **kwargs):
+		
+		## Detect if one is creating the cover an a specified configuration space, or if the boundary box dimensions were given, etc. 
+		if isinstance(space, str):
+			raise ValueError("Specifying the configuration space by name hasn't been implemented yet.")
+		else: 
+			space = np.array(space, copy=False)
+			if len(space.shape) == 1: space = np.reshape(space, (len(space), 1))
+			if len(space.shape) != 2: raise ValueError("Invalid data shape. Must be a matrix.")
+			
+			## Two cases: 
+			## 	1) if only two rows, assume the i'th column gives the range of the i'th dimension 
+			## 	2) otherwise, infer the boundaries of the domain from the data directly 
+			self.dimension = space.shape[1]
+			if space.shape[0] == 2: 
+				self.bbox = space
+				self._data = None
+			else: 
+				self.bbox = np.vstack((np.amin(space, axis=0), np.amax(space, axis=0)))
+				self._data = np.array(space, copy=False)
 
-		self._data = np.array(a, copy=False)
-		self.n_points, self.dimension = a.shape[0], a.shape[1]
+		## Set intrinsic properties of the cover
 		self.metric = "euclidean"
 		self.implicit = implicit
 		self.n_sets = np.repeat(n_sets, self.dimension) if (isinstance(n_sets, int) or len(n_sets) == 1) else np.array(n_sets)
 		self.overlap = np.repeat(overlap, self.dimension) if (isinstance(overlap, float) or len(overlap) == 1) else np.array(overlap)
-
+		
+		## Assert these parameters match the dimension of the cover prior to assignment
 		if len(self.n_sets) != self.dimension or len(self.overlap) != self.dimension:
 			raise ValueError("Dimensions mismatch: supplied set or overlap arity does not match dimension of the cover.")
-
-		self.bbox = np.vstack((np.amin(a, axis=0), np.amax(a, axis=0)))
 		self.base_width = np.diff(self.bbox, axis = 0)/self.n_sets
 		self.set_width = self.base_width + (self.base_width*self.overlap)/(1.0 - self.overlap)
-			
+		
+		## Choose how to handle edge orientations
 		self.gluing = np.repeat(Gluing.NONE, self.dimension) if gluing is None else gluing
 		if len(self.gluing) != self.dimension:
 			raise ValueError("Invalid gluing vector given. Must match the dimension of the cover.")
 		
 		## If implicit = False, then construct the sets and store them
 		## otherwise, they must be constructed on demand via __call__
-		if not(self.implicit): 
+		if not(self.implicit) and not(self._data is None): 
 			self.sets = self.construct(self._data)
 
 	def _diff_to(self, x: npt.ArrayLike, point: npt.ArrayLike):
 		i_dist = np.zeros(x.shape)
 		for d_i in range(self.dimension):
-			diff = abs(x[:,d_i] - point[d_i])
+			diff = abs(x[:,d_i] - point[:,d_i])
 			if self.gluing[d_i] == 0:
 				i_dist[:,d_i] = diff
 			elif self.gluing[d_i] == 1:
@@ -113,7 +131,8 @@ class IntervalCover():
 		
 	def __call__(self, a: Optional[npt.ArrayLike]):
 		if a is not None:
-			self.n, self.D = a.shape[0], a.shape[1]
+			a = np.array(a, copy=False)
+			if a.shape[2] != self.dimension: raise ValueError("The dimensionality of the supplied data does not match the dimension of the cover.")
 			self._data = a
 			if not self.implicit:
 				self.sets = self.construct(a)
@@ -199,6 +218,8 @@ def partition_of_unity(B: npt.ArrayLike, cover: Iterable, beta: Union[str, Calla
 			# beta_j = np.maximum(max_r - dist(B, centroid), 0.0) ## use triangular
 			dist_to_poles = np.sqrt(np.sum(cover._diff_to(B, centroid)**2, axis = 1))
 			beta_j = np.maximum(max_r - dist_to_poles, 0.0)
+			## TODO: rework so this isn't needed!
+			beta_j[np.setdiff1d(range(B.shape[0]), subset)] = 0.0
 			return(beta_j)
 	else: 
 		raise ValueError("Only interval cover is supported for now.")
@@ -210,7 +231,7 @@ def partition_of_unity(B: npt.ArrayLike, cover: Iterable, beta: Union[str, Calla
 		## varphi_j represents the (beta_j \circ f)(X) = \beta_j(B)
 		## As such, the vector returned should be of length n
 		varphi_j = beta((index, subset))
-		if len(varphi_j) != cover.n_points: raise ValueError("Alignment function 'beta' must return a set of values for every point in X.")
+		# if len(varphi_j) != cover.n_points: raise ValueError("Alignment function 'beta' must return a set of values for every point in X.")
 
 		## Record non-zero row indices + the function values themselves
 		row_indices.append(np.nonzero(varphi_j)[0])
@@ -224,9 +245,13 @@ def partition_of_unity(B: npt.ArrayLike, cover: Iterable, beta: Union[str, Calla
 	#pou /= np.sum(pou, axis = 1)
 
 	## The final partition of unity weights elements in the cover over B
-	is_invalid_pou = np.any([np.any(find_where(np.where(pou[:,i].todense() > 0)[0], cover[cover.index_set[i]]) is None) for i in range(J)])
-	if (is_invalid_pou):
-		raise ValueError("The partition of unity must be supported on the closure of the cover elements.")
+	for j in range(J):
+		j_membership = np.where(pou[:,j].todense() > 0)[0]
+		subset_j = cover[cover.index_set[j]]
+		ind = find_where(j_membership, subset_j)
+		if (np.any(ind == None)):
+			raise ValueError("The partition of unity must be supported on the closure of the cover elements.")
+		
 	return(pou)
 	
 
