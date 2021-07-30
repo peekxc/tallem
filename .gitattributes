@@ -1,1 +1,5 @@
-*.html *.lprof *.ipynb *.md linguist-detectable=false
+.html .lprof .ipynb .md linguist-detectable=false
+
+*.md linguist-documentation
+*.ipynb linguist-documentation
+ignore/ linguist-vendored=true
