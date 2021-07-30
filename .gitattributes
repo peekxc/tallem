@@ -1,1 +1,4 @@
 .html .lprof .ipynb .md linguist-detectable=false
+
+*.md linguist-documentation
+*.ipynb linguist-documentation
