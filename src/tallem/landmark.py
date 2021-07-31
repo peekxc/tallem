@@ -5,7 +5,7 @@ import numpy.typing as npt
 from typing import Optional
 from greedypermutation import clarksongreedy
 from greedypermutation.point import Point
-from tallem.distance import dist
+from .distance import dist
 
 
 # %% Landmark Definitions

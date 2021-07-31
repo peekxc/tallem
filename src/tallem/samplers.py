@@ -1,7 +1,7 @@
 # %% Sampler imports
 import numpy as np
 import numpy.typing as npt
-from tallem.landmark import landmarks
+from .landmark import landmarks
 
 # %% Various samplers of the range [0,n)
 def landmark_sampler(a: npt.ArrayLike, m, k, method: str = "precomputed"):

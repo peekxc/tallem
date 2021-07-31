@@ -9,8 +9,8 @@ import numpy.typing as npt
 from sklearn.neighbors import BallTree
 from scipy.sparse import csc_matrix, diags
 from scipy.sparse.csgraph import minimum_spanning_tree,connected_components 
-from tallem.distance import dist 
-from tallem.utility import find_where
+from .distance import dist 
+from .utility import find_where
 
 # GridCover ?
 # LandmarkCover ? 

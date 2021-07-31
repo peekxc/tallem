@@ -15,4 +15,5 @@ setup(
 	zip_safe=False,
 	packages=find_packages(where = 'src'),
 	package_dir={"": "src"}
+	py_modules=['fast_svd']
 )

@@ -7,16 +7,31 @@ from typing import Callable, Iterable, List, Set, Dict, Optional, Tuple, Any, Un
 from itertools import combinations
 from scipy.sparse import csc_matrix
 
-from tallem.sc import delta0D
-from tallem.distance import dist
-from tallem.procrustes import align_models, global_translations
-from tallem.mds import classical_MDS
-from tallem.procrustes import opa
-from tallem.samplers import uniform_sampler
-from tallem.stiefel import frame_reduction
-from tallem.cover import IntervalCover, partition_of_unity
-from tallem.utility import find_where
-from tallem.assembly import assemble_frames
+# from . import sc
+# from . import distance 
+# from . import procrustes 
+# from . import mds
+# from . import samplers 
+# from . import stiefel 
+# from . import cover
+# from . import utility
+# from . import assembly
+
+# __all__ = [
+# 	'function_1',
+# 	'function_2'
+# ]
+# TODO: define __all__
+from .sc import delta0D
+from .distance import dist
+from .procrustes import opa, align_models, global_translations
+from .mds import classical_MDS
+from .procrustes import opa
+from .samplers import uniform_sampler
+from .stiefel import frame_reduction
+from .cover import IntervalCover, partition_of_unity
+from .utility import find_where
+from .assembly import assemble_frames
 
 
 import autograd.scipy.linalg as auto_scipy 
@@ -47,7 +62,7 @@ from pymanopt.solvers import SteepestDescent
 
 	
 ## Rotation, scaling, translation, and distance information for each intersecting cover subset
-from tallem.procrustes import align_models
+
 # from collections.abc import Iterable
 
 class TALLEM():
@@ -118,7 +133,7 @@ class TALLEM():
 		translations = global_translations(self.cover, self.alignments)
 
 		## Solve the Stiefel manifold optimization for the projection matrix 
-		self.A, self._stf = frame_reduction(self.alignments, self.pou, self.D, fast_gradient=False, optimize = False)
+		self.A0, self.A, self._stf = frame_reduction(self.alignments, self.pou, self.D, fast_gradient=False, optimize = False)
 
 		## Assemble the frames!
 		self.embedding_ = assemble_frames(self._stf, self.A, self.cover, self.pou, self.models, translations)
@@ -132,8 +147,7 @@ class TALLEM():
 	def __repr__(self) -> str:
 		return("TALLEM instance")
 
-from tallem.cover import IntervalCover
-from tallem.cover import partition_of_unity
+
 ## TALLEM dimennsionality reduction algorithm -- Full wrapper
 ## TODO: Need to supply cover options
 def tallem_transform(a: npt.ArrayLike, f: npt.ArrayLike, d: int = 2, D: int = 3, J: int = 10):
@@ -149,7 +163,6 @@ def tallem_transform(a: npt.ArrayLike, f: npt.ArrayLike, d: int = 2, D: int = 3,
 		ddist = dist(a,b)
 		odist = np.abs(ddist - 2*np.pi)
 		return(np.minimum(ddist, odist))
-	from tallem.cover import partition_of_unity_old
 	P = partition_of_unity_old(f_mat, p_mat, eps, d=angular_dist)
 	# cover = IntervalCover(f, n_sets = 10, overlap = 0.40, gluing=[1])
 	# PoU = partition_of_unity(f, cover, beta="triangular")
@@ -183,7 +196,6 @@ def tallem_transform(a: npt.ArrayLike, f: npt.ArrayLike, d: int = 2, D: int = 3,
 	## Solve Procrustes problem for each non-empty intersection	
 	Omega_map = {}
 	edges = []
-	from tallem.procrustes import old_procrustes
 	for (i,j) in combinations(range(nc), 2):
 		F_models = intersection_map((i,j))
 		if len(F_models["indices"]) > 1:

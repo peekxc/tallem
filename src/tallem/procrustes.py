@@ -3,7 +3,7 @@ import numpy as np
 import numpy.typing as npt
 from typing import Iterable, Dict
 from itertools import combinations
-from tallem.sc import delta0D
+from .sc import delta0D
 
 def global_translations(cover: Iterable, alignments: Dict):
 	## Get optimal translation vectors 

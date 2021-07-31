@@ -1,8 +1,8 @@
 # %% Isomap imports
 import numpy as np
 import numpy.typing as npt
-from tallem.distance import dist 
-from tallem.mds import sammon, classical_MDS
+from .distance import dist 
+from .mds import sammon, classical_MDS
 from scipy.spatial import KDTree
 from scipy.sparse import csc_matrix
 from scipy.sparse.csgraph import minimum_spanning_tree, connected_components

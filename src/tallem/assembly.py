@@ -1,9 +1,9 @@
 import numpy as np
 import numpy.typing as npt
 from typing import Iterable, Dict
-from tallem.procrustes import global_translations
+from .procrustes import global_translations
 from scipy.sparse import csc_matrix
-from tallem.utility import find_where
+from .utility import find_where
 
 def assemble_frames(stf, A: npt.ArrayLike, cover: Iterable, pou: csc_matrix, local_models: Dict, translations: Dict) -> npt.ArrayLike:
 	''' Performs the final assembly of all the frames. '''

@@ -1,7 +1,7 @@
 # %% MDS imports 
 import numpy as np
 import numpy.typing as npt
-from tallem.distance import dist
+from .distance import dist
 from scipy.sparse.linalg import eigs as truncated_eig
 from scipy.linalg import eig as dense_eig
 

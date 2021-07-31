@@ -3,11 +3,11 @@ import numpy.typing as npt
 from typing import Callable, Iterable, List, Set, Dict, Optional, Tuple, Any, Union, Sequence
 from itertools import combinations
 
-from tallem import fast_svd
-from tallem.sc import delta0D
-from tallem.distance import dist
-from tallem.cover import partition_of_unity
-from tallem.samplers import uniform_sampler
+from .sc import delta0D
+from .distance import dist
+from .cover import partition_of_unity
+from .samplers import uniform_sampler
+from . import fast_svd
 
 import autograd.scipy.linalg as auto_scipy 
 import autograd.numpy as auto_np
@@ -55,7 +55,7 @@ def frame_reduction(alignments: Dict, pou: npt.ArrayLike, D: int, optimize=True,
 	Fb = stf.all_frames()
 	Eval, Evec = np.linalg.eigh(Fb @ Fb.T)
 	A0 = Evec[:,np.argsort(-Eval)[:D]]
-	if (not(optimize)): return(A0, stf)
+	if (not(optimize)): return(A0, A0, stf)
 
 	## Setup optimization using Pymanopt
 	manifold = Stiefel(d*J, D)
@@ -68,7 +68,7 @@ def frame_reduction(alignments: Dict, pou: npt.ArrayLike, D: int, optimize=True,
 		sampler = uniform_sampler(n)
 		problem = Problem(manifold=manifold, cost=huber_loss(lambda i: stf.get_frame(i), lambda: sampler(n), 0.30))
 		Xopt = solver.solve(problem, x=A0)
-	return(Xopt, stf)
+	return(A0, Xopt, stf)
 	
 	# Need Stiefel(n=d*J,p=D) as Stiefel(n,p) := space of (n x p) orthonormal matrices
 
