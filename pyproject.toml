@@ -9,5 +9,5 @@ description = "a package that meows"
 python_requires = ">=3.9.1" ## needed by Pybind11
 
 [build-system]
-requires = ["autograd", "greedypermutation", "meson", "ninja", "numpy>=1.7.0", "pybind11", "pymanopt", "PythonExtensions", "scipy", "sklearn", "setuptools>=42", "tqdm", "wheel"]
+requires = ["autograd", "greedypermutation", "meson>=0.59.0", "ninja", "numpy>=1.7.0", "pybind11", "pymanopt", "PythonExtensions", "scipy", "sklearn", "setuptools>=42", "tqdm", "wheel"]
 build-backend = "setuptools.build_meta"
