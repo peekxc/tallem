@@ -307,6 +307,29 @@ struct StiefelLoss {
 
 };
 
+// if len(translations) != len(cover): raise ValueError("There should be a translation vector for each subset of the cover.")
+// assembly = np.zeros((stf.n, stf.D), dtype=np.float64)
+// coords = np.zeros((1,stf.D), dtype=np.float64)
+// index_set = list(local_models.keys())
+// for i in range(stf.n):
+// 	w_i = np.ravel(pou[i,:].todense())
+// 	nz_ind = np.where(w_i > 0)[0]
+// 	coords.fill(0)
+// 	## Construct assembly functions F_j(x) for x_i
+// 	for j in nz_ind: 
+// 		subset_j = cover[index_set[j]]
+// 		relative_index = find_where(i, subset_j, True) ## This should always be true!
+// 		u, s, vt = np.linalg.svd((A @ (A.T @ stf.generate_frame(j, w_i))), full_matrices=False, compute_uv=True) 
+// 		d_coords = local_models[index_set[j]][relative_index,:]
+// 		coords += (w_i[j]*A.T @ (u @ vt) @ (d_coords + translations[j]).T).T
+// 	assembly[i,:] = coords
+using index_list = std::list< std::vector< size_t > >;
+void fast_assembly(index_list& cover_subsets, const arma::sp_mat& pou){
+
+	py::array_t< double > phi_i = auto generate_frame(const size_t origin, py::array_t< double > weights)
+
+}
+
 
 PYBIND11_MODULE(fast_svd, m) {
 	m.def("fast_svd", &fast_svd, "Yields the svd of a matrix of low dimension");

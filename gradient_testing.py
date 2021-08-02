@@ -148,8 +148,46 @@ def close_interpolater(X, Y):
 		return(np.linalg.inv(I - 0.5*K) @ (I + 0.5*K) @ X)
 	return(interpolate)
 
-U = St.random_uniform(1)
-Y = close_interpolater(U, A_star)
+# U = St.random_uniform(1)
+Y = close_interpolater(AI, embedding.A0)
+
+## Zero-whip span geodesic interpolator 
+normalize = lambda x: x / np.linalg.norm(x) if x.ndim == 1 else x/np.sqrt(np.sum(x**2, axis = 0))
+
+def orthonormalize(x): 
+	q,r = np.linalg.qr(normalize(x))
+	return(normalize(q @ np.diag(np.sign(np.diag(r)))))
+
+def orthonormalize_by(x, y):
+	if not(x.shape == y.shape): raise ValueError("Input dimensions don't match")
+	x = normalize(x)
+	for j in range(x.shape[1]):
+		x[:,j] -= np.dot(x[:,j], y[:,j])*y[:,j]
+	return(normalize(x))
+
+Fa = np.zeros((4,2))
+Fz = np.zeros((4,2))
+Fa[0,0] = Fa[1,1] = 1.0
+Fz[2,0] = Fz[3,1] = 1.0
+
+def geodesic_path(Fa, Fz):
+	n,p = Fa.shape
+	Fa, Fz = orthonormalize(Fa), orthonormalize(Fz)
+	Va, Lambda, Vzt = np.linalg.svd(Fa.T @ Fz, full_matrices = False)
+	sv = Lambda[0:p][::-1]
+	Va, Vz = Va[:,0:p][:,::-1], Vzt.T[:,0:p][:,::-1]
+	Ga, Gz = orthonormalize(Fa @ Va), orthonormalize(Fz @ Vz)
+	Gz = orthonormalize_by(Gz, Ga)
+	tau = np.arccos(sv)
+	bad_idx = np.where(tau < 1e-5)[0]
+	if len(bad_idx) > 0:
+		tau[bad_idx] = 0.0
+		Gz[:,bad_idx] = Ga[:,bad_idx]
+	def step_fraction(fraction):
+		return(orthonormalize((Ga * np.cos(fraction*tau) + Gz * np.sin(fraction*tau)) @ Va.T))
+	return(step_fraction)
+
+Y = geodesic_path(U, A_star)
 
 # embeddings = []
 # for alpha in np.linspace(0,1,20):
@@ -157,34 +195,62 @@ Y = close_interpolater(U, A_star)
 # 	U = assemble_frames(stf, A_int, embedding.cover, embedding.pou, embedding.models, translations)
 # 	embeddings.append(U)
 
+
+
 from matplotlib import animation
 import mpl_toolkits.mplot3d.axes3d as p3
 from mpl_toolkits.mplot3d.art3d import juggle_axes
 fig = plt.figure()
 ax = p3.Axes3D(fig)
 # Setting the axes properties
-ax.set_xlim3d([-3.0, 3.0])
-ax.set_ylim3d([-2.0, 5.0])
-ax.set_zlim3d([-1.0, 7.0])
-
 init = assemble_frames(stf, Y(0), embedding.cover, embedding.pou, embedding.models, translations)
+final = assemble_frames(stf, Y(1), embedding.cover, embedding.pou, embedding.models, translations)
+rng_min, rng_max = final.min(axis=0), final.max(axis=0)
+ax.set_xlim3d([rng_min[0], rng_max[0]])
+ax.set_ylim3d([rng_min[1], rng_max[1]])
+ax.set_zlim3d([rng_min[2], rng_max[2]])
+
+# Initial projection
 points = ax.scatter(init[:,0], init[:,1], init[:,2], marker='o', c=B[:,0])
-
-
 def animate(frame): 
 	print(frame)
 	A_int = Y(frame/100)
 	U = assemble_frames(stf, A_int, embedding.cover, embedding.pou, embedding.models, translations) 
 	points._offsets3d = juggle_axes(U[:,0], U[:,1], U[:,2], 'z')
 anim = animation.FuncAnimation(fig, animate, frames=100, interval=50)
-anim.save('basic_animation.mp4', fps=30, extra_args=['-vcodec', 'libx264'])
+anim.save('basic_animation3.mp4', fps=30, extra_args=['-vcodec', 'libx264'])
 plt.show()
 
 
-ax.scatter(embeddings[1][:,0], embeddings[1][:,1], embeddings[1][:,2], marker='o', c=B[:,0])
-ax.scatter(embeddings[0][:,0], embeddings[0][:,1], embeddings[0][:,2], marker='o', c=B[:,0])
-ax.scatter(embeddings[0][:,0], embeddings[0][:,1], embeddings[0][:,2], marker='o', c=B[:,0])
-ax.scatter(embeddings[0][:,0], embeddings[0][:,1], embeddings[0][:,2], marker='o', c=B[:,0])
+
+## Frame interpolation
+Fa = np.zeros((4,2))
+Fz = np.zeros((4,2))
+Fa[0,0] = Fa[1,1] = 1.0
+Fz[2,0] = Fz[3,1] = 1.0
+
+def givens_csr(a: float, b: float):
+	if b == 0: 
+		c,s,r = 1.0 if a == 0 else np.sign(a), 0.0, np.abs(a)
+	elif a == 0:
+		c,s,r = 0, np.sign(b), np.abs(b)
+	elif np.abs(a) > np.abs(b):
+		t = a / b
+		u = np.sign(a) * np.sqrt(1 + t * t)
+		c,s,r = 1/u, (1/u)*t, a*u
+	else:
+		t = a / b
+		u = np.sign(b) * np.sqrt(1 + t * t)
+		s,c,r = 1/u, (1/u) * t, b * u
+	return(c,s,r)
+
+def givens_rotation(i,j,c,s,n):
+	G = np.eye(n)
+	G[i,i], G[i,j], G[j,i], G[j,j] = c,-s,s,c
+	return(G)
+
+c,s,r = givens_csr(2.3, 1.4)
+np.array([[c, -s], [s, c]]) @ np.array([2.3, 1.4]).reshape((2,1))
 
 # First set up the figure, the axis, and the plot element we want to animate
 fig = plt.figure()
@@ -194,7 +260,55 @@ line, = ax.plot([], [], lw=2)
 # call the animator.  blit=True means only re-draw the parts that have changed.
 
 
+## Quasi-geodesic 
+# from geomstats.geometry.stiefel import StiefelCanonicalMetric
+from scipy.linalg import expm, logm 
+n,p = Fa.shape
+q,s,r = np.linalg.svd(Fz.T @ Fa, full_matrices = True)
+R = q @ r
+U_star = Fz @ R
+A = logm(R.T)
+q,s,vt = np.linalg.svd((np.eye(n) - Fa @ Fa.T) @ U_star, full_matrices = False)
+sigma = np.arcsin(s)
+quasi_geodesic = lambda t: (Fa @ vt.T @ np.diag(np.cos(t*sigma)) + q @ np.diag(t*sigma)) @ vt @ expm(t*A)
 
+
+n,p = Fa.shape
+q,s,rt = np.linalg.svd(Fz.T @ Fa, full_matrices = True)
+R = q @ rt
+a = logm(R.T)
+q,s,vt = np.linalg.svd(np.real(uq @ expm(t*B) @ Iz) @ R, full_matrices = False)
+sigma = np.arcsin(s)
+b = np.diag(sigma) @ vt
+c = -(1/6)*(b @ a @ b.T)
+
+b11 = vt.T @ np.diag(np.cos(sigma)) @ vt @ R.T
+b12 = -vt.T @ np.diag(np.sin(sigma)) @ expm(c)
+b21 = np.diag(np.sin(sigma)) @ vt @ R.T
+b22 = np.diag(np.cos(sigma)) @ expm(c)
+B = np.vstack((np.hstack((b11, b12)), np.hstack((b21, b22))))
+uq = np.hstack((Fa, q))
+
+m = uq.shape[1] - p 
+Iz = np.vstack((np.eye(p), np.zeros((m,m))))
+Z = np.real(uq @ expm(t*B) @ Iz)
+
+
+np.linalg.norm()
+
+from geomstats.geometry.stiefel import StiefelCanonicalMetric
+stf_cm.log(R.T)
+
+# StiefelCanonicalMetric()
+# .log(point=R.T, base_point=Fa)
+
+
+## Try to interpolate using weighted broenius norm + f 
+project = lambda tau: assemble_frames(stf, Y(tau), embedding.cover, embedding.pou, embedding.models, translations) 
+embeddings = [project(tau) for tau in np.linspace(0, 1, 10)]
+
+
+np.linalg.norm(embeddings[0])
 
 # ## Try projecting onto St(n,p) via retraction 
 # # scm = stiefel.StiefelCanonicalMetric(stf.d * J, stf.D)
