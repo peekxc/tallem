@@ -1,8 +1,8 @@
 import numpy as np
 import numpy.typing as npt
 from typing import Iterable, Dict
-from .procrustes import global_translations
 from scipy.sparse import csc_matrix
+from .procrustes import global_translations
 from .utility import find_where
 
 def assemble_frames(stf, A: npt.ArrayLike, cover: Iterable, pou: csc_matrix, local_models: Dict, translations: Dict) -> npt.ArrayLike:

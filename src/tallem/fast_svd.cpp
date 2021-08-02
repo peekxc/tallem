@@ -162,45 +162,11 @@ struct StiefelLoss {
 		out.push_back(carma::mat_to_arr(GF));
 		return(out);
 	}
-
-	double numpy_svd(){
-		auto svd = py::module::import("numpy.linalg").attr("svd");
-		py::buffer_info output_buffer = output.request();
-		const size_t inc = D*d;
-		double nuclear_norm = 0.0;
-		for (int j = 0; j < n; ++j){
-			np_array_t inp = np_array_t({ D, d }, output.data()+(j*inc));
-			np_array_t sv = svd(inp, false, false, false);
-			auto r = sv.unchecked< 1 >();
-			for (size_t i = 0; i < sv.shape(0); i++){ 
-				nuclear_norm += r(i); 
-			}
-		}
-		return(nuclear_norm);
-	}
-	
-	double three_svd(){
-		double nuclear_norm = 0.0;
-		svd3_stream< false, 3, 3 >(output, [&nuclear_norm](np_array_t& S){
-			nuclear_norm += std::fabs(S.data()[0]);
-			nuclear_norm += std::fabs(S.data()[1]);
-			nuclear_norm += std::fabs(S.data()[2]);	
-		});
-		return(nuclear_norm);
-	}
-
-	double three_svd_carma(){
-		double nuclear_norm = 0.0;
-		svd_3x3_carma< false >(output, [&nuclear_norm](arma::fmat::fixed< 3, 1 >& S){
-			nuclear_norm += std::fabs(S[0]) + std::fabs(S[1]) + std::fabs(S[2]);
-		});
-		return(nuclear_norm);
-	}
-
 	
 	// const size_t jb = J*(J-1)/2;
 	
 	// Populate the O(J^2)-sized hashmap mapping index pairs i,j \in J -> rotation matrices
+	// omega_ is expected to contain the vertically-stacked d-d rotation matrices corresponding to each (i,j) pair
 	void init_rotations(py::list I_ind, py::list J_ind, py::array_t< double > omega_, const size_t J){
 		std::vector< size_t > I1 = py::cast< std::vector< size_t > >(I_ind);
 		std::vector< size_t > I2 = py::cast< std::vector< size_t > >(J_ind);
@@ -341,12 +307,8 @@ struct StiefelLoss {
 
 };
 
-// to_sparse(, py::array_t<int> & locations){}
-
 
 PYBIND11_MODULE(fast_svd, m) {
-	//m.def("svd_2", &svd_2, "Yields the svd of a dimension 2 matrix");
-	//m.def("svd_3", &svd_3, "Yields the svd of a dimension 3 matrix");
 	m.def("fast_svd", &fast_svd, "Yields the svd of a matrix of low dimension");
 	m.def("lapack_svd", &lapack_svd, "Yields the svd of a matrix of low dimension");
 	py::class_<StiefelLoss>(m, "StiefelLoss")
@@ -356,11 +318,8 @@ PYBIND11_MODULE(fast_svd, m) {
 		.def_readonly("D", &StiefelLoss::D)
 		.def_readwrite("output", &StiefelLoss::output)
 		// .def_readwrite("rotations", &StiefelLoss::rotations)
-		.def("numpy_svd", &StiefelLoss::numpy_svd)
 		//.def("benchmark_gradient", &StiefelLoss::benchmark_gradient)
 		.def("gradient", &StiefelLoss::gradient)
-		.def("three_svd", &StiefelLoss::three_svd)
-		.def("three_svd_carma", &StiefelLoss::three_svd_carma)
 		.def("init_rotations", &StiefelLoss::init_rotations)
 		.def("get_rotation", &StiefelLoss::get_rotation)		
 		.def("populate_frame", &StiefelLoss::populate_frame)
@@ -375,9 +334,22 @@ PYBIND11_MODULE(fast_svd, m) {
 	
 }
 
-/* 
-<% 
-cfg['extra_compile_args'] = ['-std=c++17']
-setup_pybind11(cfg) 
-%> 
-*/
+
+
+
+
+// double numpy_svd(){
+// 	auto svd = py::module::import("numpy.linalg").attr("svd");
+// 	py::buffer_info output_buffer = output.request();
+// 	const size_t inc = D*d;
+// 	double nuclear_norm = 0.0;
+// 	for (int j = 0; j < n; ++j){
+// 		np_array_t inp = np_array_t({ D, d }, output.data()+(j*inc));
+// 		np_array_t sv = svd(inp, false, false, false);
+// 		auto r = sv.unchecked< 1 >();
+// 		for (size_t i = 0; i < sv.shape(0); i++){ 
+// 			nuclear_norm += r(i); 
+// 		}
+// 	}
+// 	return(nuclear_norm);
+// }
