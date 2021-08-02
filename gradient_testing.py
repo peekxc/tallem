@@ -138,6 +138,61 @@ for i in range(1000):
 	random_costs.append(stf.gradient(A_ran.T, False)[0])
 
 ## Interpolate between the optimal A and the initial guess 
+def close_interpolater(X, Y):
+	n,p = X.shape
+	I = np.eye(n)
+	V = 2*Y @ np.linalg.inv(np.eye(p) + X.T @ Y)
+	def interpolate(alpha: float):
+		nonlocal X, V
+		K = ((alpha*V) @ X.T) - (X @ (alpha*V).T) 
+		return(np.linalg.inv(I - 0.5*K) @ (I + 0.5*K) @ X)
+	return(interpolate)
+
+U = St.random_uniform(1)
+Y = close_interpolater(U, A_star)
+
+# embeddings = []
+# for alpha in np.linspace(0,1,20):
+# 	A_int = Y(alpha)
+# 	U = assemble_frames(stf, A_int, embedding.cover, embedding.pou, embedding.models, translations)
+# 	embeddings.append(U)
+
+from matplotlib import animation
+import mpl_toolkits.mplot3d.axes3d as p3
+from mpl_toolkits.mplot3d.art3d import juggle_axes
+fig = plt.figure()
+ax = p3.Axes3D(fig)
+# Setting the axes properties
+ax.set_xlim3d([-3.0, 3.0])
+ax.set_ylim3d([-2.0, 5.0])
+ax.set_zlim3d([-1.0, 7.0])
+
+init = assemble_frames(stf, Y(0), embedding.cover, embedding.pou, embedding.models, translations)
+points = ax.scatter(init[:,0], init[:,1], init[:,2], marker='o', c=B[:,0])
+
+
+def animate(frame): 
+	print(frame)
+	A_int = Y(frame/100)
+	U = assemble_frames(stf, A_int, embedding.cover, embedding.pou, embedding.models, translations) 
+	points._offsets3d = juggle_axes(U[:,0], U[:,1], U[:,2], 'z')
+anim = animation.FuncAnimation(fig, animate, frames=100, interval=50)
+anim.save('basic_animation.mp4', fps=30, extra_args=['-vcodec', 'libx264'])
+plt.show()
+
+
+ax.scatter(embeddings[1][:,0], embeddings[1][:,1], embeddings[1][:,2], marker='o', c=B[:,0])
+ax.scatter(embeddings[0][:,0], embeddings[0][:,1], embeddings[0][:,2], marker='o', c=B[:,0])
+ax.scatter(embeddings[0][:,0], embeddings[0][:,1], embeddings[0][:,2], marker='o', c=B[:,0])
+ax.scatter(embeddings[0][:,0], embeddings[0][:,1], embeddings[0][:,2], marker='o', c=B[:,0])
+
+# First set up the figure, the axis, and the plot element we want to animate
+fig = plt.figure()
+fig, (ax1, ax2) = plt.subplots(1,2, figsize=(20,8), projection='3d')
+line, = ax.plot([], [], lw=2)
+
+# call the animator.  blit=True means only re-draw the parts that have changed.
+
 
 
 
