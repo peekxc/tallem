@@ -325,8 +325,7 @@ struct StiefelLoss {
 // 	assembly[i,:] = coords
 using index_list = std::list< std::vector< size_t > >;
 void fast_assembly(index_list& cover_subsets, const arma::sp_mat& pou){
-
-	py::array_t< double > phi_i = auto generate_frame(const size_t origin, py::array_t< double > weights)
+	py::array_t< double > phi_i = auto generate_frame(const size_t origin, py::array_t< double > weights);
 
 }
 

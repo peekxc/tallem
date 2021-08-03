@@ -1,10 +1,11 @@
-# %% Procrustes imports
+# %% Alignment imports
 import numpy as np
 import numpy.typing as npt
 from typing import Iterable, Dict
 from itertools import combinations
 from .sc import delta0D
 
+# %% Alignment definitions
 def global_translations(cover: Iterable, alignments: Dict):
 	## Get optimal translation vectors 
 	index_pairs = list(alignments.keys())
@@ -27,7 +28,6 @@ def global_translations(cover: Iterable, alignments: Dict):
 	offsets = { index : shiftV[index*d:(index+1)*d] for index in range(J) }
 	return(offsets)
 
-
 ## Solve Procrustes problem for each non-empty intersection	
 def align_models(cover: Iterable, models: Dict):
 	if len(cover) != len(models): raise ValueError("There should be a local euclidean model associated with each subset of the cover.")
@@ -42,7 +42,6 @@ def align_models(cover: Iterable, models: Dict):
 			PA_map[(ii,jj)] = opa(models[j][j_idx,:], models[i][i_idx,:], rotation_only=False, transform=False)
 	return(PA_map)
 
-# %% Procrustes definitions
 def opa(a: npt.ArrayLike, b: npt.ArrayLike, transform=False, rotation_only=True):
 	''' 
 	Ordinary Procrustes Analysis:
@@ -96,68 +95,6 @@ def opa(a: npt.ArrayLike, b: npt.ArrayLike, transform=False, rotation_only=True)
 	return(output)
 
 
-# %% Procrustes definitions
-def old_procrustes(a: npt.ArrayLike, b: npt.ArrayLike, transform=False, rotation_only=False):
-	''' 
-	Ordinary Procrustes Analysis:
-	Determines the translation, orthogonal transformation, and uniform scaling of factor 
-	that when applied to 'b' yields a point set that is as close to the points in 'a' under
-	with respect to the sum of squared errors criterion.
-	Returns:
-		dictionary with rotation matrix R, relative scaling 's', and translation vector 't' 
-		such that a \approx (s*norm(b)) * b@R + t where norm(*) denotes the Frobenius norm.
-	'''
-	a, b = np.array(a), np.array(b)
-	
-	# Translation
-	aT, bT = a.mean(0), b.mean(0)
-	A, B = a - aT, b - bT
-	
-	# Scaling 
-	aS, bS = np.linalg.norm(A), np.linalg.norm(B)
-	A /= aS 
-	B /= bS
-
-	# Rotation / Reflection
-	U, Sigma, Vt = np.linalg.svd(np.dot(B.T, A), full_matrices=False)
-	aR = np.dot(U, Vt)
-	
-	# Correct to rotation if requested
-	if rotation_only and np.linalg.det(aR) < 0:
-		Vt[:,-1] *= -1 # note that Sigma is changing implicitly here
-		Sigma = np.repeat(1.0, len(Sigma))
-		Sigma[-1] = -1.0
-		aR = np.dot(np.dot(U, np.diag(Sigma)), Vt)
-
-	# Normalize scaling + translation 
-	s = np.sum(Sigma) * (aS / bS)  	 # How big is A relative to B?
-	c = aT - s * np.dot(bT, aR) # place translation vector relative to A
-
-	# Procrustes distance
-	# aD = np.sqrt(np.sum((A - B.dot(aR))**2) / len(a))
-	D = 1.0 - np.sum(Sigma)**2
-	
-	# The transformed/superimposed coordinates
-	# Note: (s*bS) * np.dot(B, aR) + c
-	output = { "rotation": aR, "scaling": s, "translation": c, "distance": D }
-	if transform:
-		Z = (s*bS) * np.dot(B, aR) + c
-		output["coordinates"] = Z
-	return(output)
-
-# %% Write the flywing data set to disk
-# import numpy as np
-# import pickle
-# arr1 = np.array([[588.0, 443.0], [178.0, 443.0], [56.0, 436.0], [50.0, 376.0], [129.0, 360.0], [15.0, 342.0], [92.0, 293.0], [79.0, 269.0], [276.0, 295.0], [281.0, 331.0], [785.0, 260.0], [754.0, 174.0], [405.0, 233.0], [386.0, 167.0], [466.0, 59.0]])
-# arr2 = np.array([[477.0, 557.0], [130.129, 374.307], [52.0, 334.0], [67.662, 306.953], [111.916, 323.0], [55.119, 275.854], [107.935, 277.723], [101.899, 259.73], [175.0, 329.0], [171.0, 345.0], [589.0, 527.0], [591.0, 468.0], [299.0, 363.0], [306.0, 317.0], [406.0, 288.0]])
-# label1 = np.repeat(1, arr1.shape[0]).reshape((arr1.shape[0], 1))
-# label2 = np.repeat(2, arr2.shape[0]).reshape((arr2.shape[0], 1))
-# flywing = np.vstack((
-# 	np.hstack((arr1, label1)),
-# 	np.hstack((arr2, label2))
-# ))
-# with open('flywing.pickle', 'wb') as output:
-#     pickle.dump(flywing, output)
 
 # %% 
 # import matplotlib as mpl 

@@ -23,11 +23,51 @@ from itertools import combinations, product
 
 from enum import IntEnum
 class Gluing(IntEnum):
+	REVERSED = -1
 	INVERTED = -1 
 	NONE = 0
 	ALIGNED = 1
+	PERIODIC = 1
 
-## TODO: somehow extend this to allow identification of edges
+##  TODO: Add generic to make cover duck-typed for other methods
+
+## TODO: consider what other spaces to construct the covers on
+## Goal: 
+## (1) BallCover("D1", balls=8) # samples nearly-equidistant points via Gibbs sampler, sets radii to minimum need to cover space
+## (2) BallCover("S1", [0, pi/2, pi, 3*pi/2], pi)
+## (3) BallCover(space=[0, 2*pi], balls=[0, pi/2, pi, 3*pi/2], radii=pi, gluing=PERIODIC) # eq. to (2)
+## (4) BallCover(space=product([0, 1], [0, 1]), balls=product([0, 0.25, 0.50, 0.75], ...), radii=0.15, gluing=[ None, REVERSED ])     # mobius band 
+## (5) BallCover(space=product([0, 1], [0, 1]), balls=product([0, 0.25, 0.50, 0.75], ...), radii=0.15, gluing=[ None, PERIODIC ])     # cylinder
+## (6) BallCover(space=product([0, 1], [0, 1]), balls=product([0, 0.25, 0.50, 0.75], ...), radii=0.15, gluing=[ REVERSED, ALIGNED ])  # Klein bottle
+## (7) BallCover("klein bottle", balls=4, radii=0.15) ## equiv. to (6)
+## (8) IntervalCover("real projective plane", balls=) # can also specify RP2
+
+class BallCover():
+	def __init__(self, space: npt.ArrayLike, balls: npt.ArrayLike, radii: npt.ArrayLike):
+		''' 
+		space := the type of space to construct a cover on. Can be a point set, a set of intervals (per column) indicating the domain of the cover, 
+						 or a string indicating a common configuration space. 
+		balls := (m x d) matrix of points giving the ball locations in 'space'
+		radii := scalar, or (m)-len array giving the radii associated with every ball
+
+		'''
+		self.tree = KDTree(x)
+		self.balls = balls
+		self.radii = radii 
+
+	def construct(self, a: npt.ArrayLike, index: Optional[npt.ArrayLike] = None):
+		self.tree.query_ball_point(x, r = np.array(list(range(x.shape[0])))/100.0)
+
+	def __iter__(self):
+
+	def __getitem__(self, index):
+
+	def __len__(self):
+
+
+## This is just a specialized ball cover
+# class LandmarkCover():
+
 ## maybe: identify = [i_0, ..., i_d] where i_k \in [-1, 0, +1], where -1 indicates reverse orientation, 0 no identification, and +1 regular orientation
 class IntervalCover():
 	'''
@@ -197,6 +237,32 @@ class IntervalCover():
 # 	def __init__(self):
 # 			self.neighbor = BallTree(a, kwargs)
 
+def bump(dissimilarity: float, method: Optional[str] = "triangular", **kwargs):
+	''' Applies a bump function to convert given dissimilarity measure between [0,1] to a similarity measure '''
+	assert np.all(dissimilarity >= 0.0), "Dissimilarity must be non-negative."
+	if method == "triangular" or method == "linear": 
+		s = 1.0 - dissimilarity, 0.0
+	elif method == "quadratic":
+		s = (1.0 - dissimilarity)**2
+	elif method == "cubic":
+		s = (1.0 - dissimilarity)**3
+	elif method == "quartic":
+		s = (1.0 - dissimilarity)**4
+	elif method == "quintic":
+		s = (1.0 - dissimilarity)**5
+	elif method == "polynomial":
+		p = kwargs["p"] if kwargs.has_key("p") else 2.0
+		s = (1.0 - dissimilarity)**p
+	elif method == "gaussian":
+		s = np.array([np.exp(-1.0/(d**2)) for d in dissimilarity if d > 0.0 else 0.0])
+	elif method == "logarithmic":
+		s = np.log(1+dissimilarity)
+	elif isinstance(method, Callable):
+		s = method(dissimilarity)
+	else: 
+		raise ValueError("Invalid bump function specified.")
+	return(np.maximum(s, 0.0))
+
 ## A Partition oif unity is 
 ## B := point cloud topologiucal space
 ## phi := function mapping a subset of m points to (m x J) matrix 
@@ -204,10 +270,8 @@ def partition_of_unity(B: npt.ArrayLike, cover: Iterable, beta: Union[str, Calla
 	if (B.ndim != 2): raise ValueError("Error: filter must be matrix.")
 	J = len(cover)
 	weights = np.ones(J) if weights is None else np.array(weights)
-	if len(weights) != J:
-		raise ValueError("weights must have length matching the number of sets in the cover.")
-	if beta is None:
-		raise ValueError("phi map must be a real-valued function, or a string indicating one of the precomputed ones.")
+	assert len(weights) != J, "weights must have length matching the number of sets in the cover."
+	assert beta is not None, "phi map must be a real-valued function, or a string indicating one of the precomputed ones."
 	
 	## Derive centroids, use dB metric to define distances => partition of unity to each subset 
 	if isinstance(cover, IntervalCover):
@@ -215,11 +279,13 @@ def partition_of_unity(B: npt.ArrayLike, cover: Iterable, beta: Union[str, Calla
 		def beta(cover_set):
 			index, subset = cover_set
 			centroid = cover.bbox[0:1,:] + (np.array(index) * cover.base_width) + cover.base_width/2.0
-			# beta_j = np.maximum(max_r - dist(B, centroid), 0.0) ## use triangular
 			dist_to_poles = np.sqrt(np.sum(cover._diff_to(B, centroid)**2, axis = 1))
-			beta_j = np.maximum(max_r - dist_to_poles, 0.0)
+			beta_j = bump(dist_to_poles/max_r, beta)
+			if np.any(beta_j[np.setdiff1d(range(B.shape[0]), subset)] > 0.0):
+				raise ValueError("Invalid similarity function. Partition must be subordinate to the cover.")
 			## TODO: rework so this isn't needed!
-			beta_j[np.setdiff1d(range(B.shape[0]), subset)] = 0.0
+			# beta_j = np.maximum(max_r - dist_to_poles, 0.0)
+			# beta_j[np.setdiff1d(range(B.shape[0]), subset)] = 0.0
 			return(beta_j)
 	else: 
 		raise ValueError("Only interval cover is supported for now.")
