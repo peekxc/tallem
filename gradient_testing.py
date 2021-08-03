@@ -333,3 +333,36 @@ np.linalg.norm(embeddings[0])
 # TODO: add gradients to tox, nose, or pytest testing https://tox.readthedocs.io/en/latest/
 
 
+
+# %% Frey faces (each of size 20 x 28)  
+import scipy.io
+frey = scipy.io.loadmat("/Users/mpiekenbrock/Downloads/frey_rawface.mat")
+faces = frey['ff'].T
+
+B_polar = B[:,1].reshape((B.shape[0], 1))
+cover = IntervalCover(B_polar, n_sets = 10, overlap = 0.30, gluing=[1])
+f = lambda x: classical_MDS(dist(x, as_matrix=True), k = 2)
+
+# %% Run TALLEM
+%%time
+embedding = TALLEM(cover=cover, local_map=f, n_components=3)
+X_transformed = embedding.fit_transform(X, B_polar)
+
+x = np.random.normal(size=(100,2))
+x[:,0] = x[:,0]*4.5
+x[:,1] = x[:,1]*0.50
+angle = np.pi/4
+R = np.array([[np.cos(angle), -np.sin(angle)], [np.sin(angle), np.cos(angle)]])
+x = (R @ x.T).T
+x += np.array([12, 6])
+
+import matplotlib.pyplot as plt
+fig = plt.figure()
+ax = fig.add_subplot(111)
+ax.set_aspect('equal')
+# plt.scatter(x[:,0], x[:,1])
+plt.scatter(pca(x)[:,0], pca(x)[:,1])
+
+# %% 
+# neighborhood_graph(d, radius = 2*8.5)
+neighborhood_graph(d, k = 5)

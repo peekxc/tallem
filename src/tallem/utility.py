@@ -1,6 +1,7 @@
 import numpy as np 
 import numpy.typing as npt
 from bisect import bisect_left
+from scipy.sparse import issparse
 
 def find_where(a: npt.ArrayLike, b: npt.ArrayLike, validate: bool = False):
 	''' Finds where each element in 'a' is positioned in array 'b', or None otherwise. '''
@@ -22,3 +23,10 @@ def inverse_permutation(a):
 	b = np.arange(a.shape[0])
 	b[a] = b.copy()
 	return b
+
+def as_np_array(a: npt.ArrayLike) -> npt.ArrayLike:
+	''' Converts sparse objects or numpy-compatible containers to dense numpy arrays '''
+	if issparse(a): 
+		a = a.todense()
+		return(a + a.T - np.diag(a.diagonal()))
+	return(np.array(a, copy=False))

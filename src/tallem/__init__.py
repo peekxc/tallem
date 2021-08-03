@@ -147,6 +147,11 @@ class TALLEM():
 	def __repr__(self) -> str:
 		return("TALLEM instance")
 
+	def assemble(self, pou: Optional[csc_matrix] = None, D_frame: Optional[npt.ArrayLike] = None):
+		if D_frame is None: D_frame = self.A
+		if pou is None: pou = self.pou
+		translations = global_translations(self.cover, self.alignments)
+		return(assemble_frames(self._stf, D_frame, self.cover, pou, self.models, translations))
 
 ## TALLEM dimennsionality reduction algorithm -- Full wrapper
 ## TODO: Need to supply cover options
