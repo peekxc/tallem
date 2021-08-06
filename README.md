@@ -2,7 +2,7 @@
 
 This repository hosts `tallem`, a [Python project](https://packaging.python.org/glossary/#term-Project) which implements TALLEM--a topologically inspired non-linear dimensionality reduction method. 
 
-Given some data set *X* and a map <img class='latex-inline math' style="background: white;" src="https://render.githubusercontent.com/render/math?math=\large f%20%3A%20X%20%5Cto%20B&mode=inline"> onto some topological space _B_ which captures the topology/nonlinearity of _X_, TALLEM constructs a map <img style="background: white; vertical-align:-0.105206pt" class='latex-inline math' src="https://render.githubusercontent.com/render/math?math=\large F%20%3A%20X%20%5Cto%20%5Cmathbb%7BR%7D%5ED%20&mode=inline"> mapping _X_ to a _D_-dimensional space. 
+Given some data set *X* and a map <img class='latex-inline math' style="background: white; vertical-align:-0.105206pt;" src="https://render.githubusercontent.com/render/math?math=\large f%20%3A%20X%20%5Cto%20B&mode=inline"> onto some topological space _B_ which captures the topology/nonlinearity of _X_, TALLEM constructs a map <img style="background: white; vertical-align:-0.105206pt" class='latex-inline math' src="https://render.githubusercontent.com/render/math?math=\large F%20%3A%20X%20%5Cto%20%5Cmathbb%7BR%7D%5ED%20&mode=inline"> mapping _X_ to a _D_-dimensional space. 
 
 TODO: describe TALLEM more
 

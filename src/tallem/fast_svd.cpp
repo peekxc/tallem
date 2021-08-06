@@ -6,14 +6,18 @@
 #include <pybind11/stl.h>
 #include <pybind11/numpy.h>
 #include <cmath> // fabs
+#include <chrono>
 #include "svd_3x3.h" // fast 3x3 svd
 #include "carma_svd.h" // fast 3x3 svd using carma
 
-#include <chrono>
+
 using namespace std::chrono;
+using std::vector; 
 
 using namespace pybind11::literals;
 namespace py = pybind11;
+
+
 
 // Compile command: g++ -O3 -Wall -shared -std=c++17 -fPIC -Wl,-undefined,dynamic_lookup $(python3 -m pybind11 --includes) example.cpp -o example$(python3-config --extension-suffix)
 
@@ -211,6 +215,24 @@ struct StiefelLoss {
 		return(carma::mat_to_arr< double >(d_frame, true));
 	}
 
+	// This generates a given dense (dJ x d) frame with the weighted rotation matrices given in the 'rotations' table
+	void generate_frame_(const size_t origin, const vector< double >& weights, arma::mat& d_frame) {
+		const size_t J = weights.size();	
+		arma::mat I = arma::eye(d, d);
+		for (size_t j = 0; j < J; ++j){
+			auto r_rng = arma::span(j*d,(j+1)*d-1); 
+			if (j == origin || weights[j] == 0.0){ 
+				d_frame(r_rng, arma::span::all) = weights[j] * I; 
+				continue;
+			} else {
+				// If pair exists, load it up, otherwise use identity
+				const size_t key = rank_comb2(origin, j, J); 
+				bool key_exists = rotations.find(key) != rotations.end();
+				d_frame(r_rng, arma::span::all) = weights[j]*(key_exists ? (origin < j ? rotations[key] : rotations[key].t()) : I);
+			}
+		}
+	}
+
 	// Using the rotations from the omega map, initialize the phi matrix representing the concatenation 
 	// of the weighted frames for some choice of iota 
 	// py::array_t< double > iota, bool sparse = false
@@ -305,6 +327,48 @@ struct StiefelLoss {
 		py::print("ms dense: ", ms_dense, "ms sparse: ", ms_sparse);
 	}
 
+
+	using index_list = std::list< vector< size_t > >;
+	using vec_mats = vector< arma::mat >;
+
+	// TODO: make pou and local_models transposed to access by column
+	void fast_assembly(const arma::mat& A, const arma::sp_mat& pou, index_list& cover_subsets, const vec_mats& local_models){
+		//py::array_t< double > phi_i = generate_frame(const size_t origin, py::array_t< double > weights);
+		arma::mat assembly = arma::zeros(n, D);
+		arma::vec coords = arma::zeros(d);
+		const size_t J = pou.n_cols;
+		
+		// Variables to re-use/cache in the loop 
+		vector< double > phi_i(J); // the partition of unity weights for x_i 
+		arma::mat d_frame(d*J, d); // the current frame to populate 
+
+		// Build the assembly
+		for (size_t i = 0; i < n; ++i){
+			phi_i.assign(J, 0.0);
+
+			// Fill phi weight vector 
+			auto ri = pou.begin_row(i);
+			for (; ri != pou.end_row(); ++ri){ phi_i[ri.col()] = *ri; }
+
+			// 
+			
+			
+			for (; ri != pou.end_row(); ++ri){
+				size_t j = ri.col(); 
+				double phi_j = *ri;
+				vector< size_t > subset_j = cover_subsets.at(j);
+				auto lb = std::lower_bound(subset_j.begin(), subset_j.end(), i);
+				if (lb != subset_j.end() && (*lb) == i){
+					size_t jj = std::distance(subset_j.begin(), lb);
+					generate_frame_(j, phi_i, d_frame); // populates d_frame
+					
+					// TODO: figure out svd
+					A * A.t() * d_frame;
+					coords += local_models.at(j).row(jj);
+				}
+			}
+		}
+	}
 };
 
 // if len(translations) != len(cover): raise ValueError("There should be a translation vector for each subset of the cover.")
@@ -323,11 +387,6 @@ struct StiefelLoss {
 // 		d_coords = local_models[index_set[j]][relative_index,:]
 // 		coords += (w_i[j]*A.T @ (u @ vt) @ (d_coords + translations[j]).T).T
 // 	assembly[i,:] = coords
-using index_list = std::list< std::vector< size_t > >;
-void fast_assembly(index_list& cover_subsets, const arma::sp_mat& pou){
-	py::array_t< double > phi_i = auto generate_frame(const size_t origin, py::array_t< double > weights);
-
-}
 
 
 PYBIND11_MODULE(fast_svd, m) {
