@@ -328,11 +328,21 @@ struct StiefelLoss {
 	}
 
 
-	using index_list = std::list< vector< size_t > >;
+	using index_list = std::vector< vector< size_t > >;
 	using vec_mats = vector< arma::mat >;
 
+	// Given sorted range [b,e), finds 'element' in log time, or throws an exception if not found
+	template< typename Iter, typename T = typename Iter::value_type >
+	auto find_index(Iter b, const Iter e, T element) -> size_t {
+		auto lb = std::lower_bound(b, e, element);
+		if (lb != e && (*lb == element)){
+			return(std::distance(b, lb));
+		}
+		throw std::logic_error("Unable to find element in array.");
+	}
+
 	// TODO: make pou and local_models transposed to access by column
-	void fast_assembly(const arma::mat& A, const arma::sp_mat& pou, index_list& cover_subsets, const vec_mats& local_models){
+	void fast_assembly(const arma::mat& A, const arma::sp_mat& pou, index_list& cover_subsets, const vec_mats& local_models, const arma::mat& T){
 		//py::array_t< double > phi_i = generate_frame(const size_t origin, py::array_t< double > weights);
 		arma::mat assembly = arma::zeros(n, D);
 		arma::vec coords = arma::zeros(d);
@@ -341,6 +351,8 @@ struct StiefelLoss {
 		// Variables to re-use/cache in the loop 
 		vector< double > phi_i(J); // the partition of unity weights for x_i 
 		arma::mat d_frame(d*J, d); // the current frame to populate 
+		arma::mat U, V;
+		arma::vec s;
 
 		// Build the assembly
 		for (size_t i = 0; i < n; ++i){
@@ -350,25 +362,29 @@ struct StiefelLoss {
 			auto ri = pou.begin_row(i);
 			for (; ri != pou.end_row(); ++ri){ phi_i[ri.col()] = *ri; }
 
-			// 
-			
-			
+			// Compute the weighted average of the Fj's using the partition of unity
 			for (; ri != pou.end_row(); ++ri){
 				size_t j = ri.col(); 
-				double phi_j = *ri;
-				vector< size_t > subset_j = cover_subsets.at(j);
-				auto lb = std::lower_bound(subset_j.begin(), subset_j.end(), i);
-				if (lb != subset_j.end() && (*lb) == i){
-					size_t jj = std::distance(subset_j.begin(), lb);
-					generate_frame_(j, phi_i, d_frame); // populates d_frame
-					
-					// TODO: figure out svd
-					A * A.t() * d_frame;
-					coords += local_models.at(j).row(jj);
-				}
+				size_t jj = find_index(cover_subsets[j].begin(), cover_subsets[j].end(), i);
+				generate_frame_(j, phi_i, d_frame); 			// populates d_frame
+				svd_econ(U, s, V, A * (A.t() * d_frame)); // compute SVD of A A^T phi_j
+				arma::vec local_coord = local_models[j].row(jj) + T.row(j); // should be column vector
+				coords += ((*ri) * A.t() * U * V.t()) * local_coord.t();
 			}
 		}
 	}
+
+	// Convert to arrays to arma sparse matrix
+	// auto to_sparse(py::array_t< double > x, py::array_t< int > row_ind, py::array_t< int > colptr, const size_t nr, const size_t nc) -> arma::sp_mat {
+	// 	return(arma::sp_mat(row_ind, colptr, x, nr, nc));
+	// }
+
+	// Wrapper for the fast_assembly above
+	// using np_rarray = py::array_t< double >;
+	// auto assemble_frames(np_rarray) -> np_rarray {
+
+	// }
+
 };
 
 // if len(translations) != len(cover): raise ValueError("There should be a translation vector for each subset of the cover.")
@@ -389,9 +405,16 @@ struct StiefelLoss {
 // 	assembly[i,:] = coords
 
 
+
+	void test_sparse(py::object S){
+		py::array_t< int > ind = S.attr("indices").cast< py::array_t< int > >();
+		for (auto i: ind){ py::print(i); }
+	}
+
 PYBIND11_MODULE(fast_svd, m) {
 	m.def("fast_svd", &fast_svd, "Yields the svd of a matrix of low dimension");
 	m.def("lapack_svd", &lapack_svd, "Yields the svd of a matrix of low dimension");
+	m.def("test_sparse", &test_sparse, "Test conversion to sparse matrix");
 	py::class_<StiefelLoss>(m, "StiefelLoss")
 		.def(py::init< int, int, int >())
 		.def_readonly("d", &StiefelLoss::d)

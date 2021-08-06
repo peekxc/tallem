@@ -1,3 +1,11 @@
+# %% Quick testing 
+import os
+os.chdir("src/tallem")
+import numpy as np
+from scipy.sparse import csc_matrix
+X = np.random.uniform(size=(10,2))
+fast_svd.test_sparse(csc_matrix(X))
+
 # %% Imports 
 from src.tallem import TALLEM
 from src.tallem.cover import IntervalCover
