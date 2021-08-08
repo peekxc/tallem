@@ -374,3 +374,12 @@ plt.scatter(pca(x)[:,0], pca(x)[:,1])
 # %% 
 # neighborhood_graph(d, radius = 2*8.5)
 neighborhood_graph(d, k = 5)
+
+
+# %% 
+import os
+os.chdir("src/tallem")
+import fast_svd
+import numpy as np
+X = np.random.uniform(size=(10,2))
+fast_svd.test_sparse(csc_matrix(X))

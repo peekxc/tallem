@@ -374,16 +374,31 @@ struct StiefelLoss {
 		}
 	}
 
-	// Convert to arrays to arma sparse matrix
-	// auto to_sparse(py::array_t< double > x, py::array_t< int > row_ind, py::array_t< int > colptr, const size_t nr, const size_t nc) -> arma::sp_mat {
-	// 	return(arma::sp_mat(row_ind, colptr, x, nr, nc));
-	// }
+	void to_sparse(const py::object& S, arma::sp_mat& out){
+		py::tuple shape = S.attr("shape").cast< py::tuple >();
+		const size_t nr = shape[0].cast< size_t >(), nc = shape[1].cast< size_t >();
+		arma::uvec ind = carma::arr_to_col(S.attr("indices").cast< py::array_t< arma::uword > >());
+		arma::uvec ind_ptr = carma::arr_to_col(S.attr("indptr").cast< py::array_t< arma::uword > >());
+		arma::vec data = carma::arr_to_col(S.attr("data").cast< py::array_t< double > >());
+		out = arma::sp_mat(ind, ind_ptr, data, nr, nc);
+	}
 
 	// Wrapper for the fast_assembly above
-	// using np_rarray = py::array_t< double >;
-	// auto assemble_frames(np_rarray) -> np_rarray {
-
-	// }
+	auto assemble_frames(py::array_t< double >& A, py::object& pou, py::list& cover_subsets, py::list& local_models, py::array_t< double >& T ) -> py::array_t< double > {
+		arma::mat A_ = carma::arr_to_mat(A, true);
+		arma::sp_mat pou_;
+		to_sparse(pou, pou_);
+		auto subsets = vector< vector< size_t > >();
+		for (auto ind: cover_subsets){
+			subsets.push_back(ind.cast< vector< size_t > >());
+		}	
+		auto models = vector< arma::mat >();
+		for (auto pts: local_models){
+			models.push_back(carma::arr_to_mat(pts.cast< py::array_t< double > >()));
+		}
+		arma::mat translations = carma::arr_to_mat(T, true);
+		fast_assembly(A_, pou_, subsets, models, translations);
+	}
 
 };
 
@@ -404,17 +419,10 @@ struct StiefelLoss {
 // 		coords += (w_i[j]*A.T @ (u @ vt) @ (d_coords + translations[j]).T).T
 // 	assembly[i,:] = coords
 
-
-
-	void test_sparse(py::object S){
-		py::array_t< int > ind = S.attr("indices").cast< py::array_t< int > >();
-		for (auto i: ind){ py::print(i); }
-	}
-
 PYBIND11_MODULE(fast_svd, m) {
 	m.def("fast_svd", &fast_svd, "Yields the svd of a matrix of low dimension");
 	m.def("lapack_svd", &lapack_svd, "Yields the svd of a matrix of low dimension");
-	m.def("test_sparse", &test_sparse, "Test conversion to sparse matrix");
+	//m.def("test_sparse", &test_sparse, "Test conversion to sparse matrix");
 	py::class_<StiefelLoss>(m, "StiefelLoss")
 		.def(py::init< int, int, int >())
 		.def_readonly("d", &StiefelLoss::d)
@@ -432,6 +440,7 @@ PYBIND11_MODULE(fast_svd, m) {
 		.def("all_frames", &StiefelLoss::all_frames)
 		.def("embed", &StiefelLoss::embed)
 		.def("benchmark_embedding", &StiefelLoss::benchmark_embedding)
+		.def("assemble_frames", &StiefelLoss::assemble_frames)
 		.def("__repr__",[](const StiefelLoss &stf) {
 			return("Stiefel Loss w/ parameters n="+std::to_string(stf.n)+",d="+std::to_string(stf.d)+",D="+std::to_string(stf.D));
   	});

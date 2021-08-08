@@ -24,9 +24,7 @@ from scipy.sparse import csc_matrix
 # TODO: define __all__
 from .sc import delta0D
 from .distance import dist
-from .procrustes import opa, align_models, global_translations
-from .mds import classical_MDS
-from .procrustes import opa
+from .alignment import opa, align_models, global_translations
 from .samplers import uniform_sampler
 from .stiefel import frame_reduction
 from .cover import IntervalCover, partition_of_unity

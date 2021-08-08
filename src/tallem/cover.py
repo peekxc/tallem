@@ -58,11 +58,11 @@ class BallCover():
 	def construct(self, a: npt.ArrayLike, index: Optional[npt.ArrayLike] = None):
 		self.tree.query_ball_point(x, r = np.array(list(range(x.shape[0])))/100.0)
 
-	def __iter__(self):
+	# def __iter__(self):
 
-	def __getitem__(self, index):
+	# def __getitem__(self, index):
 
-	def __len__(self):
+	# def __len__(self):
 
 
 ## This is just a specialized ball cover
@@ -254,7 +254,7 @@ def bump(dissimilarity: float, method: Optional[str] = "triangular", **kwargs):
 		p = kwargs["p"] if kwargs.has_key("p") else 2.0
 		s = (1.0 - dissimilarity)**p
 	elif method == "gaussian":
-		s = np.array([np.exp(-1.0/(d**2)) for d in dissimilarity if d > 0.0 else 0.0])
+		s = np.array([np.exp(-1.0/(d**2)) if d > 0.0 else 0.0 for d in dissimilarity])
 	elif method == "logarithmic":
 		s = np.log(1+dissimilarity)
 	elif isinstance(method, Callable):
