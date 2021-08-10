@@ -216,19 +216,20 @@ struct StiefelLoss {
 	}
 
 	// This generates a given dense (dJ x d) frame with the weighted rotation matrices given in the 'rotations' table
+	// Note: this applies sqrt to the phi weights! 
 	void generate_frame_(const size_t origin, const vector< double >& weights, arma::mat& d_frame) {
 		const size_t J = weights.size();	
 		arma::mat I = arma::eye(d, d);
 		for (size_t j = 0; j < J; ++j){
 			auto r_rng = arma::span(j*d,(j+1)*d-1); 
 			if (j == origin || weights[j] == 0.0){ 
-				d_frame(r_rng, arma::span::all) = weights[j] * I; 
+				d_frame(r_rng, arma::span::all) = std::sqrt(weights[j]) * I; 
 				continue;
 			} else {
 				// If pair exists, load it up, otherwise use identity
 				const size_t key = rank_comb2(origin, j, J); 
 				bool key_exists = rotations.find(key) != rotations.end();
-				d_frame(r_rng, arma::span::all) = weights[j]*(key_exists ? (origin < j ? rotations[key] : rotations[key].t()) : I);
+				d_frame(r_rng, arma::span::all) = std::sqrt(weights[j])*(key_exists ? (origin < j ? rotations[key] : rotations[key].t()) : I);
 			}
 		}
 	}
@@ -342,10 +343,10 @@ struct StiefelLoss {
 	}
 
 	// TODO: make pou and local_models transposed to access by column
-	void fast_assembly(const arma::mat& A, const arma::sp_mat& pou, index_list& cover_subsets, const vec_mats& local_models, const arma::mat& T){
+	arma::mat fast_assembly(const arma::mat& A, const arma::sp_mat& pou, const index_list& cover_subsets, const vec_mats& local_models, const arma::mat& T){
 		//py::array_t< double > phi_i = generate_frame(const size_t origin, py::array_t< double > weights);
 		arma::mat assembly = arma::zeros(n, D);
-		arma::vec coords = arma::zeros(d);
+		arma::vec coords = arma::zeros(D);
 		const size_t J = pou.n_cols;
 		
 		// Variables to re-use/cache in the loop 
@@ -357,21 +358,37 @@ struct StiefelLoss {
 		// Build the assembly
 		for (size_t i = 0; i < n; ++i){
 			phi_i.assign(J, 0.0);
+			coords.zeros();
 
 			// Fill phi weight vector 
 			auto ri = pou.begin_row(i);
-			for (; ri != pou.end_row(); ++ri){ phi_i[ri.col()] = *ri; }
+			for (; ri != pou.end_row(i); ++ri){ phi_i[ri.col()] = *ri; }
 
 			// Compute the weighted average of the Fj's using the partition of unity
-			for (; ri != pou.end_row(); ++ri){
+			ri = pou.begin_row(i);
+			for (; ri != pou.end_row(i); ++ri){
 				size_t j = ri.col(); 
 				size_t jj = find_index(cover_subsets[j].begin(), cover_subsets[j].end(), i);
 				generate_frame_(j, phi_i, d_frame); 			// populates d_frame
 				svd_econ(U, s, V, A * (A.t() * d_frame)); // compute SVD of A A^T phi_j
-				arma::vec local_coord = local_models[j].row(jj) + T.row(j); // should be column vector
-				coords += ((*ri) * A.t() * U * V.t()) * local_coord.t();
+				
+				arma::rowvec local_coord = local_models[j].row(jj) + T.row(j); // should be column vector
+				coords += ((*ri) * A.t() * U * V.t()) * local_coord.t(); // left-side should be (D x d)
+				// if (i == 0){
+				// 	py::print("d_frame:", carma::mat_to_arr(d_frame, true));
+				// 	arma::mat tmp = A * (A.t() * d_frame);
+				// 	py::print("A*A^T*F:", carma::mat_to_arr(tmp, true));
+				// 	//py::print("*:", carma::mat_to_arr((*ri) * A.t() * U * V.t()));
+				// 	py::print("U:", carma::mat_to_arr(U, true));
+				// 	py::print("V:", carma::mat_to_arr(V, true));
+				// 	py::print("s:", carma::col_to_arr(s, true));
+				// 	py::print("local coords:", carma::row_to_arr(local_coord, true));
+				// 	py::print("coords:", carma::col_to_arr(coords, true));
+				// }
 			}
+			assembly.row(i) = coords.t(); 
 		}
+		return(assembly);
 	}
 
 	void to_sparse(const py::object& S, arma::sp_mat& out){
@@ -384,7 +401,7 @@ struct StiefelLoss {
 	}
 
 	// Wrapper for the fast_assembly above
-	auto assemble_frames(py::array_t< double >& A, py::object& pou, py::list& cover_subsets, py::list& local_models, py::array_t< double >& T ) -> py::array_t< double > {
+	auto assemble_frames(py::array_t< double >& A, py::object& pou, py::list& cover_subsets, const py::list& local_models, py::array_t< double >& T ) -> py::array_t< double > {
 		arma::mat A_ = carma::arr_to_mat(A, true);
 		arma::sp_mat pou_;
 		to_sparse(pou, pou_);
@@ -394,10 +411,12 @@ struct StiefelLoss {
 		}	
 		auto models = vector< arma::mat >();
 		for (auto pts: local_models){
-			models.push_back(carma::arr_to_mat(pts.cast< py::array_t< double > >()));
+			py::array_t< double > pts_ = pts.cast< py::array_t< double > >();
+			models.push_back(carma::arr_to_mat(pts_, true));
 		}
 		arma::mat translations = carma::arr_to_mat(T, true);
-		fast_assembly(A_, pou_, subsets, models, translations);
+		arma::mat assembly = fast_assembly(A_, pou_, subsets, models, translations);
+		return(carma::mat_to_arr(assembly));
 	}
 
 };

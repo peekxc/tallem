@@ -20,14 +20,54 @@ cover = IntervalCover(B_polar, n_sets = 10, overlap = 0.30, gluing=[1])
 f = lambda x: mmds(dist(x, as_matrix=True), d = 2)
 
 # %% Run TALLEM
-## %%time
+%%time
 embedding = TALLEM(cover=cover, local_map=f, n_components=3)
 X_transformed = embedding.fit_transform(X, B_polar)
+
+# %%
+embedding.fit(X, B_polar)
+
+# %% Profile fit function  
+embedding._profile(X=X, B=B_polar)
 
 # %% Draw a 3D projection
 import matplotlib.pyplot as plt
 ax = plt.figure().add_subplot(projection='3d')
 ax.scatter(X_transformed[:,0], X_transformed[:,1], X_transformed[:,2], marker='o', c=B[:,0])
+
+
+# %% Verify fast frame assembly 
+import numpy as np
+E = embedding
+# py::array_t< double >& A, py::object& pou, py::list& cover_subsets, py::list& local_models, py::array_t< double >& T 
+offsets = np.vstack([ offset for index,offset in E.translations.items() ])
+cover_subsets = [subset for index, subset in E.cover]
+local_models = [coords for index, coords in E.models.items()]
+res = E._stf.assemble_frames(E.A, E.pou.tocsc(), cover_subsets, local_models, offsets)
+
+# %% debugging
+i = 0
+w_i = np.ravel(E.pou[i,:].todense())
+nz_ind = np.where(w_i > 0)[0]
+index_set = E.cover.index_set
+from src.tallem.utility import find_where
+coords = np.zeros((1, E._stf.D))
+for j in nz_ind: 
+	subset_j = E.cover[index_set[j]]
+	relative_index = find_where(i, subset_j, True) ## This should always be true!
+	u, s, vt = np.linalg.svd((E.A @ (E.A.T @ E._stf.generate_frame(j, np.sqrt(w_i)))), full_matrices=False, compute_uv=True) 
+	d_coords = np.reshape(E.models[index_set[j]][relative_index,:] + E.translations[j], (E._stf.d, 1))
+	coords += (w_i[j]*E.A.T @ (u @ vt) @ d_coords).T
+
+# X_transformed[0,:]
+## Check subordinate to cover
+# for ri, ci in E.pou.nonzero():
+# 	index = np.where(ri == cover_subsets[ci])[0]
+# 	assert len(index) != 0, "invalid"
+# %% Verify fast frame assembly 
+import matplotlib.pyplot as plt
+ax = plt.figure().add_subplot(projection='3d')
+ax.scatter(res[:,0], res[:,1], res[:,2], marker='o', c=B[:,0])
 
 # %% Stiefel manifold: verify gradient 
 stf = embedding._stf

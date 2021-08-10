@@ -5,8 +5,7 @@ import numpy as np
 import numpy.typing as npt
 from typing import Callable, Iterable, List, Set, Dict, Optional, Tuple, Any, Union, Sequence
 from itertools import combinations
-from scipy.sparse import csc_matrix
-
+from scipy.sparse import issparse, csc_matrix
 # from . import sc
 # from . import distance 
 # from . import procrustes 
@@ -29,7 +28,7 @@ from .samplers import uniform_sampler
 from .stiefel import frame_reduction
 from .cover import IntervalCover, partition_of_unity
 from .utility import find_where
-from .assembly import assemble_frames
+from .assembly import assemble_frames, assembly_fast
 
 
 import autograd.scipy.linalg as auto_scipy 
@@ -78,7 +77,7 @@ class TALLEM():
 	'''
 	
 	def __init__(self, cover: Iterable, local_map: Callable[npt.ArrayLike, npt.ArrayLike], n_components: int = 2, pou: Union[str, csc_matrix] = "triangular"):
-		if not(isinstance(cover, Iterable)): raise ValueError("cover argument must be an Iterable.")		
+		assert isinstance(cover, Iterable), "cover argument must be an Iterable."
 		
 		## Store callable as part of the cover's initialization
 		self.D = n_components ## Target dimension of the embedding 
@@ -86,22 +85,18 @@ class TALLEM():
 		
 		## Validate cover 
 		## TODO: use generic to generalize this to a type-erased generic! 
-		if not(isinstance(cover, Iterable)):
-			raise ValueError("Cover must be Iterable!")
 		self.cover = cover 
 
 		## Validate the partition of unity respects the closure condition relative to the cover 
-		if isinstance(pou, csc_matrix):
-			if pou.shape[1] != len(self.cover):
-				raise ValueError("Partition of unity must have one column per element of the cover")
+		if isinstance(pou, csc_matrix): assert pou.shape[1] == len(self.cover), "Partition of unity must have one column per element of the cover"
 		self.pou = pou
 
-	
 	def fit(self, X: npt.ArrayLike, B: npt.ArrayLike, pou: Optional[Union[str, csc_matrix]] = None):
 		X, B = np.array(X, copy=False), np.array(B, copy=False)
 		if X.shape[0] != B.shape[0]: raise ValueError("X and B must have the same number of rows.")
 		if X.ndim == 1: X = X.reshape((len(X), 1))
 		if B.ndim == 1: B = B.reshape((len(B), 1))
+		if pou is None: pou = self.pou
 		
 		## Map the local euclidean models
 		## Note: the extra array constructor ensures singleton subsets are reported as matrices
@@ -109,10 +104,9 @@ class TALLEM():
 
 		## Construct a partition of unity
 		J = len(self.cover)
-		if not(pou is None): self.pou = pou
-		if isinstance(self.pou, str):
-			self.pou = partition_of_unity(B, cover = self.cover, beta = self.pou)
-		elif isinstance(pou, csc_matrix): 
+		if isinstance(pou, str):
+			self.pou = partition_of_unity(B, cover = self.cover, similarity = pou)
+		elif issparse(pou): 
 			if pou.shape[1] != len(self.cover):
 				raise ValueError("Partition of unity must have one column per element of the cover")
 			for i in range(J):
@@ -128,14 +122,14 @@ class TALLEM():
 		self.alignments = align_models(self.cover, self.models)
 		
 		## Get global translation vectors using cocyle condition 	
-		translations = global_translations(self.cover, self.alignments)
+		self.translations = global_translations(self.cover, self.alignments)
 
 		## Solve the Stiefel manifold optimization for the projection matrix 
-		self.A0, self.A, self._stf = frame_reduction(self.alignments, self.pou, self.D, fast_gradient=False, optimize = False)
+		self.A0, self.A, self._stf = frame_reduction(self.alignments, self.pou, self.D, fast_gradient=False, optimize=False)
 
 		## Assemble the frames!
-		self.embedding_ = assemble_frames(self._stf, self.A, self.cover, self.pou, self.models, translations)
-
+		#self.embedding_ = assemble_frames(self._stf, self.A, self.cover, self.pou, self.models, self.translations)
+		self.embedding_ = assembly_fast(self._stf, self.A, self.cover, self.pou, self.models, self.translations)
 		return(self)
 
 	def fit_transform(self, X: npt.ArrayLike, B: npt.ArrayLike, **fit_params) -> npt.ArrayLike:
@@ -145,11 +139,19 @@ class TALLEM():
 	def __repr__(self) -> str:
 		return("TALLEM instance")
 
-	def assemble(self, pou: Optional[csc_matrix] = None, D_frame: Optional[npt.ArrayLike] = None):
+	def assemble(self, pou: Optional[csc_matrix] = None, D_frame: Optional[npt.ArrayLike] = None) -> npt.ArrayLike:
 		if D_frame is None: D_frame = self.A
 		if pou is None: pou = self.pou
-		translations = global_translations(self.cover, self.alignments)
-		return(assemble_frames(self._stf, D_frame, self.cover, pou, self.models, translations))
+		return(assemble_frames(self._stf, D_frame, self.cover, pou, self.models, self.translations))
+
+	def _profile(self, **kwargs):
+		import line_profiler
+		profile = line_profiler.LineProfiler()
+		profile.add_function(self.fit)
+		profile.enable_by_count()
+		self.fit(**kwargs)
+		profile.print_stats()
+
 
 ## TALLEM dimennsionality reduction algorithm -- Full wrapper
 ## TODO: Need to supply cover options

@@ -19,8 +19,16 @@ def assemble_frames(stf, A: npt.ArrayLike, cover: Iterable, pou: csc_matrix, loc
 		for j in nz_ind: 
 			subset_j = cover[index_set[j]]
 			relative_index = find_where(i, subset_j, True) ## This should always be true!
-			u, s, vt = np.linalg.svd((A @ (A.T @ stf.generate_frame(j, w_i))), full_matrices=False, compute_uv=True) 
+			u, s, vt = np.linalg.svd((A @ (A.T @ stf.generate_frame(j, np.sqrt(w_i)))), full_matrices=False, compute_uv=True) 
 			d_coords = local_models[index_set[j]][relative_index,:]
 			coords += (w_i[j]*A.T @ (u @ vt) @ (d_coords + translations[j]).T).T
 		assembly[i,:] = coords
 	return(assembly)
+
+def assembly_fast(stf, A: npt.ArrayLike, cover: Iterable, pou: csc_matrix, local_models: Dict, translations: Dict) -> npt.ArrayLike:
+	''' Performs the final assembly of all the frames. '''
+	offsets = np.vstack([ offset for index,offset in translations.items() ])
+	cover_subsets = [subset for index, subset in cover]
+	local_models = [coords for index, coords in local_models.items()]
+	return(stf.assemble_frames(A, pou.tocsc(), cover_subsets, local_models, offsets))
+

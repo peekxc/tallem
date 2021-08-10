@@ -241,7 +241,7 @@ def bump(dissimilarity: float, method: Optional[str] = "triangular", **kwargs):
 	''' Applies a bump function to convert given dissimilarity measure between [0,1] to a similarity measure '''
 	assert np.all(dissimilarity >= 0.0), "Dissimilarity must be non-negative."
 	if method == "triangular" or method == "linear": 
-		s = 1.0 - dissimilarity, 0.0
+		s = 1.0 - dissimilarity
 	elif method == "quadratic":
 		s = (1.0 - dissimilarity)**2
 	elif method == "cubic":
@@ -266,12 +266,12 @@ def bump(dissimilarity: float, method: Optional[str] = "triangular", **kwargs):
 ## A Partition oif unity is 
 ## B := point cloud topologiucal space
 ## phi := function mapping a subset of m points to (m x J) matrix 
-def partition_of_unity(B: npt.ArrayLike, cover: Iterable, beta: Union[str, Callable[npt.ArrayLike, npt.ArrayLike]] = "triangular", weights: Optional[npt.ArrayLike] = None) -> csc_matrix:
+def partition_of_unity(B: npt.ArrayLike, cover: Iterable, similarity: Union[str, Callable[npt.ArrayLike, npt.ArrayLike]] = "triangular", weights: Optional[npt.ArrayLike] = None) -> csc_matrix:
 	if (B.ndim != 2): raise ValueError("Error: filter must be matrix.")
 	J = len(cover)
 	# weights = np.ones(J) if weights is None else np.array(weights)
 	# assert len(weights) != J, "weights must have length matching the number of sets in the cover."
-	assert beta is not None, "phi map must be a real-valued function, or a string indicating one of the precomputed ones."
+	assert similarity is not None, "phi map must be a real-valued function, or a string indicating one of the precomputed ones."
 	
 	## Derive centroids, use dB metric to define distances => partition of unity to each subset 
 	#if isinstance(cover, IntervalCover):
@@ -281,7 +281,7 @@ def partition_of_unity(B: npt.ArrayLike, cover: Iterable, beta: Union[str, Calla
 			index, subset = cover_set
 			centroid = cover.bbox[0:1,:] + (np.array(index) * cover.base_width) + cover.base_width/2.0
 			dist_to_poles = np.sqrt(np.sum(cover._diff_to(B, centroid)**2, axis = 1))
-			beta_j = bump(dist_to_poles/max_r, beta)
+			beta_j = bump(dist_to_poles/max_r, similarity)
 			if np.any(beta_j[np.setdiff1d(range(B.shape[0]), subset)] > 0.0):
 				raise ValueError("Invalid similarity function. Partition must be subordinate to the cover.")
 			## TODO: rework so this isn't needed!
