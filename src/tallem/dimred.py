@@ -17,7 +17,7 @@ def pca(x: npt.ArrayLike, d: int = 2, center: bool = True) -> npt.ArrayLike:
 	if center: x -= x.mean(axis = 0)
 	ew, ev = np.linalg.eigh(np.cov(x, rowvar=False))
 	idx = np.argsort(ew)[::-1] # descending order to pick the largets components first 
-	return(np.dot(x, ev[:,idx[range(k)]]))
+	return(np.dot(x, ev[:,idx[range(d)]]))
 
 def sammon(data, d: int = 2, max_iterations: int = 250, max_halves: int = 10):
 	"""
@@ -36,8 +36,8 @@ def sammon(data, d: int = 2, max_iterations: int = 250, max_halves: int = 10):
 	D = D + np.identity(N)
 	D_inv = np.linalg.inv(D)
 	
-	y = np.random.randn(N, k)
-	one = np.ones((N, k))
+	y = np.random.randn(N, d)
+	one = np.ones((N, d))
 	d = dist(y, as_matrix = True) + np.identity(N)
 	d_inv = np.linalg.inv(d)
 	delta = D - d
@@ -167,11 +167,8 @@ def isomap(a: npt.ArrayLike, d: int = 2, **kwargs) -> npt.ArrayLike:
 from sklearn.manifold import MDS
 def mmds(a: npt.ArrayLike, d: int = 2, **kwargs):
 	''' Thin wrapper around sklearn's metric MDS '''
-	emb = MDS(n_components=d, metric=True,  dissimilarity='precomputed', **kwargs) if is_distance_matrix(a) else MDS(n_components=d, metric=True, **kwargs) 
-	if is_distance_matrix(a):
-		return(emb.fit_transform(a,))
-	else: 
-		return(emb.fit_transform(a))
+	emb = MDS(n_components=d, metric=True,  dissimilarity='precomputed', random_state=0, **kwargs) if is_distance_matrix(a) else MDS(n_components=d, metric=True, random_state=0, **kwargs) 
+	return(emb.fit_transform(a))
 
 def nmds(a: npt.ArrayLike, d: int = 2, **kwargs):
 	''' Thin wrapper around sklearn's non-metric MDS '''

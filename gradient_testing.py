@@ -19,6 +19,10 @@ B_polar = B[:,1].reshape((B.shape[0], 1))
 cover = IntervalCover(B_polar, n_sets = 10, overlap = 0.30, gluing=[1])
 f = lambda x: mmds(dist(x, as_matrix=True), d = 2)
 
+local_model = MDS(n_components=2, metric=True) 
+
+return(emb.fit_transform(a))
+
 # %% Run TALLEM
 %%time
 embedding = TALLEM(cover=cover, local_map=f, n_components=3)
@@ -423,3 +427,39 @@ import fast_svd
 import numpy as np
 X = np.random.uniform(size=(10,2))
 fast_svd.test_sparse(csc_matrix(X))
+
+
+# %% Optimize partition of unity 
+# TODO
+from src.tallem.alignment import opa
+X, B = mobius_band(n_polar=26, n_wide=6, embed=3).values()
+B_polar = B[:,1].reshape((B.shape[0], 1))
+
+from src.tallem.dimred import mmds, pca
+
+f = lambda x: mmds(x, d = 2)
+
+res = []
+for g in np.linspace(0.05, 0.75, 100):
+	cover = IntervalCover(B_polar, n_sets = 10, overlap = g, gluing=[1])
+	embedding = TALLEM(cover=cover, local_map=f, n_components=3)
+	X_transformed = embedding.fit_transform(X, B_polar)
+	pro_dist = procrustes(X_transformed, X)[2]
+	print(pro_dist)
+	res.append(pro_dist)
+
+# %% 
+g = np.linspace(0.05, 0.75, 100)[np.argmin(res)]
+cover = IntervalCover(B_polar, n_sets = 10, overlap = g, gluing=[1])
+embedding = TALLEM(cover=cover, local_map=f, n_components=3)
+X_transformed = embedding.fit_transform(X, B_polar)
+
+# %% 
+import matplotlib.pyplot as plt
+ax = plt.figure().add_subplot(projection='3d')
+ax.scatter(X_transformed[:,0], X_transformed[:,1], X_transformed[:,2], marker='o', c=B[:,0])
+ax.view_init(25, np.random.uniform(0,1)*360)
+
+
+
+#embedding.assemble(pou=partition_of_unity(B_polar, cover))
