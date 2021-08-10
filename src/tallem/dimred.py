@@ -11,7 +11,7 @@ from scipy.sparse import csc_matrix, csr_matrix
 from scipy.sparse.csgraph import minimum_spanning_tree, connected_components
 
 # %%  Dimensionality reduction definitions
-def pca(x: npt.ArrayLike, k: int = 2, center: bool = True) -> npt.ArrayLike:
+def pca(x: npt.ArrayLike, d: int = 2, center: bool = True) -> npt.ArrayLike:
 	''' PCA embedding '''
 	assert not(is_distance_matrix(x)), "Input should be a point cloud, not a distance matrix."
 	if center: x -= x.mean(axis = 0)
@@ -156,7 +156,7 @@ def geodesic_dist(a: npt.ArrayLike):
 	d = dist(a, as_matrix=True) if not(is_distance_matrix(a)) else np.array(a, copy=False)
 	return(floyd_warshall(d))
 
-def isomap(a: npt.ArrayLike, d: int, **kwargs) -> npt.ArrayLike:
+def isomap(a: npt.ArrayLike, d: int = 2, **kwargs) -> npt.ArrayLike:
 	''' Returns the isomap embedding of a given point cloud or distance matrix. '''
 	a = np.array(a, copy=False),
 	G = neighborhood_graph(a, **kwargs)
@@ -165,12 +165,15 @@ def isomap(a: npt.ArrayLike, d: int, **kwargs) -> npt.ArrayLike:
 
 # TODO: remove sklearn eventually
 from sklearn.manifold import MDS
-def mmds(a: npt.ArrayLike, d: int, **kwargs):
+def mmds(a: npt.ArrayLike, d: int = 2, **kwargs):
 	''' Thin wrapper around sklearn's metric MDS '''
-	embedding = MDS(n_components=d, metric=True, **kwargs)
-	return(embedding.fit_transform(a))
+	emb = MDS(n_components=d, metric=True,  dissimilarity='precomputed', **kwargs) if is_distance_matrix(a) else MDS(n_components=d, metric=True, **kwargs) 
+	if is_distance_matrix(a):
+		return(emb.fit_transform(a,))
+	else: 
+		return(emb.fit_transform(a))
 
-def nmds(a: npt.ArrayLike, d: int, **kwargs):
+def nmds(a: npt.ArrayLike, d: int = 2, **kwargs):
 	''' Thin wrapper around sklearn's non-metric MDS '''
 	embedding = MDS(n_components=d, metric=False, **kwargs)
 	return(embedding.fit_transform(a))

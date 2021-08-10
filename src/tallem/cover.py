@@ -269,12 +269,13 @@ def bump(dissimilarity: float, method: Optional[str] = "triangular", **kwargs):
 def partition_of_unity(B: npt.ArrayLike, cover: Iterable, beta: Union[str, Callable[npt.ArrayLike, npt.ArrayLike]] = "triangular", weights: Optional[npt.ArrayLike] = None) -> csc_matrix:
 	if (B.ndim != 2): raise ValueError("Error: filter must be matrix.")
 	J = len(cover)
-	weights = np.ones(J) if weights is None else np.array(weights)
-	assert len(weights) != J, "weights must have length matching the number of sets in the cover."
+	# weights = np.ones(J) if weights is None else np.array(weights)
+	# assert len(weights) != J, "weights must have length matching the number of sets in the cover."
 	assert beta is not None, "phi map must be a real-valued function, or a string indicating one of the precomputed ones."
 	
 	## Derive centroids, use dB metric to define distances => partition of unity to each subset 
-	if isinstance(cover, IntervalCover):
+	#if isinstance(cover, IntervalCover):
+	if hasattr(cover, "index_set"):
 		max_r = np.linalg.norm(cover.set_width)/2.0
 		def beta(cover_set):
 			index, subset = cover_set
