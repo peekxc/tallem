@@ -282,11 +282,12 @@ def partition_of_unity(B: npt.ArrayLike, cover: Iterable, similarity: Union[str,
 			centroid = cover.bbox[0:1,:] + (np.array(index) * cover.base_width) + cover.base_width/2.0
 			dist_to_poles = np.sqrt(np.sum(cover._diff_to(B, centroid)**2, axis = 1))
 			beta_j = bump(dist_to_poles/max_r, similarity)
-			if np.any(beta_j[np.setdiff1d(range(B.shape[0]), subset)] > 0.0):
-				raise ValueError("Invalid similarity function. Partition must be subordinate to the cover.")
+			# if np.any(beta_j[np.setdiff1d(range(B.shape[0]), subset)] > 0.0):
+				# raise ValueError("Invalid similarity function. Partition must be subordinate to the cover.")
 			## TODO: rework so this isn't needed!
-			# beta_j = np.maximum(max_r - dist_to_poles, 0.0)
-			# beta_j[np.setdiff1d(range(B.shape[0]), subset)] = 0.0
+			beta_j = np.maximum(max_r - dist_to_poles, 0.0)
+			beta_j[np.setdiff1d(range(B.shape[0]), subset)] = 0.0
+			assert np.all(beta_j[np.setdiff1d(range(B.shape[0]), subset)] == 0.0), "Invalid similarity function. Partition must be subordinate to the cover."
 			return(beta_j)
 	else: 
 		raise ValueError("Only interval cover is supported for now.")

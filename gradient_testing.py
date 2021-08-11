@@ -460,6 +460,77 @@ ax = plt.figure().add_subplot(projection='3d')
 ax.scatter(X_transformed[:,0], X_transformed[:,1], X_transformed[:,2], marker='o', c=B[:,0])
 ax.view_init(25, np.random.uniform(0,1)*360)
 
+# %% Frey face 
+from src.tallem import TALLEM
+from src.tallem.cover import IntervalCover
+from src.tallem.datasets import mobius_band
+from src.tallem.dimred import mmds
+from src.tallem.distance import dist
+import pickle
 
+X = pickle.load(open("/Users/mpiekenbrock/tallem/data/frey_face_embedded.pickle", "rb"))
+B = []
+for x in range(0, 28*1 + 1):
+	for y in range(0, 20*2 + 1):
+		B.append([x,y])
+B = np.vstack(B)
+cover = IntervalCover(B, n_sets = 8, overlap = 0.20)
+f = lambda x: mmds(dist(x, as_matrix=True), d = 2)
+embedding = TALLEM(cover=cover, local_map=f, n_components=2)
+X_transformed = embedding.fit_transform(X, B)
 
+plt.scatter(X_transformed[:,0], X_transformed[:,1])
 #embedding.assemble(pou=partition_of_unity(B_polar, cover))
+
+# %% 
+from matplotlib.offsetbox import OffsetImage, AnnotationBbox
+from src.tallem.landmark import landmarks
+
+idx = landmarks(X_transformed,k=10)['indices']
+
+fig, ax = plt.subplots()
+plt.scatter(X_transformed[:,0], X_transformed[:,1])
+for ii in idx: 
+	image = normalize(X[ii,:]).reshape((28*2,20*3))*255
+	im = OffsetImage(image, zoom=0.5, cmap='gray')
+	ab = AnnotationBbox(im, X_transformed[ii,:], xycoords='data', frameon=False)
+	ax.add_artist(ab)
+ax.autoscale()
+
+# %%
+from matplotlib.offsetbox import OffsetImage, AnnotationBbox
+from src.tallem.landmark import landmarks
+pca_x = pca(X)
+idx = landmarks(pca_x,k=10)['indices']
+
+fig, ax = plt.subplots()
+plt.scatter(pca_x[:,0], pca_x[:,1])
+for ii in idx: 
+	image = normalize(X[ii,:]).reshape((28*2,20*3))*255
+	im = OffsetImage(image, zoom=0.5, cmap='gray')
+	ab = AnnotationBbox(im, pca_x[ii,:], xycoords='data', frameon=False)
+	ax.add_artist(ab)
+ax.autoscale()
+
+# %%
+from sklearn.manifold import LocallyLinearEmbedding
+from matplotlib.offsetbox import OffsetImage, AnnotationBbox
+from src.tallem.landmark import landmarks
+lle = LocallyLinearEmbedding(n_neighbors=4)
+lle_x = lle.fit_transform(X)
+idx = landmarks(lle_x,k=10)['indices']
+
+fig, ax = plt.subplots()
+plt.scatter(lle_x[:,0], lle_x[:,1])
+for ii in idx: 
+	image = normalize(X[ii,:]).reshape((28*2,20*3))*255
+	im = OffsetImage(image, zoom=0.5, cmap='gray')
+	ab = AnnotationBbox(im, lle_x[ii,:], xycoords='data', frameon=False)
+	ax.add_artist(ab)
+ax.autoscale()
+
+#%% 
+normalize = lambda x: (x-np.min(x))/(np.max(x) - np.min(x))
+plt.figure(figsize=(8, 15))
+plt.imshow(normalize(X[0,:]).reshape((28*2,20*3))*255, cmap='gray', vmin=0, vmax=255)
+plt.show()
