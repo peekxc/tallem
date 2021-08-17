@@ -27,7 +27,7 @@ def dist(x: npt.ArrayLike, y: Optional[npt.ArrayLike] = None, pairwise = False, 
 	See for reference the scipy.spatial.distance documentation, https://docs.scipy.org/doc/scipy/reference/generated/scipy.spatial.distance.pdist.html#scipy.spatial.distance.pdist, for details.
 	'''
 	x = np.array(x, copy=False) ## needs to be numpy array
-	if x.shape[0] == 1 or x.ndim == 1 and y is None: 
+	if (x.shape[0] == 1 or x.ndim == 1) and y is None: 
 		return(np.zeros((0, np.prod(x.shape))))
 	if y is None:
 		return(cdist(x, x, metric, **kwargs) if (as_matrix) else pdist(x, metric, **kwargs))

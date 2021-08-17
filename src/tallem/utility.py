@@ -30,7 +30,7 @@ def find_points(query: npt.ArrayLike, reference: npt.ArrayLike):
 			found = np.where((R[lex_indices[lb_idx[i]:ub_idx[i]],:] == Q[i,:]).all(axis=1))
 			indices[i] = -1 if len(found) == 0 else found[0][0]
 	return(indices)
-	
+
 def find_where(a: npt.ArrayLike, b: npt.ArrayLike, validate: bool = False):
 	''' Finds where each element in 'a' is positioned in array 'b', or None otherwise. '''
 	a, b = np.ravel(np.array(a, copy=False)), np.ravel(np.array(b, copy=False))
@@ -42,10 +42,6 @@ def find_where(a: npt.ArrayLike, b: npt.ArrayLike, validate: bool = False):
 	if not(np.any(ind == None)):
 		ind = np.array(ind, dtype=np.int32)
 	return(ind)
-
-	# p = np.argsort(a)
-	# ind = p[np.searchsorted(a[p], b)]
-	# return(np.where(a[ind] == b, ind, None))
 
 def inverse_permutation(a):
 	b = np.arange(a.shape[0])
