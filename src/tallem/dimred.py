@@ -91,8 +91,8 @@ def cmds(a: npt.ArrayLike, d: int = 2, coords: bool = True):
 
 def neighborhood_graph(a: npt.ArrayLike, k: Optional[int] = 15, radius: Optional[float] = None, **kwargs):
 	''' 
-	Computes the neighborhood graph of a point cloud. 
-	Returns a sparse weighted adjacency matrix where positive entries indicate the distance between points in X 
+	Computes the neighborhood graph of a point cloud or distance matrix 'a'. 
+	Returns a sparse weighted adjacency matrix where positive entries indicate the distance between points in 'a'. 
 	'''
 	if radius is None and k is None: raise RuntimeError("Either radius or k must be supplied")
 	a = as_np_array(a)
@@ -123,40 +123,42 @@ def neighborhood_graph(a: npt.ArrayLike, k: Optional[int] = 15, radius: Optional
 	D = csc_matrix((d, (r, c)), dtype=np.float32, shape=(n,n))
 	return(D)
 
-## Given points 'a' and 'b', finds the k-nearest points in 'a' lying in the neighborhood of 'b'
-def neighborhood_graph(a: npt.ArrayLike, b: npt.ArrayLike, k: Optional[int] = 15, radius: Optional[float] = None, **kwargs):
+
+def neighborhood_list(a: npt.ArrayLike, b: npt.ArrayLike, k: Optional[int] = 15, radius: Optional[float] = None, metric = "euclidean", **kwargs):
 	''' 
-	Computes the neighborhood graph of a point cloud. 
-	Returns a sparse weighted adjacency matrix where positive entries indicate the distance between points in X 
+	Computes the neighborhood adjacency list of a point cloud 'b' using points in 'a'. 
+	If 'a' is a (n x d) matrix and 'b' is a (m x d) matrix, this function computes a sparse (n x m) matrix 
+	where the non-zero entries I at each column j are the 'metric' distances from point j in 'b' to the points a[I,:].
 	'''
-	if radius is None and k is None: raise RuntimeError("Either radius or k must be supplied")
 	a, b = as_np_array(a), as_np_array(b)
 	n, m = a.shape[0], b.shape[0]
-
-	## If 'a' is a point cloud, form a KD tree to extract the neighbors
-	if not(is_distance_matrix(a)) and not(is_distance_matrix(b)):
-		tree = KDTree(data=a, **kwargs)
+	minkowski_metrics = ["cityblock", "euclidean", "chebychev"]
+	if metric in minkowski_metrics:
+		p = [1, 2, float("inf")][minkowski_metrics.index(metric)]
+		tree = KDTree(data=b, **kwargs)
 		if radius is not None:
-			pairs = tree.query_pairs(r=radius*2.0)
-			r, c = np.array([p[0] for p in pairs]), np.array([p[1] for p in pairs])
-			d = dist(a[r,:], a[c,:], pairwise = True)
+			neighbors = tree.query_ball_point(a, r=radius, p=p)
+			c = np.array(np.hstack(neighbors), dtype=np.int32)
+			r = np.repeat(range(n), repeats=[len(idx) for idx in neighbors])
+			d = dist(a[r,:], b[c,:], pairwise=True, metric=metric)
+			# for i, nn_idx in enumerate(tree.query_ball_point(a, r=radius, p=p)):
+			# 	G[i,nn_idx] = dist(a[[i],:], b[nn_idx,:], metric=metric)
 		else:
 			knn = tree.query(a, k=k+1)
-			r, c, d = np.repeat(range(n), repeats=k), knn[1][:,1:].flatten(), knn[0][:,1:].flatten()
+			r, c, d = np.repeat(range(a.shape[0]), repeats=k), knn[1][:,1:].flatten(), knn[0][:,1:].flatten()
 	else: 
+		D = dist(a, b)
 		if radius is not None: 
-			r, c = np.where(a <= (radius*2.0))
-			valid = (r != c) & (r < c)
-			r, c = r[valid], c[valid]
-			d = a[r,c]
+			I = np.argwhere(D <= (radius*2.0))
+			r, c = I[:,0], I[:,1]
+			d = D[r,c]
 		else: 
-			knn = np.apply_along_axis(lambda a_row: np.argsort(a_row)[0:(k+1)],axis=1,arr=a)
-			r, c = np.repeat(range(n), repeats=5), np.ravel(knn[:,1:])
-			d = a[r,c]
+			knn = np.apply_along_axis(lambda a_row: np.argsort(a_row)[0:k],axis=1,arr=D)
+			r, c = np.repeat(range(n), repeats=k), np.ravel(knn)
+			d = D[r,c]
+	G = csc_matrix((d, (r, c)), dtype=np.float32, shape=(n,m))
+	return(G)
 
-	## Form the neighborhood graph 
-	D = csc_matrix((d, (r, c)), dtype=np.float32, shape=(n,n))
-	return(D)
 
 def floyd_warshall(a: npt.ArrayLike):
 	'''floyd_warshall(adjacency_matrix) -> shortest_path_distance_matrix
