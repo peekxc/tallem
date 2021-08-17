@@ -17,16 +17,14 @@ from src.tallem.distance import dist
 X, B = mobius_band(n_polar=26, n_wide=6, embed=3).values()
 B_polar = B[:,1].reshape((B.shape[0], 1))
 cover = IntervalCover(B_polar, n_sets = 10, overlap = 0.30, gluing=[1])
-f = lambda x: mmds(dist(x, as_matrix=True), d = 2)
-
-local_model = MDS(n_components=2, metric=True) 
-
-return(emb.fit_transform(a))
+#f = lambda x: mmds(dist(x, as_matrix=True), d = 2)
+#local_model = MDS(n_components=2, metric=True) 
 
 # %% Run TALLEM
 %%time
 embedding = TALLEM(cover=cover, local_map=f, n_components=3)
 X_transformed = embedding.fit_transform(X, B_polar)
+embedding.A.T @ embedding._stf.generate_frame(0, )
 
 # %%
 embedding.fit(X, B_polar)

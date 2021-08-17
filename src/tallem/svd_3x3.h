@@ -201,6 +201,9 @@ extern "C" {
 		char* jobu, char* jobvt, int* m, int* n, float* a, int* lda, float* s, float* u, int* ldu, 
 		float* vt, int* ldvt, float* work, int* lwork, int* info
 	);	
+	extern void slaed1(int* N, float* D, float* Q, int* LDQ, int* INDXQ, float* RHO, int* CUTPNT, float* WORK, int* IWORK, int* INFO);	
+	extern void slaed4(int* N, int* I, float* D, float* Z, float* DELTA, float* RHO, float* DLAM, int* INFO);
+	extern void slaed9(int* K, int* KSTART, int* KSTOP, int* N, float* D, float* Q, int* LDQ, float* rho, float* dlambda, float* W, float* S, int* lds, int* info); 	
 }
 
 //using np_carray_t = pybind11::array_t< float, pybind11::array::c_style | pybind11::array::forcecast >;

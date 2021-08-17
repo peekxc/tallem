@@ -7,8 +7,34 @@ sys.path.insert(0, "src/tallem")
 X = np.random.uniform(size=(10, 2))
 y = np.random.uniform(size=(10, 1))
 
-# %% Fast dense/sparse matrix multiplication 
-# import carma_svd
+# %% Neighborhood graph 
+import numpy as np
+X = np.random.uniform(size=(10, 2))
+Y = np.random.uniform(size=(5, 2))
+
+## Get the k-nearest neighbors in X around the points in Y 
+from scipy.spatial import KDTree
+from scipy.sparse import csc_matrix, lil_matrix
+import os
+
+G = lil_matrix((X.shape[0], Y.shape[0]))
+
+## X, Y point sets, distances are minkowski, knn-graph desired 
+tree = KDTree(X)
+knn_in_x = tree.query(Y, k = 5, workers=os.cpu_count())
+knn_dist, knn_ind = knn_in_x
+for j in range(Y.shape[0]):
+	G[knn_ind[j,:],j] = knn_dist[j,:]
+# G.tocsc()
+
+## X, Y point sets, distances are minkowski, ball-graph desired 
+from src.tallem.distance import dist
+tree = KDTree(X)
+eps_in_x = tree.query_ball_point(Y, r=0.35, workers=os.cpu_count())
+for j, ind in enumerate(eps_in_x):
+	if len(ind) > 0:
+		G[ind,j] = dist(Y[j,:], X[ind,:])
+		# dist(X[np.array(ind),:], Y[[j],:])
 
 # %% Test all the SVD implementations 
 bn = example.BetaNuclearDense(1000, 3, 3)

@@ -123,6 +123,41 @@ def neighborhood_graph(a: npt.ArrayLike, k: Optional[int] = 15, radius: Optional
 	D = csc_matrix((d, (r, c)), dtype=np.float32, shape=(n,n))
 	return(D)
 
+## Given points 'a' and 'b', finds the k-nearest points in 'a' lying in the neighborhood of 'b'
+def neighborhood_graph(a: npt.ArrayLike, b: npt.ArrayLike, k: Optional[int] = 15, radius: Optional[float] = None, **kwargs):
+	''' 
+	Computes the neighborhood graph of a point cloud. 
+	Returns a sparse weighted adjacency matrix where positive entries indicate the distance between points in X 
+	'''
+	if radius is None and k is None: raise RuntimeError("Either radius or k must be supplied")
+	a, b = as_np_array(a), as_np_array(b)
+	n, m = a.shape[0], b.shape[0]
+
+	## If 'a' is a point cloud, form a KD tree to extract the neighbors
+	if not(is_distance_matrix(a)) and not(is_distance_matrix(b)):
+		tree = KDTree(data=a, **kwargs)
+		if radius is not None:
+			pairs = tree.query_pairs(r=radius*2.0)
+			r, c = np.array([p[0] for p in pairs]), np.array([p[1] for p in pairs])
+			d = dist(a[r,:], a[c,:], pairwise = True)
+		else:
+			knn = tree.query(a, k=k+1)
+			r, c, d = np.repeat(range(n), repeats=k), knn[1][:,1:].flatten(), knn[0][:,1:].flatten()
+	else: 
+		if radius is not None: 
+			r, c = np.where(a <= (radius*2.0))
+			valid = (r != c) & (r < c)
+			r, c = r[valid], c[valid]
+			d = a[r,c]
+		else: 
+			knn = np.apply_along_axis(lambda a_row: np.argsort(a_row)[0:(k+1)],axis=1,arr=a)
+			r, c = np.repeat(range(n), repeats=5), np.ravel(knn[:,1:])
+			d = a[r,c]
+
+	## Form the neighborhood graph 
+	D = csc_matrix((d, (r, c)), dtype=np.float32, shape=(n,n))
+	return(D)
+
 def floyd_warshall(a: npt.ArrayLike):
 	'''floyd_warshall(adjacency_matrix) -> shortest_path_distance_matrix
 	Input
@@ -172,6 +207,6 @@ def mmds(a: npt.ArrayLike, d: int = 2, **kwargs):
 
 def nmds(a: npt.ArrayLike, d: int = 2, **kwargs):
 	''' Thin wrapper around sklearn's non-metric MDS '''
-	embedding = MDS(n_components=d, metric=False, **kwargs)
+	embedding = MDS(n_components=d, metric=False, random_state=0, **kwargs)
 	return(embedding.fit_transform(a))
 

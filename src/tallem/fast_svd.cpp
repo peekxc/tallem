@@ -17,8 +17,6 @@ using std::vector;
 using namespace pybind11::literals;
 namespace py = pybind11;
 
-
-
 // Compile command: g++ -O3 -Wall -shared -std=c++17 -fPIC -Wl,-undefined,dynamic_lookup $(python3 -m pybind11 --includes) example.cpp -o example$(python3-config --extension-suffix)
 
 constexpr auto rank_comb2(size_t i, size_t j, size_t n) noexcept -> size_t { 
@@ -438,10 +436,64 @@ struct StiefelLoss {
 // 		coords += (w_i[j]*A.T @ (u @ vt) @ (d_coords + translations[j]).T).T
 // 	assembly[i,:] = coords
 
+// extern void slaed1(int* N, float* D, float* Q, int* LDQ, int* INDXQ, float* RHO, int* CUTPNT, float* WORK, int* IWORK, int* INFO);	
+
+// Computes U A U^T + sigma (u * u^T)
+// SLAED1 computes the updated eigensystem of a diagonal matrix after modification by a rank-one symmetric matrix.
+// void dpr1(py::array_t< float > D, py::array_t< float > V, float sigma, py::array_t< float > u){
+// 	arma::fvec d = carma::arr_to_col(D, true);
+// 	arma::fvec v = carma::arr_to_col(u, true);
+// 	arma::fmat Q = carma::arr_to_mat(V, true);
+// 	int N = d.size();
+// 	int LDQ = Q.n_rows;
+// 	vector< int > indxq(N);
+// 	std::iota(indxq.begin(), indxq.end(), 0);
+// 	int CUTPNT = N/2;
+// 	vector< float > workspace(4*N + N*N);
+// 	vector< int > iworkspace(4*N);
+// 	int info = 0;
+// 	slaed1(&N, d.memptr(), Q.memptr(), &LDQ, indxq.data(), &sigma, &CUTPNT, workspace.data(), iworkspace.data(), &info);
+// 	py::print("Info: ", info);
+// }
+
+// diag( D )  +  RHO *  Z * Z_transpose.
+void dpr1(py::array_t< float > D, float rho, py::array_t< float > Z, int I){
+	arma::fvec d = carma::arr_to_col(D, true);
+	arma::fvec z = carma::arr_to_col(Z, true);
+	int N = D.size(), info = 0;
+	arma::fvec delta(N); // used for reconstructing eiegnvectors
+	float lambda = 0; // output eigenvalue
+	slaed4(&N, &I, d.memptr(), z.memptr(), delta.memptr(), &rho, &lambda, &info);
+	py::print("Info: ", info, "updated ev: ", lambda);
+}
+
+// slaed9(int* K, int* KSTART, int* KSTOP, int* N, float* D, float* Q, int* LDQ, float* rho, float* dlambda, float* W, float* S, int& lds, int& info); 	
+auto dpr1_ev(py::array_t< float > Q, py::array_t< float > D, float rho, py::array_t< float > Z) -> py::dict {
+	arma::fmat q = carma::arr_to_mat(Q, true); // eigenvectors
+	arma::fvec d = carma::arr_to_col(D, true); // diagonal entries / poles 
+	arma::fvec z = carma::arr_to_col(Z, true); // perturbation vector
+	int K = d.size(), N = q.n_rows, info = 0;
+	int KSTART = 1, KEND = K;
+	arma::fvec lambda(K); 
+	arma::fmat S(q.n_rows, q.n_cols);
+	slaed9(&K, &KSTART, &KEND, &N, lambda.memptr(), q.memptr(), &N, &rho, d.memptr(), z.memptr(), S.memptr(), &N, &info); 	
+	// py::print("Info: ", info);
+	py::dict output; 
+	output["info"] = info;
+	output["eval"] = carma::col_to_arr(lambda, true);
+	output["evec"] = carma::mat_to_arr(S, true);
+	return(output);
+}
+
+// T = Q(in) ( D(in) + RHO * Z*Z**T ) Q**T(in) = Q(out) * D(out) * Q**T(out)
+
+
 PYBIND11_MODULE(fast_svd, m) {
 	m.def("fast_svd", &fast_svd, "Yields the svd of a matrix of low dimension");
 	m.def("lapack_svd", &lapack_svd, "Yields the svd of a matrix of low dimension");
 	//m.def("test_sparse", &test_sparse, "Test conversion to sparse matrix");
+	m.def("dpr1", &dpr1, "Diagonal + rank-1 matrix eigenvalue update");
+	m.def("dpr1_ev", &dpr1_ev, "Diagonal + rank-1 matrix eigenvalue update");
 	py::class_<StiefelLoss>(m, "StiefelLoss")
 		.def(py::init< int, int, int >())
 		.def_readonly("d", &StiefelLoss::d)

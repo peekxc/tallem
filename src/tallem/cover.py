@@ -17,8 +17,47 @@ from .utility import find_where
 # Bitvector vs sparsematrix storage option ?
 # Query: implicit vs explicit
 
-from typing import Callable, Iterable, List, Set, Dict, Optional, Tuple, Any, Union, Sequence
+## Type tools 
+from typing import *
+from collections.abc import * 
 from itertools import combinations, product
+
+## TODO: Unfortunately, numpy subclassing is far too complicated to allow the simple and generic typeclassing 
+## warranted for a generic cover that checks for the existence of methods, opting for 
+## See: https://numpy.org/doc/stable/user/basics.subclassing.html
+
+# A cover's structural subtype satisfies: 
+#  Mapping[T, IndexedSequence]
+#  	- Mapping mixins (__getitem__, __iter__, __len__, keys, items, values)
+#  	- The key type T = TypeVar('T') is any type; any index set can be used
+#  	- IndexedSequence mixins (__getitem__, __len__, __contains__, __iter__, __reversed__, .index(), and .count()), and is sorted!
+# If .index() and .count() don't exist, np.searchsorted() and np.sum(...) are used instead
+# 
+# Additional methods: 
+# (r) - [cover].set_distance(X: ArrayLike, index: T) -> returns metric distance from every point in X to the set indexed by 'index'
+# (r) - [cover].set_diameter(index: T) -> diameter of the set given by 'index' using the cover's metric
+# (o) - [cover].set_contains(X: ArrayLike, index: T) -> broadcastable, returns True for each x in X if IndexedSequence has __contains__, otherwise return if set_dist(x, index) <= set_diam(index)  
+
+# @runtime_checkable
+# class IndexedSequence(Collection, Protocol):
+# 	def __getitem__(self, index): ...
+# 	def __contains__(self, item): ...
+# 	def __len__(self):
+# 		return(len())
+# 	def index(self, item): ...
+# 	def count(self, item): ...
+
+# T = TypeVar('T')
+# @runtime_checkable
+# class Cover(Mapping[T, IndexedSequence], Protocol):
+# 	def __init__(self, cover):
+# 		# ...
+# 		# value_t = cover.values()
+# 		# if value_t.
+# 		self.cover = cover
+# 	def set_distance(self, X: npt.ArrayLike, index: T):
+# 		if ('set_distance' in dir(self.cover)):
+# 			self.cover.set_distance()
 
 
 from enum import IntEnum
@@ -42,27 +81,45 @@ class Gluing(IntEnum):
 ## (7) BallCover("klein bottle", balls=4, radii=0.15) ## equiv. to (6)
 ## (8) IntervalCover("real projective plane", balls=) # can also specify RP2
 
-class BallCover():
-	def __init__(self, space: npt.ArrayLike, balls: npt.ArrayLike, radii: npt.ArrayLike):
-		''' 
-		space := the type of space to construct a cover on. Can be a point set, a set of intervals (per column) indicating the domain of the cover, 
-						 or a string indicating a common configuration space. 
-		balls := (m x d) matrix of points giving the ball locations in 'space'
-		radii := scalar, or (m)-len array giving the radii associated with every ball
+# class BallCover():
+# 	def __init__(self, balls: npt.ArrayLike, radii: npt.ArrayLike, metric = "euclidean", space: Optional[Union[npt.ArrayLike, str]] = "union"):
+# 		''' 
+# 		balls := (m x d) matrix of points giving the ball locations in 'space'
+# 		radii := scalar, or (m)-len array giving the radii associated with every ball
+# 		space := the space the balls are meant to cover. Can be a point set, a set of intervals (per column) indicating a subspace of R^d, 
+# 						 or a string indicating a common configuration space. By default, the union of the supplied balls defines the underlying space.
+# 		'''
 
-		'''
-		self.tree = KDTree(x)
-		self.balls = balls
-		self.radii = radii 
+# 		## 
+# 		if space is str: 
+# 			# if space == "S1":
+# 			# 	self.bounds = np.array([0, 2*np.pi]).reshape((2,1))
+# 			raise NotImplementedError("Haven't implemented parsing of special spaces")
+# 		elif space.shape[1] == 2:
+# 			self.bounds = space
+# 		else:
+# 			self.bounds = "union"
 
-	def construct(self, a: npt.ArrayLike, index: Optional[npt.ArrayLike] = None):
-		self.tree.query_ball_point(x, r = np.array(list(range(x.shape[0])))/100.0)
+# 		self.balls = balls
+# 		self.radii = radii 
+# 		self.metric = metric
 
-	# def __iter__(self):
+# 	def construct(self, a: npt.ArrayLike, index: Optional[npt.ArrayLike] = None):
+# 		G = neighborhood_graph(a, radius = self.radii)
+			
+# 			## TODO: Use ball tree or cover tree for arbitrary metrics
 
-	# def __getitem__(self, index):
+# 	## Dictionary views 
+# 	def __iter__(self): return(iter(self.keys()))
 
-	# def __len__(self):
+# 	def items(self):
+
+# 	def values(self):
+# 	def keys(self):
+
+# 	def __getitem__(self, index):
+
+# 	def __len__(self):
 
 
 ## This is just a specialized ball cover
