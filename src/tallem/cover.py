@@ -11,6 +11,7 @@ from scipy.sparse import csc_matrix, diags
 from scipy.sparse.csgraph import minimum_spanning_tree,connected_components 
 from .distance import dist 
 from .utility import find_where
+from .dimred import neighborhood_graph, neighborhood_list
 
 # GridCover ?
 # LandmarkCover ? 
@@ -22,43 +23,90 @@ from typing import *
 from collections.abc import * 
 from itertools import combinations, product
 
-## TODO: Unfortunately, numpy subclassing is far too complicated to allow the simple and generic typeclassing 
-## warranted for a generic cover that checks for the existence of methods, opting for 
-## See: https://numpy.org/doc/stable/user/basics.subclassing.html
-
-# A cover's structural subtype satisfies: 
-#  Mapping[T, IndexedSequence]
-#  	- Mapping mixins (__getitem__, __iter__, __len__, keys, items, values)
-#  	- The key type T = TypeVar('T') is any type; any index set can be used
-#  	- IndexedSequence mixins (__getitem__, __len__, __contains__, __iter__, __reversed__, .index(), and .count()), and is sorted!
-# If .index() and .count() don't exist, np.searchsorted() and np.sum(...) are used instead
-# 
-# Additional methods: 
-# (r) - [cover].set_distance(X: ArrayLike, index: T) -> returns metric distance from every point in X to the set indexed by 'index'
-# (r) - [cover].set_diameter(index: T) -> diameter of the set given by 'index' using the cover's metric
-# (o) - [cover].set_contains(X: ArrayLike, index: T) -> broadcastable, returns True for each x in X if IndexedSequence has __contains__, otherwise return if set_dist(x, index) <= set_diam(index)  
+# Definition of Cover protocol type (its structural subtype) 
+#
+# a *Cover* matches the  Mapping[T, Union[Sequence, ArrayLike]] type
+#  	- Supports mapping mixins (__getitem__, __iter__, __len__, keys, items, values)
+#  	- The key type T = TypeVar('T') can be any type; i.e. any index set can be used
+#  	- Sequence mixins (__getitem__, __len__, __contains__, __iter__, __reversed__, .index(), and .count()), and is sorted (precondition)!
+# 	- If the value type is ArrayLike instead of Sequence, .index() and .count() don't exist and np.searchsorted() and np.sum(...) should be used instead
+# Methods:
+# (r) [cover].set_distance(X: ArrayLike, index: T) -> yields *normalized* distance of X to set T, such that 
+# 	  	1. d(x,T) >= 0.0  <=> (non-negative)
+# 			2. d(x,T) <= 1.0  <=> (x is contained within set T)  
+# (o) [cover].set_contains(X: ArrayLike, index: T) -> broadcastable, returns True for each x in X if set_distance(x, index) <= 1.0
+# 			1. This can deduced by [cover].set_distance, but for many covers there might exist a more efficient alternative
 
 # @runtime_checkable
-# class IndexedSequence(Collection, Protocol):
+# class IndexedSequence(Sequence, Protocol):
 # 	def __getitem__(self, index): ...
 # 	def __contains__(self, item): ...
-# 	def __len__(self):
-# 		return(len())
+# 	def __len__(self): ...
 # 	def index(self, item): ...
 # 	def count(self, item): ...
 
-# T = TypeVar('T')
-# @runtime_checkable
-# class Cover(Mapping[T, IndexedSequence], Protocol):
-# 	def __init__(self, cover):
-# 		# ...
-# 		# value_t = cover.values()
-# 		# if value_t.
-# 		self.cover = cover
-# 	def set_distance(self, X: npt.ArrayLike, index: T):
-# 		if ('set_distance' in dir(self.cover)):
-# 			self.cover.set_distance()
+from numpy.typing import ArrayLike
 
+
+T = TypeVar('T')
+@runtime_checkable
+class CoverLike(Collection[Tuple[T, Union[Sequence, ArrayLike]]], Protocol): 
+	def __getitem__(self, key: T) -> Union[Sequence, ArrayLike]: ...
+	def __iter__(self): ...
+	def __len__(self) -> int: ...
+	def __contains__(self, key: T) -> bool: ...
+	def keys(self) -> Iterator[T] : ...
+	def values(self) -> Iterator[Union[Sequence, ArrayLike]] : ...
+	def items(self) -> Iterator[Tuple[T, Union[Sequence, ArrayLike]]]: ...
+	def set_distance(self, X: ArrayLike, index: T): ...
+	def set_contains(self, X: ArrayLike, index: T): ...
+
+## Minimally, one must implement keys(), values(), and set_distance()		 
+class Cover(CoverLike):
+	def __getitem__(self, key: T) -> Union[Sequence, ArrayLike]: 
+		ind = list(self.keys()).index(key)
+		return(next(x for i,x in enumerate(self.values()) if i==ind))
+	def __iter__(self): 
+		return(iter(self.keys()))
+	def __len__(self) -> int: 
+		return(len(list(self.keys())))
+	def __contains__(self, key: T) -> bool: 
+		return(list(self.keys()).contains(key))
+	def keys(self) -> Iterator[T] : ...
+	def values(self) -> Iterator[Union[Sequence, ArrayLike]] : ...
+	def items(self) -> Iterator[Tuple[T, Union[Sequence, ArrayLike]]]: 
+		return(zip(self.keys(), self.values()))
+	def set_distance(self, X: ArrayLike, index: T): 
+		raise NotImplementedError("This cover has not defined a set distance function.")
+	def set_contains(self, X: ArrayLike, index: T):
+		return(np.array(self.set_distance(X, index) <= 1.0, dtype=bool))
+
+def bump(similarity: float, method: Optional[str] = "triangular", **kwargs):
+	''' Applies a bump function to weight a given similarity measure using a variety of bump functions '''
+	assert np.all(similarity <= 1.0), "Similarity must be non-negative."
+	similarity = np.maximum(similarity, 0.0)
+	if method == "triangular" or method == "linear": 
+		s = similarity
+	elif method == "quadratic":
+		s = similarity**2
+	elif method == "cubic":
+		s = similarity**3
+	elif method == "quartic":
+		s = similarity**4
+	elif method == "quintic":
+		s = similarity**5
+	elif method == "polynomial":
+		p = kwargs["p"] if kwargs.has_key("p") else 2.0
+		s = similarity**p
+	elif method == "gaussian":
+		s = np.array([np.exp(-1.0/(d**2)) if d > 0.0 else 0.0 for d in similarity])
+	elif method == "logarithmic":
+		s = np.log(1+similarity)
+	elif isinstance(method, Callable):
+		s = method(similarity)
+	else: 
+		raise ValueError("Invalid bump function specified.")
+	return(s)
 
 from enum import IntEnum
 class Gluing(IntEnum):
@@ -81,52 +129,51 @@ class Gluing(IntEnum):
 ## (7) BallCover("klein bottle", balls=4, radii=0.15) ## equiv. to (6)
 ## (8) IntervalCover("real projective plane", balls=) # can also specify RP2
 
-# class BallCover():
-# 	def __init__(self, balls: npt.ArrayLike, radii: npt.ArrayLike, metric = "euclidean", space: Optional[Union[npt.ArrayLike, str]] = "union"):
-# 		''' 
-# 		balls := (m x d) matrix of points giving the ball locations in 'space'
-# 		radii := scalar, or (m)-len array giving the radii associated with every ball
-# 		space := the space the balls are meant to cover. Can be a point set, a set of intervals (per column) indicating a subspace of R^d, 
-# 						 or a string indicating a common configuration space. By default, the union of the supplied balls defines the underlying space.
-# 		'''
+class BallCover(Cover):
+	def __init__(self, centers: npt.ArrayLike, radii: npt.ArrayLike, metric = "euclidean", space: Optional[Union[npt.ArrayLike, str]] = "union"):
+		''' 
+		centers := (m x d) matrix of points giving the ball locations in 'space'
+		radii := scalar, or (m)-len array giving the radii associated with every ball
+		space := the space the balls are meant to cover. Can be a point set, a set of intervals (per column) indicating a subspace of R^d, 
+						 or a string indicating a common configuration space. By default, the union of the supplied balls defines the underlying space.
+		'''
 
-# 		## 
-# 		if space is str: 
-# 			# if space == "S1":
-# 			# 	self.bounds = np.array([0, 2*np.pi]).reshape((2,1))
-# 			raise NotImplementedError("Haven't implemented parsing of special spaces")
-# 		elif space.shape[1] == 2:
-# 			self.bounds = space
-# 		else:
-# 			self.bounds = "union"
+		## Detect the space, if different 
+		if space != "union" and not(space is None):
+			if space is str: raise NotImplementedError("Haven't implemented parsing of special spaces")
+			self.bounds = space
 
-# 		self.balls = balls
-# 		self.radii = radii 
-# 		self.metric = metric
+		## Assign attributes
+		self.centers = np.asanyarray(centers)
+		self.radii = radii 
+		self.metric = metric
 
-# 	def construct(self, a: npt.ArrayLike, index: Optional[npt.ArrayLike] = None):
-# 		G = neighborhood_graph(a, radius = self.radii)
-			
-# 			## TODO: Use ball tree or cover tree for arbitrary metrics
+		## Default empty cover
+		self._neighbors = csc_matrix((0, len(self.centers)))
 
-# 	## Dictionary views 
-# 	def __iter__(self): return(iter(self.keys()))
+	def __getitem__(self, index: int):
+		assert index < len(self), "Invalid index supplied. Must be integer less than the number of cover subsets."
+		# return(self._neighbors.indices[self._neighbors.indptr[index]:self._neighbors.indptr[index]])
+		return(self._neighbors.getcol(index).indices)
 
-# 	def items(self):
+	def construct(self, a: npt.ArrayLike, index: Optional[npt.ArrayLike] = None):
+		self._neighbors = neighborhood_list(centers=self.centers, radius = self.radii, metric=self.metric).tocsc()
 
-# 	def values(self):
-# 	def keys(self):
+	def values(self):
+		for j in self.keys():
+			yield self[j]
+	
+	def keys(self):
+		return(range(len(self)))
 
-# 	def __getitem__(self, index):
-
-# 	def __len__(self):
-
+	def __len__(self):
+		return(len(self.centers))
 
 ## This is just a specialized ball cover
 # class LandmarkCover():
 
 ## maybe: identify = [i_0, ..., i_d] where i_k \in [-1, 0, +1], where -1 indicates reverse orientation, 0 no identification, and +1 regular orientation
-class IntervalCover():
+class IntervalCover(Cover):
 	'''
 	A Cover *is* an iterable
 	Cover -> divides data into subsets, satisfying covering property, retains underlying neighbor structures + metric (if any) 
@@ -293,32 +340,6 @@ class IntervalCover():
 # def LandmarkCover:
 # 	def __init__(self):
 # 			self.neighbor = BallTree(a, kwargs)
-
-def bump(dissimilarity: float, method: Optional[str] = "triangular", **kwargs):
-	''' Applies a bump function to convert given dissimilarity measure between [0,1] to a similarity measure '''
-	assert np.all(dissimilarity >= 0.0), "Dissimilarity must be non-negative."
-	if method == "triangular" or method == "linear": 
-		s = 1.0 - dissimilarity
-	elif method == "quadratic":
-		s = (1.0 - dissimilarity)**2
-	elif method == "cubic":
-		s = (1.0 - dissimilarity)**3
-	elif method == "quartic":
-		s = (1.0 - dissimilarity)**4
-	elif method == "quintic":
-		s = (1.0 - dissimilarity)**5
-	elif method == "polynomial":
-		p = kwargs["p"] if kwargs.has_key("p") else 2.0
-		s = (1.0 - dissimilarity)**p
-	elif method == "gaussian":
-		s = np.array([np.exp(-1.0/(d**2)) if d > 0.0 else 0.0 for d in dissimilarity])
-	elif method == "logarithmic":
-		s = np.log(1+dissimilarity)
-	elif isinstance(method, Callable):
-		s = method(dissimilarity)
-	else: 
-		raise ValueError("Invalid bump function specified.")
-	return(np.maximum(s, 0.0))
 
 ## A Partition oif unity is 
 ## B := point cloud topologiucal space

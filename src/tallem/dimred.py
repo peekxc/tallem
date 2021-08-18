@@ -124,28 +124,28 @@ def neighborhood_graph(a: npt.ArrayLike, k: Optional[int] = 15, radius: Optional
 	return(D)
 
 
-def neighborhood_list(a: npt.ArrayLike, b: npt.ArrayLike, k: Optional[int] = 15, radius: Optional[float] = None, metric = "euclidean", **kwargs):
+def neighborhood_list(centers: npt.ArrayLike, a: npt.ArrayLike, k: Optional[int] = 15, radius: Optional[float] = None, metric = "euclidean", **kwargs):
 	''' 
-	Computes the neighborhood adjacency list of a point cloud 'b' using points in 'a'. 
-	If 'a' is a (n x d) matrix and 'b' is a (m x d) matrix, this function computes a sparse (n x m) matrix 
-	where the non-zero entries I at each column j are the 'metric' distances from point j in 'b' to the points a[I,:].
+	Computes the neighborhood adjacency list of a point cloud 'centers' using points in 'a'. 
+	If 'a' is a (n x d) matrix and 'centers' is a (m x d) matrix, this function computes a sparse (n x m) matrix 
+	where the non-zero entries I at each column j are the 'metric' distances from point j in 'b' to the center points.
 	'''
-	a, b = as_np_array(a), as_np_array(b)
+	a, b = as_np_array(a), as_np_array(centers) # b is the centers
 	n, m = a.shape[0], b.shape[0]
 	minkowski_metrics = ["cityblock", "euclidean", "chebychev"]
 	if metric in minkowski_metrics:
 		p = [1, 2, float("inf")][minkowski_metrics.index(metric)]
-		tree = KDTree(data=b, **kwargs)
+		tree = KDTree(data=a, **kwargs)
 		if radius is not None:
-			neighbors = tree.query_ball_point(a, r=radius, p=p)
-			c = np.array(np.hstack(neighbors), dtype=np.int32)
-			r = np.repeat(range(n), repeats=[len(idx) for idx in neighbors])
+			neighbors = tree.query_ball_point(b, r=radius, p=p)
+			r = np.array(np.hstack(neighbors), dtype=np.int32)
+			c = np.repeat(range(m), repeats=[len(idx) for idx in neighbors])
 			d = dist(a[r,:], b[c,:], pairwise=True, metric=metric)
 			# for i, nn_idx in enumerate(tree.query_ball_point(a, r=radius, p=p)):
 			# 	G[i,nn_idx] = dist(a[[i],:], b[nn_idx,:], metric=metric)
 		else:
-			knn = tree.query(a, k=k+1)
-			r, c, d = np.repeat(range(a.shape[0]), repeats=k), knn[1][:,1:].flatten(), knn[0][:,1:].flatten()
+			knn = tree.query(b, k=k)
+			c, r, d = np.repeat(range(b.shape[0]), repeats=k), knn[1].flatten(), knn[0].flatten()
 	else: 
 		D = dist(a, b)
 		if radius is not None: 
