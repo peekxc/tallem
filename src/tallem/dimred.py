@@ -135,8 +135,8 @@ def neighborhood_list(centers: npt.ArrayLike, a: npt.ArrayLike, k: Optional[int]
 	minkowski_metrics = ["cityblock", "euclidean", "chebychev"]
 	if metric in minkowski_metrics:
 		p = [1, 2, float("inf")][minkowski_metrics.index(metric)]
-		tree = KDTree(data=a, **kwargs)
 		if radius is not None:
+			tree = KDTree(data=a, **kwargs)
 			neighbors = tree.query_ball_point(b, r=radius, p=p)
 			r = np.array(np.hstack(neighbors), dtype=np.int32)
 			c = np.repeat(range(m), repeats=[len(idx) for idx in neighbors])
@@ -144,8 +144,9 @@ def neighborhood_list(centers: npt.ArrayLike, a: npt.ArrayLike, k: Optional[int]
 			# for i, nn_idx in enumerate(tree.query_ball_point(a, r=radius, p=p)):
 			# 	G[i,nn_idx] = dist(a[[i],:], b[nn_idx,:], metric=metric)
 		else:
-			knn = tree.query(b, k=k)
-			c, r, d = np.repeat(range(b.shape[0]), repeats=k), knn[1].flatten(), knn[0].flatten()
+			tree = KDTree(data=b, **kwargs)
+			knn = tree.query(a, k=k)
+			r, c, d = np.repeat(range(a.shape[0]), repeats=k), knn[1].flatten(), knn[0].flatten()
 	else: 
 		D = dist(a, b)
 		if radius is not None: 
