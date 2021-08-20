@@ -19,9 +19,98 @@ b = a[landmarks(a, 20)['indices'],:]
 
 
 # %% ball cover 
+from src.tallem.cover import BallCover, IntervalCover, CoverLike
+from src.tallem.dimred import neighborhood_list
+
 r = np.min(landmarks(a, 20)['radii'])
 cover = BallCover(b, r)
+cover.set_distance(a, 0)
 
+
+
+cover = IntervalCover([5,5], 0.25)
+isinstance(cover, CoverLike)
+
+
+# %% Polygon projection distance testing 
+from shapely.geometry import Polygon, Point
+p = np.array([[-1,-1], [-1,1], [1,1], [1,-1]])
+x = np.random.uniform(-1,1,size=(1,2))
+
+dist_to_boundary = Polygon(p).boundary.distance(Point(np.ravel(x)))
+dist_to_centroid = P.centroid.distance(Point(np.ravel(x)))
+dist_to_boundary/(dist_to_boundary+dist_to_centroid)
+# isinstance(cover, CoverLike)
+# cover.construct(a)
+
+# N = neighborhood_list(centers = cover.centers[[2],:], a = cover.centers, k=1)
+from scipy.spatial import ConvexHull
+
+def min_distance(pt1, pt2, p):
+	""" return the projection of point p (and the distance) on the closest edge formed by the two points pt1 and pt2"""
+	l = np.sum((pt2-pt1)**2) ## compute the squared distance between the 2 vertices
+	t = np.max([0., np.min([1., np.dot(p-pt1, pt2-pt1) /l])]) # I let the answer of question 849211 explains this
+	proj = pt1 + t*(pt2-pt1) ## project the point
+	return proj, np.sum((proj-p)**2) ## return the projection and the point
+
+dB = lambda x: Polygon(p).boundary.distance(Point(np.ravel(x)))
+
+X, Y = np.meshgrid(np.linspace(-1,1,100),np.linspace(-1,1,100))
+Z = np.array([dB(np.array([x,y])) for x, y in zip(X.ravel(), Y.ravel())]).reshape(X.shape)
+
+import matplotlib.pyplot as plt
+fig, ax = plt.subplots(1, 1)
+ax.set_aspect('equal')
+m = ax.contourf(X, Y, Z, 20, cmap=plt.cm.Greens)
+fig.tight_layout()
+plt.show()
+
+
+# %% Simplex projection
+
+def project_onto_standard_simplex( y ):
+	"""
+	Project the point y onto the standard |y|-simplex, returning the closest point projection (in barycentric coordinates)
+
+	See Yunmei Chen and Xiaojing Ye, "Projection Onto a Simplex", 
+	https://arxiv.org/abs/1101.6081
+	"""
+	n = len( y )
+	y_s = sorted( y, reverse=True)
+	sum_y = 0
+	for i, y_i, y_next in zip( range( 1, n+1 ), y_s, y_s[1:] + [0.0] ):
+		sum_y += y_i
+		t = (sum_y - 1) / i
+		if t >= y_next:
+				break
+	return [ max( 0, y_i - t ) for y_i in y ]
+
+import numpy as np
+
+def bary_to_cart(b, t):
+	return t.dot(b)
+def cart2bary(X: npt.ArrayLike, P: npt.ArrayLike):
+	    M <- nrow(P)
+    N <- ncol(P)
+    if (ncol(X) != N) {
+        stop("Simplex X must have same number of columns as point matrix P")
+    }
+    if (nrow(X) != (N + 1)) {
+        stop("Simplex X must have N columns and N+1 rows")
+    }
+    X1 <- X[1:N, ] - (matrix(1, N, 1) %*% X[N + 1, , drop = FALSE])
+    if (rcond(X1) < .Machine$double.eps) {
+        warning("Degenerate simplex")
+        return(NULL)
+    }
+    Beta <- (P - matrix(X[N + 1, ], M, N, byrow = TRUE)) %*% 
+        solve(X1)
+    Beta <- cbind(Beta, 1 - apply(Beta, 1, sum))
+    return(Beta)
+
+tri = np.array([[0,0],[0,2],[2,0]]).T
+
+fig = plt.figure()
 
 
 #%% plot 
@@ -232,3 +321,59 @@ pl.savefig("bounded_voronoi.png")
 sp.spatial.voronoi_plot_2d(vor)
 pl.savefig("voronoi.png")
 
+
+# %% Generalized version
+from collections import defaultdict
+from shapely.geometry import Polygon
+def voronoi_polygons(voronoi, diameter):
+	"""Generate shapely.geometry.Polygon objects corresponding to the
+	regions of a scipy.spatial.Voronoi object, in the order of the
+	input points. The polygons for the infinite regions are large
+	enough that all points within a distance 'diameter' of a Voronoi
+	vertex are contained in one of the infinite polygons.
+
+	"""
+	centroid = voronoi.points.mean(axis=0)
+
+	# Mapping from (input point index, Voronoi point index) to list of
+	# unit vectors in the directions of the infinite ridges starting
+	# at the Voronoi point and neighbouring the input point.
+	ridge_direction = defaultdict(list)
+	for (p, q), rv in zip(voronoi.ridge_points, voronoi.ridge_vertices):
+		u, v = sorted(rv)
+		if u == -1:
+			# Infinite ridge starting at ridge point with index v,
+			# equidistant from input points with indexes p and q.
+			t = voronoi.points[q] - voronoi.points[p] # tangent
+			n = np.array([-t[1], t[0]]) / np.linalg.norm(t) # normal
+			midpoint = voronoi.points[[p, q]].mean(axis=0)
+			direction = np.sign(np.dot(midpoint - centroid, n)) * n
+			ridge_direction[p, v].append(direction)
+			ridge_direction[q, v].append(direction)
+
+	for i, r in enumerate(voronoi.point_region):
+		region = voronoi.regions[r]
+		if -1 not in region:
+			# Finite region.
+			yield Polygon(voronoi.vertices[region])
+			continue
+		# Infinite region.
+		inf = region.index(-1)              # Index of vertex at infinity.
+		j = region[(inf - 1) % len(region)] # Index of previous vertex.
+		k = region[(inf + 1) % len(region)] # Index of next vertex.
+		if j == k:
+			# Region has one Voronoi vertex with two ridges.
+			dir_j, dir_k = ridge_direction[i, j]
+		else:
+			# Region has two Voronoi vertices, each with one ridge.
+			dir_j, = ridge_direction[i, j]
+			dir_k, = ridge_direction[i, k]
+
+		# Length of ridges needed for the extra edge to lie at least
+		# 'diameter' away from all Voronoi vertices.
+		length = 2 * diameter / np.linalg.norm(dir_j + dir_k)
+
+		# Polygon consists of finite part plus an extra edge.
+		finite_part = voronoi.vertices[region[inf + 1:] + region[:inf]]
+		extra_edge = [voronoi.vertices[j] + dir_j * length, voronoi.vertices[k] + dir_k * length]
+		yield Polygon(np.concatenate((finite_part, extra_edge)))

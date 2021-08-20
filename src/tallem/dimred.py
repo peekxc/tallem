@@ -130,6 +130,7 @@ def neighborhood_list(centers: npt.ArrayLike, a: npt.ArrayLike, k: Optional[int]
 	If 'a' is a (n x d) matrix and 'centers' is a (m x d) matrix, this function computes a sparse (n x m) matrix 
 	where the non-zero entries I at each column j are the 'metric' distances from point j in 'b' to the center points.
 	'''
+	assert k >= 1, "k must be an integer, if supplied" 
 	a, b = as_np_array(a), as_np_array(centers) # b is the centers
 	n, m = a.shape[0], b.shape[0]
 	minkowski_metrics = ["cityblock", "euclidean", "chebychev"]
@@ -157,7 +158,7 @@ def neighborhood_list(centers: npt.ArrayLike, a: npt.ArrayLike, k: Optional[int]
 			knn = np.apply_along_axis(lambda a_row: np.argsort(a_row)[0:k],axis=1,arr=D)
 			r, c = np.repeat(range(n), repeats=k), np.ravel(knn)
 			d = D[r,c]
-	G = csc_matrix((d, (r, c)), dtype=np.float32, shape=(n,m))
+	G = csc_matrix((d, (r, c)), dtype=np.float32, shape=(max(max(r), n), max(max(c), m)))
 	return(G)
 
 

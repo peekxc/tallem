@@ -13,11 +13,6 @@ from .distance import dist
 from .utility import find_where
 from .dimred import neighborhood_graph, neighborhood_list
 
-# GridCover ?
-# LandmarkCover ? 
-# Bitvector vs sparsematrix storage option ?
-# Query: implicit vs explicit
-
 ## Type tools 
 from typing import *
 from collections.abc import * 
@@ -63,9 +58,7 @@ class CoverLike(Collection[Tuple[T, Union[Sequence, ArrayLike]]], Protocol):
 
 ## Minimally, one must implement keys(), values(), and set_distance()		 
 class Cover(CoverLike):
-	def __getitem__(self, key: T) -> Union[Sequence, ArrayLike]: 
-		ind = list(self.keys()).index(key)
-		return(next(x for i,x in enumerate(self.values()) if i==ind))
+	def __getitem__(self, key: T) -> Union[Sequence, ArrayLike]: ...
 	def __iter__(self): 
 		return(iter(self.keys()))
 	def __len__(self) -> int: 
@@ -73,7 +66,9 @@ class Cover(CoverLike):
 	def __contains__(self, key: T) -> bool: 
 		return(list(self.keys()).contains(key))
 	def keys(self) -> Iterator[T] : ...
-	def values(self) -> Iterator[Union[Sequence, ArrayLike]] : ...
+	def values(self) -> Iterator[Union[Sequence, ArrayLike]] : 
+		for j in self.keys(): 
+			yield self[j]
 	def items(self) -> Iterator[Tuple[T, Union[Sequence, ArrayLike]]]: 
 		return(zip(self.keys(), self.values()))
 	def set_distance(self, X: ArrayLike, index: T): 
@@ -116,19 +111,6 @@ class Gluing(IntEnum):
 	ALIGNED = 1
 	PERIODIC = 1
 
-##  TODO: Add generic to make cover duck-typed for other methods
-
-## TODO: consider what other spaces to construct the covers on
-## Goal: 
-## (1) BallCover("D1", balls=8) # samples nearly-equidistant points via Gibbs sampler, sets radii to minimum need to cover space
-## (2) BallCover("S1", [0, pi/2, pi, 3*pi/2], pi)
-## (3) BallCover(space=[0, 2*pi], balls=[0, pi/2, pi, 3*pi/2], radii=pi, gluing=PERIODIC) # eq. to (2)
-## (4) BallCover(space=product([0, 1], [0, 1]), balls=product([0, 0.25, 0.50, 0.75], ...), radii=0.15, gluing=[ None, REVERSED ])     # mobius band 
-## (5) BallCover(space=product([0, 1], [0, 1]), balls=product([0, 0.25, 0.50, 0.75], ...), radii=0.15, gluing=[ None, PERIODIC ])     # cylinder
-## (6) BallCover(space=product([0, 1], [0, 1]), balls=product([0, 0.25, 0.50, 0.75], ...), radii=0.15, gluing=[ REVERSED, ALIGNED ])  # Klein bottle
-## (7) BallCover("klein bottle", balls=4, radii=0.15) ## equiv. to (6)
-## (8) IntervalCover("real projective plane", balls=) # can also specify RP2
-
 class BallCover(Cover):
 	def __init__(self, centers: npt.ArrayLike, radii: npt.ArrayLike, metric = "euclidean", space: Optional[Union[npt.ArrayLike, str]] = "union"):
 		''' 
@@ -151,23 +133,27 @@ class BallCover(Cover):
 		## Default empty cover
 		self._neighbors = csc_matrix((0, len(self.centers)))
 
+	def radius(self, index: int):
+		assert index >= 0 and index < len(self), "Invalid index given."
+		return(self.radii if isinstance(self.radii, float) else self.radii[index])
+
 	def __getitem__(self, index: int):
 		assert index < len(self), "Invalid index supplied. Must be integer less than the number of cover subsets."
 		# return(self._neighbors.indices[self._neighbors.indptr[index]:self._neighbors.indptr[index]])
 		return(self._neighbors.getcol(index).indices)
 
-	def construct(self, a: npt.ArrayLike, index: Optional[npt.ArrayLike] = None):
-		self._neighbors = neighborhood_list(centers=self.centers, radius = self.radii, metric=self.metric).tocsc()
-
-	def values(self):
-		for j in self.keys():
-			yield self[j]
+	def construct(self, a: npt.ArrayLike):
+		self._neighbors = neighborhood_list(centers=self.centers, a=a, radius=self.radii, metric=self.metric).tocsc()
 	
 	def keys(self):
 		return(range(len(self)))
 
 	def __len__(self):
 		return(len(self.centers))
+
+	def set_distance(self, a: npt.ArrayLike, index: int):
+		dx = dist(a, self.centers[[index], :], metric=self.metric)
+		return(dx / self.radius(index))
 
 ## This is just a specialized ball cover
 # class LandmarkCover():
@@ -185,33 +171,35 @@ class IntervalCover(Cover):
 		gluing := optional, whether to identify the sides of the cover as aligned in the same direction (1), in inverted directions (-1), or no identification (0) (default). 
 		implicit := optional, whether to store all the subsets in a precomputed dictionary, or construct them on-demand. Defaults to the former.
 	'''
-	def __init__(self, space: Union[npt.ArrayLike, str], n_sets: List[int], overlap: List[float], gluing: Optional[List[Gluing]] = None, implicit: bool = False, **kwargs):
-		
-		## Detect if one is creating the cover an a specified configuration space, or if the boundary box dimensions were given, etc. 
-		if isinstance(space, str):
-			raise ValueError("Specifying the configuration space by name hasn't been implemented yet.")
-		else: 
-			space = np.array(space, copy=False)
+	def __init__(self, n_sets: List[int], overlap: List[float], gluing: Optional[List[Gluing]] = None, space: Optional[Union[npt.ArrayLike, str]] = None, metric: str = "euclidean", implicit: bool = False, **kwargs):
+					
+		## If space is specified, check inputs
+		if not(space is None):
+			if space is str: raise NotImplementedError("Haven't implemented parsing of special spaces")
+			space = np.asanyarray(space)
 			if len(space.shape) == 1: space = np.reshape(space, (len(space), 1))
 			if len(space.shape) != 2: raise ValueError("Invalid data shape. Must be a matrix.")
-			
-			## Two cases: 
-			## 	1) if only two rows, assume the i'th column gives the range of the i'th dimension 
-			## 	2) otherwise, infer the boundaries of the domain from the data directly 
 			self.dimension = space.shape[1]
 			if space.shape[0] == 2: 
 				self.bbox = space
 				self._data = None
 			else: 
 				self.bbox = np.vstack((np.amin(space, axis=0), np.amax(space, axis=0)))
-				self._data = np.array(space, copy=False)
+				self._data = space
+		else: 
+			nsets = 1 if isinstance(n_sets, int) else len(n_sets)
+			nover = 1 if isinstance(overlap, float) else len(overlap)
+			self.dimension = np.max([nsets, nover])
+			self.bbox = np.repeat([0,1], self.dimension, axis=0).reshape((2, self.dimension))
+			self._data = None
 
 		## Set intrinsic properties of the cover
-		self.metric = "euclidean"
+		self.metric = metric
 		self.implicit = implicit
 		self.n_sets = np.repeat(n_sets, self.dimension) if (isinstance(n_sets, int) or len(n_sets) == 1) else np.array(n_sets)
 		self.overlap = np.repeat(overlap, self.dimension) if (isinstance(overlap, float) or len(overlap) == 1) else np.array(overlap)
-		
+		assert np.all([self.overlap[i] < 1.0 for i in range(self.dimension)]), "Proportion overlap must be < 1.0"
+
 		## Assert these parameters match the dimension of the cover prior to assignment
 		if len(self.n_sets) != self.dimension or len(self.overlap) != self.dimension:
 			raise ValueError("Dimensions mismatch: supplied set or overlap arity does not match dimension of the cover.")
@@ -255,38 +243,40 @@ class IntervalCover(Cover):
 			cover_sets = { index : self.construct(a, index) for index in np.ndindex(*self.n_sets) }
 			return(cover_sets)
 	
-	def __iter__(self):
+	def keys(self):
+		return(np.ndindex(*self.n_sets) if self.implicit else self.sets.keys())
+
+	def values(self):
 		if self.implicit:
-			for index in np.ndindex(*self.n_sets):
-				subset = construct(self._data, index)
-				yield np.array(index), subset
+			for index in self.keys():
+				yield self[index]
 		else: 
-			for index, cover_set in self.sets.items():
-				yield index, cover_set
+			return(self.set.values())
 
 	def __getitem__(self, index):
 		if isinstance(index, tuple):
 			return(self.construct(self._data, index) if self.implicit else self.sets[index])
 		elif int(index) == index:
 			index = list(self.sets.keys())[index]
-			return(index, self.construct(self._data, index) if self.implicit else self.sets[index])
+			return(index, self[index])
 		else: 
 			raise ValueError("Cover must be indexed by either a tuple or an integer index")
 		
-	def __call__(self, a: Optional[npt.ArrayLike]):
-		if a is not None:
-			a = np.array(a, copy=False)
-			if a.shape[2] != self.dimension: raise ValueError("The dimensionality of the supplied data does not match the dimension of the cover.")
-			self._data = a
-			if not self.implicit:
-				self.sets = self.construct(a)
-		return self
+	# def __call__(self, a: Optional[npt.ArrayLike]):
+	# 	if a is not None:
+	# 		a = np.array(a, copy=False)
+	# 		if a.shape[2] != self.dimension: raise ValueError("The dimensionality of the supplied data does not match the dimension of the cover.")
+	# 		self._data = a
+	# 		if not self.implicit:
+	# 			self.sets = self.construct(a)
+	# 	return self
 	
 	def __len__(self):
 		return(np.prod(self.n_sets))
 
 	def __repr__(self) -> str:
-		return("Interval Cover")
+		domain_str = " x ".join(np.apply_along_axis("{}".format, axis=0, arr=self.bbox))
+		return("Interval Cover with {} sets and {} overlap over the domain {}".format(self.n_sets, self.overlap, domain_str))
 	
 	def plot(self):
 		if self.dimension == 1:
