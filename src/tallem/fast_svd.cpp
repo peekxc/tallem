@@ -73,7 +73,7 @@ struct StiefelLoss {
 			S.diag() = carma::arr_to_col< double >(s_copy, true);
 			arma::mat V { carma::arr_to_mat< double >(v_copy, true) };
 			// py::print(U.n_rows, U.n_cols, S.n_rows, S.n_cols, V.n_rows, V.n_cols);
-			G(arma::span::all, arma::span(i, i+d-1)) = U * S * V;
+			G(arma::span::all, arma::span(i, i+d-1)) = U * S * V; // TODO: transpose?
 			nuclear_norm += arma::trace(S);
 			i += d;
 		});

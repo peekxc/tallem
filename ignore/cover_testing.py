@@ -2,8 +2,9 @@
 import sys
 import os
 PACKAGE_PARENT = '..'
-SCRIPT_DIR = os.path.dirname(os.path.realpath(os.path.join(os.getcwd(), os.path.expanduser(__file__))))
-sys.path.append(os.path.normpath(os.path.join(SCRIPT_DIR, PACKAGE_PARENT)))
+#SCRIPT_DIR = os.path.dirname(os.path.realpath(os.path.join(os.getcwd(), os.path.expanduser('src/tallem'))))
+#sys.path.append(os.path.normpath(os.path.join(SCRIPT_DIR, PACKAGE_PARENT)))
+sys.path.append(os.path.normpath(os.path.expanduser("~/tallem")))
 
 # %% imports
 from src.tallem.cover import IntervalCover
@@ -18,6 +19,61 @@ a = np.random.uniform(size=(100,2))
 b = a[landmarks(a, 20)['indices'],:]
 
 
+cover = IntervalCover(n_sets=10, overlap=0.20, space=a)
+
+list(cover.values())
+
+## Verify all points exist inside the polygons 
+from src.tallem.utility import cartesian_product
+from shapely.geometry import Polygon, Point
+for index in cover.keys():
+	eps = cover.base_width/2.0
+	centroid = cover.bbox[0:1,:] + (np.array(index) * cover.base_width) + eps
+	p = cartesian_product(np.tile([-1,1], (cover.dimension,1)))[[0,1,3,2],:] * centroid
+	ind = np.nonzero([Polygon(p).contains(Point(x)) for x in a])[0]
+	print(np.all(cover[index] == ind))
+
+#%% 
+cover.set_distance(a[16,:], list(cover.keys())[0])
+cover.set_distance(a, list(cover.keys())[0])
+list(cover.values())[0]
+np.nonzero(cover.set_distance(a, list(cover.keys())[0]) <= 1.0)
+
+# %% Projection onto boundary 
+from src.tallem.utility import cartesian_product
+from shapely.geometry import Polygon, Point
+box = cartesian_product(np.tile([-1,1], (2,1)))
+B = Polygon(box[[0,1,3,2],:])
+c = B.centroid
+p = Point(np.random.uniform(size=(2,), low=-1, high=1))
+
+v = np.array(p.coords) - np.array(c.coords)
+v = v / np.linalg.norm(v)
+
+# B.boundary.union(p).union(c).union(Point(np.ravel(c + y_opt*v)))
+B.boundary.distance(p)
+
+xx, yy = B.minimum_rotated_rectangle.exterior.coords.xy
+max_diam = np.max(np.abs(np.array(xx) - np.array(yy)))
+from scipy.optimize import golden
+dist_to_boundary = lambda y: B.boundary.distance(Point(np.ravel(c + y*v)))
+y_opt = golden(dist_to_boundary, brack=(0, max_diam))
+
+B.boundary.union(p).union(c).union(np.ravel(Point(c + y_opt*v)))
+
+
+from src.tallem.cover import dist_to_boundary
+dist_to_boundary(box[[0,1,3,2],:], np.array([0, 0])) # should be nan, undefined direction vector 
+dist_to_boundary(box[[0,1,3,2],:], np.array([0, 0.1])) # should be ~ 1 
+dist_to_boundary(box[[0,1,3,2],:], np.array([0.1, 0.1])) # should be ~ sqrt(2) 
+dist_to_boundary(box[[0,1,3,2],:], np.array([0.15, 0.1])) # should be x where 1 < x < sqrt(2)
+dist_to_boundary(box[[0,1,3,2],:], np.array([2.0, 0.0])) # should be ~ 1, 2
+
+#%% 
+cover._diff_to(a, np.array([0,0]).reshape((1,2)))
+np.sqrt(np.apply_along_axis(np.sum, 1, D**2))
+
+cover.set_distance(a, list(cover.keys())[0])
 # %% ball cover 
 from src.tallem.cover import BallCover, IntervalCover, CoverLike
 from src.tallem.dimred import neighborhood_list
@@ -29,7 +85,9 @@ cover.set_distance(a, 0)
 
 
 cover = IntervalCover([5,5], 0.25)
-isinstance(cover, CoverLike)
+
+def f(a):
+	assert isinstance(cover, CoverLike)
 
 
 # %% Polygon projection distance testing 
@@ -37,8 +95,21 @@ from shapely.geometry import Polygon, Point
 p = np.array([[-1,-1], [-1,1], [1,1], [1,-1]])
 x = np.random.uniform(-1,1,size=(1,2))
 
+# From: https://gist.github.com/mblondel/6f3b7aaad90606b98f71
+def projection_simplex_sort(v, z=1):
+	n_features = v.shape[0]
+	u = np.sort(v)[::-1]
+	cssv = np.cumsum(u) - z
+	ind = np.arange(n_features) + 1
+	cond = u - cssv / ind > 0
+	rho = ind[cond][-1]
+	theta = cssv[cond][-1] / float(rho)
+	w = np.maximum(v - theta, 0)
+	return w
+
+
 dist_to_boundary = Polygon(p).boundary.distance(Point(np.ravel(x)))
-dist_to_centroid = P.centroid.distance(Point(np.ravel(x)))
+dist_to_centroid = Polygon(p).centroid.distance(Point(np.ravel(x)))
 dist_to_boundary/(dist_to_boundary+dist_to_centroid)
 # isinstance(cover, CoverLike)
 # cover.construct(a)
@@ -66,6 +137,83 @@ fig.tight_layout()
 plt.show()
 
 
+# %% General projection idea
+import matplotlib.pyplot as plt
+Q = ConvexHull(p)
+plt.plot(*np.vstack([p, p[0,:]]).T)
+
+def project_simplex(y):
+	y[np.argsort(y)]
+	u = 
+
+q = p + np.abs(np.apply_along_axis(np.min, 0, p))
+projection_simplex_sort(p)
+
+
+class Point (np.ndarray):
+	def __new__ (cls, x, y):
+			return np.asarray([x, y]).astype(float).view(cls)
+	def __str__ (self):
+			return repr(self)
+	def __repr__ (self):
+			return 'Point ({}, {})'.format(self.x, self.y)
+	x = property (fget = lambda s: s[0])
+	y = property (fget = lambda s: s[1])
+
+class Simplex (dict):
+	def __init__ (self, points):
+			super(Simplex, self).__init__ (enumerate(points))
+	def __str__ (self):
+			return repr(self)
+	def __repr__ (self):
+			return 'Simplex <' + dict.__repr__ (self) + '>'
+
+def closest_point (s):
+	dx = sum(dj(s, i) for i in range(len(s)))
+	return sum(dj(s, i) / dx * v for i, v in s.items())
+
+def dj (s, j):
+	if len(s) == 0 or (len(s) == 1 and not j in s):
+			print(s, j)
+			raise ValueError ()
+	if len(s) == 1:
+			return 1
+	ts = s.copy()
+	yj = s[j]
+	del ts[j]
+	return sum(dj(ts, i) * (ts[list(ts.keys())[0]] - yj).dot(v) for i, v in ts.items())
+
+S = Simplex([Point(1, 1), Point(2, 5), Point(3,1.5)])
+closest_point(S)
+
+#%% (convex) Quadratic Programming solution to projecting onto an arbitrary polytope
+from quadprog import solve_qp
+solve_qp(G, a, C, b)
+# Minimize     1/2 x^T G x - a^T x
+# Subject to   C.T x >= b
+
+# G = identity 
+# a = 2*y
+# C = [-I_n, 1_n.T] 
+# b = [0_n, 1] 
+
+
+def solve_qp_scipy(G, a, C, b, meq=0):
+	# Minimize     1/2 x^T G x - a^T x
+	# Subject to   C.T x >= b
+	def f(x): return 0.5 * np.dot(x, G).dot(x) - np.dot(a, x)
+	if C is not None and b is not None:
+		constraints = [{
+				'type': 'ineq',
+				'fun': lambda x, C=C, b=b, i=i: (np.dot(C.T, x) - b)[i]
+		} for i in range(C.shape[1])]
+	else:
+			constraints = []
+	result = scipy.optimize.minimize(
+			f, x0=np.zeros(len(G)), method='COBYLA', constraints=constraints,
+			tol=1e-10, options={'maxiter': 2000})
+	return result
+
 # %% Simplex projection
 
 def project_onto_standard_simplex( y ):
@@ -89,24 +237,26 @@ import numpy as np
 
 def bary_to_cart(b, t):
 	return t.dot(b)
-def cart2bary(X: npt.ArrayLike, P: npt.ArrayLike):
-	    M <- nrow(P)
-    N <- ncol(P)
-    if (ncol(X) != N) {
-        stop("Simplex X must have same number of columns as point matrix P")
-    }
-    if (nrow(X) != (N + 1)) {
-        stop("Simplex X must have N columns and N+1 rows")
-    }
-    X1 <- X[1:N, ] - (matrix(1, N, 1) %*% X[N + 1, , drop = FALSE])
-    if (rcond(X1) < .Machine$double.eps) {
-        warning("Degenerate simplex")
-        return(NULL)
-    }
-    Beta <- (P - matrix(X[N + 1, ], M, N, byrow = TRUE)) %*% 
-        solve(X1)
-    Beta <- cbind(Beta, 1 - apply(Beta, 1, sum))
-    return(Beta)
+
+# def cart2bary(X: npt.ArrayLike, P: npt.ArrayLike):
+# 	''' Given cartesian coordinates 'X' '''
+# 	M <- nrow(P)
+# 	N <- ncol(P)
+# 	if (ncol(X) != N) {
+# 			stop("Simplex X must have same number of columns as point matrix P")
+# 	}
+# 	if (nrow(X) != (N + 1)) {
+# 			stop("Simplex X must have N columns and N+1 rows")
+# 	}
+# 	X1 <- X[1:N, ] - (matrix(1, N, 1) %*% X[N + 1, , drop = FALSE])
+# 	if (rcond(X1) < .Machine$double.eps) {
+# 			warning("Degenerate simplex")
+# 			return(NULL)
+# 	}
+# 	Beta <- (P - matrix(X[N + 1, ], M, N, byrow = TRUE)) %*% 
+# 			solve(X1)
+# 	Beta <- cbind(Beta, 1 - apply(Beta, 1, sum))
+# 	return(Beta)
 
 tri = np.array([[0,0],[0,2],[2,0]]).T
 
@@ -377,3 +527,11 @@ def voronoi_polygons(voronoi, diameter):
 		finite_part = voronoi.vertices[region[inf + 1:] + region[:inf]]
 		extra_edge = [voronoi.vertices[j] + dir_j * length, voronoi.vertices[k] + dir_k * length]
 		yield Polygon(np.concatenate((finite_part, extra_edge)))
+
+
+
+#%% Simplex projection GJK / Johnson algorithm 
+
+
+
+

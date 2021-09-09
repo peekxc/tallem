@@ -10,7 +10,7 @@ from sklearn.neighbors import BallTree
 from scipy.sparse import csc_matrix, diags
 from scipy.sparse.csgraph import minimum_spanning_tree,connected_components 
 from .distance import dist 
-from .utility import find_where
+from .utility import find_where, cartesian_product
 from .dimred import neighborhood_graph, neighborhood_list
 
 ## Type tools 
@@ -18,19 +18,32 @@ from typing import *
 from collections.abc import * 
 from itertools import combinations, product
 
-# Definition of Cover protocol type (its structural subtype) 
+## --- Cover protocol type (its structural subtype) --- 
 #
-# a *Cover* matches the  Mapping[T, Union[Sequence, ArrayLike]] type
+# a *Cover* matches the Mapping[T, Union[Sequence, ArrayLike]] type
 #  	- Supports mapping mixins (__getitem__, __iter__, __len__, keys, items, values)
 #  	- The key type T = TypeVar('T') can be any type; i.e. any index set can be used
-#  	- Sequence mixins (__getitem__, __len__, __contains__, __iter__, __reversed__, .index(), and .count()), and is sorted (precondition)!
-# 	- If the value type is ArrayLike instead of Sequence, .index() and .count() don't exist and np.searchsorted() and np.sum(...) should be used instead
+#  	- If value is a Sequence type => supports mixins (__getitem__, __len__, __contains__, __iter__, __reversed__, .index(), and .count()), and is sorted (precondition)!
+# 	- If value is a ArrayLike type => .index() and .count() don't exist, detect and use np.searchsorted() and np.sum(...) instead
 # Methods:
-# (r) [cover].set_distance(X: ArrayLike, index: T) -> yields *normalized* distance of X to set T, such that 
+# (r) [cover].set_contains(X: ArrayLike, index: T) -> broadcastable, returns True for each x in X if x \in cover[index]
+# 			1. set_contains(x, index) == True <=> (x is contained within the interior of the set indexed by 'index')
+# (o) [cover].set_distance(X: ArrayLike, index: T) -> yields *normalized* distance of X to set T, such that 
 # 	  	1. d(x,T) >= 0.0  <=> (non-negative)
 # 			2. d(x,T) <= 1.0  <=> (x is contained within set T)  
-# (o) [cover].set_contains(X: ArrayLike, index: T) -> broadcastable, returns True for each x in X if set_distance(x, index) <= 1.0
-# 			1. This can deduced by [cover].set_distance, but for many covers there might exist a more efficient alternative
+
+## --- Design of PoU function --- 
+# 
+# partition_of_unity(cover: CoverLike, f: Function)
+# f must be a Callable which of signature f(index, a: ArrayLike) -> ArrayLike which returns a 1D ArrayLike of floats for each x in a, where: 
+# 	1. f(X: ArrayLike, index: T) <= 0.0  <=>  (point 'x' in X is not contained in the set at 'index')
+# 	2. f(X: ArrayLike, index: T) > 0.0   <=>  (point 'x' in X lies in the closure of the set at 'index')
+# After f is evaluated on every point and every set, the partition of unity (PoU) matrix is normalized to the unity condition. 
+# 
+# Somehow, suitable default continuous functions should be incoporated with the variety of covers, e.g.
+# def polygon_bump(P: ArrayLike, convex=True) -> Callable? 
+# 	... returns function f(x) -> returns 1 - (distance from x to boundary of P)
+
 
 # @runtime_checkable
 # class IndexedSequence(Sequence, Protocol):
@@ -42,7 +55,6 @@ from itertools import combinations, product
 
 from numpy.typing import ArrayLike
 
-
 T = TypeVar('T')
 @runtime_checkable
 class CoverLike(Collection[Tuple[T, Union[Sequence, ArrayLike]]], Protocol): 
@@ -53,10 +65,10 @@ class CoverLike(Collection[Tuple[T, Union[Sequence, ArrayLike]]], Protocol):
 	def keys(self) -> Iterator[T] : ...
 	def values(self) -> Iterator[Union[Sequence, ArrayLike]] : ...
 	def items(self) -> Iterator[Tuple[T, Union[Sequence, ArrayLike]]]: ...
-	def set_distance(self, X: ArrayLike, index: T): ...
+	# def set_distance(self, X: ArrayLike, index: T): ...
 	def set_contains(self, X: ArrayLike, index: T): ...
 
-## Minimally, one must implement keys(), values(), and set_distance()		 
+## Minimally, one must implement keys(), __getitem__(), and set_distance()		 
 class Cover(CoverLike):
 	def __getitem__(self, key: T) -> Union[Sequence, ArrayLike]: ...
 	def __iter__(self): 
@@ -71,10 +83,11 @@ class Cover(CoverLike):
 			yield self[j]
 	def items(self) -> Iterator[Tuple[T, Union[Sequence, ArrayLike]]]: 
 		return(zip(self.keys(), self.values()))
-	def set_distance(self, X: ArrayLike, index: T): 
-		raise NotImplementedError("This cover has not defined a set distance function.")
+	# def set_distance(self, X: ArrayLike, index: T): 
+	# 	raise NotImplementedError("This cover has not defined a set distance function.")
 	def set_contains(self, X: ArrayLike, index: T):
-		return(np.array(self.set_distance(X, index) <= 1.0, dtype=bool))
+		raise NotImplementedError("This cover has not defined a set contains function.")
+		# return(np.array(self.set_distance(X, index) <= 1.0, dtype=bool))
 
 def bump(similarity: float, method: Optional[str] = "triangular", **kwargs):
 	''' Applies a bump function to weight a given similarity measure using a variety of bump functions '''
@@ -151,12 +164,45 @@ class BallCover(Cover):
 	def __len__(self):
 		return(len(self.centers))
 
-	def set_distance(self, a: npt.ArrayLike, index: int):
+	def set_contains(self, a: npt.ArrayLike, index: int):
 		dx = dist(a, self.centers[[index], :], metric=self.metric)
-		return(dx / self.radius(index))
+		return(dx <= self.radius(index))
+	
+	# def set_distance(self, a: npt.ArrayLike, index: int):
+	# 	dx = dist(a, self.centers[[index], :], metric=self.metric)
+	# 	return(dx / self.radius(index))
 
 ## This is just a specialized ball cover
 # class LandmarkCover():
+
+from .utility import cartesian_product
+from shapely.geometry import Polygon, Point
+from scipy.optimize import golden
+
+def dist_to_boundary(P: npt.ArrayLike, x: npt.ArrayLike):
+	''' Given ordered vertices constituting polygon boundary and a point 'x', determines distance from 'x' to polygon boundary on ray emenating from centroid '''
+	B = Polygon(P)
+	c = B.centroid
+	
+	## direction away from centroid 
+	v = np.array(x) - np.array(c.coords) 
+	v = v / np.linalg.norm(v)
+	
+	## max possible distance away 
+	xx, yy = B.minimum_rotated_rectangle.exterior.coords.xy
+	max_diam = np.max(np.abs(np.array(xx) - np.array(yy)))
+
+	## minimize convex function w/ golden section search 
+	dB = lambda y: B.boundary.distance(Point(np.ravel(c + y*v)))
+	y_opt = golden(dB, brack=(0, max_diam))
+
+	## return final distance
+	eps = np.linalg.norm(np.array(c.coords) - np.ravel(c + y_opt*v))
+	dc = np.linalg.norm(np.array(x) - np.array(c.coords))
+	return(eps, dc)
+
+
+
 
 ## maybe: identify = [i_0, ..., i_d] where i_k \in [-1, 0, +1], where -1 indicates reverse orientation, 0 no identification, and +1 regular orientation
 class IntervalCover(Cover):
@@ -239,6 +285,7 @@ class IntervalCover(Cover):
 			centroid = self.bbox[0:1,:] + (np.array(index) * self.base_width) + self.base_width/2.0
 			diff = self._diff_to(a, centroid)
 			return(np.ravel(np.where(np.bitwise_and.reduce(diff <= self.set_width/2.0, axis = 1))))
+			# return(np.nonzero(self.set_distance(a, index) <= 1.0)[0])
 		else:
 			cover_sets = { index : self.construct(a, index) for index in np.ndindex(*self.n_sets) }
 			return(cover_sets)
@@ -251,7 +298,8 @@ class IntervalCover(Cover):
 			for index in self.keys():
 				yield self[index]
 		else: 
-			return(self.set.values())
+			for ind in self.sets.values():
+				yield ind
 
 	def __getitem__(self, index):
 		if isinstance(index, tuple):
@@ -301,13 +349,43 @@ class IntervalCover(Cover):
 	def data(self):
 		return(self._data)
 
-	@property
-	def index_set(self):
-		return(list(np.ndindex(*self.n_sets) if self.implicit else self.sets.keys()))
+	# @property
+	# def index_set(self):
+	# 	return(list(np.ndindex(*self.n_sets) if self.implicit else self.sets.keys()))
 
 	def validate(self):
 		elements = { subset for index, subset in cover }
 		return(len(elements) >= self.n)	
+	
+	def set_contains(self, a: npt.ArrayLike, index: Tuple) -> ArrayLike:
+		membership = np.zeros(a.shape[0], dtype="bool")
+		membership[self.construct(a, index)] = True 
+		return(membership)
+		# eps = self.base_width/2.0
+		# centroid = self.bbox[0:1,:] + (np.array(index) * self.base_width) + eps
+		# C = np.zeros(a.shape[0], dtype="bool")
+		# for i, x in enumerate(a): 
+		# 	inside = np.array([(xj >= centroid[j]-eps[j]) and (xj <= centroid[j]+eps[j]) for j, xj in enumerate(x)])
+		# 	C[i] = np.all(inside)
+		# return(C)
+
+	# def set_distance(self, a: npt.ArrayLike, index: Tuple) -> ArrayLike:
+	# 	if self.dimension == 1:
+	# 		eps = self.base_width/2.0
+	# 		centroid = self.bbox[0:1,:] + (np.array(index) * self.base_width) + eps
+	# 		diff = self._diff_to(np.asanyarray(a), centroid)
+	# 		return(diff / eps)
+	# 	elif self.dimension == 2: 
+	# 		eps = self.base_width/2.0
+	# 		centroid = self.bbox[0:1,:] + (np.array(index) * self.base_width) + eps
+	# 		p = cartesian_product(np.tile([-1,1], (self.dimension,1)))[[0,1,3,2],:] * centroid
+	# 		D = np.zeros(a.shape[0])
+	# 		for i, x in enumerate(a):
+	# 			e, dc = dist_to_boundary(p, x)
+	# 			D[i] = dc/e
+	# 		return(D)
+	# 	else: 
+	# 		raise NotImplementedError("Interval cover only supports dimensions up to 2")
 
 ## TODO: Use code below to partition data set, then use multi-D "floodfill" type search 
 ## to obtain O(n + k) complexity. Could also bound how many sets overlap and search all k of those
@@ -331,9 +409,12 @@ class IntervalCover(Cover):
 # 	def __init__(self):
 # 			self.neighbor = BallTree(a, kwargs)
 
-## A Partition oif unity is 
-## B := point cloud topologiucal space
+## A Partition of unity is 
+## B := point cloud from some topological space
 ## phi := function mapping a subset of m points to (m x J) matrix 
+## cover := CoverLike (supports set_contains, values)
+## similarity := string or Callable 
+## weights := not implemented
 def partition_of_unity(B: npt.ArrayLike, cover: Iterable, similarity: Union[str, Callable[npt.ArrayLike, npt.ArrayLike]] = "triangular", weights: Optional[npt.ArrayLike] = None) -> csc_matrix:
 	if (B.ndim != 2): raise ValueError("Error: filter must be matrix.")
 	J = len(cover)
@@ -387,7 +468,6 @@ def partition_of_unity(B: npt.ArrayLike, cover: Iterable, similarity: Union[str,
 		ind = find_where(j_membership, subset_j)
 		if (np.any(ind == None)):
 			raise ValueError("The partition of unity must be supported on the closure of the cover elements.")
-		
 	return(pou)
 	
 

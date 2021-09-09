@@ -54,3 +54,14 @@ def as_np_array(a: npt.ArrayLike) -> npt.ArrayLike:
 		a = a.todense()
 		return(a + a.T - np.diag(a.diagonal()))
 	return(np.array(a, copy=False))
+
+# Augmented from: https://stackoverflow.com/questions/11144513/cartesian-product-of-x-and-y-array-points-into-single-array-of-2d-points
+def cartesian_product(arrays):
+	arrays = np.asanyarray(arrays)
+	la = len(arrays)
+	dtype = np.find_common_type([a.dtype for a in arrays], [])
+	arr = np.empty([len(a) for a in arrays] + [la], dtype=dtype)
+	for i, a in enumerate(np.ix_(*arrays)):
+			arr[..., i] = a
+	return arr.reshape(-1, la)
+
