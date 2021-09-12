@@ -359,6 +359,7 @@ struct StiefelLoss {
 			coords.zeros();
 
 			// Fill phi weight vector 
+			py::print("here1");
 			auto ri = pou.begin_row(i);
 			for (; ri != pou.end_row(i); ++ri){ phi_i[ri.col()] = *ri; }
 
@@ -367,11 +368,14 @@ struct StiefelLoss {
 			for (; ri != pou.end_row(i); ++ri){
 				size_t j = ri.col(); 
 				size_t jj = find_index(cover_subsets[j].begin(), cover_subsets[j].end(), i);
+							py::print("here2");
 				generate_frame_(j, phi_i, d_frame); 			// populates d_frame
 				svd_econ(U, s, V, A * (A.t() * d_frame)); // compute SVD of A A^T phi_j
-				
+				py::print("here3");
 				arma::rowvec local_coord = local_models[j].row(jj) + T.row(j); // should be column vector
+							py::print("here4");
 				coords += ((*ri) * A.t() * U * V.t()) * local_coord.t(); // left-side should be (D x d)
+							py::print("here5");
 				// if (i == 0){
 				// 	py::print("d_frame:", carma::mat_to_arr(d_frame, true));
 				// 	arma::mat tmp = A * (A.t() * d_frame);
@@ -384,6 +388,7 @@ struct StiefelLoss {
 				// 	py::print("coords:", carma::col_to_arr(coords, true));
 				// }
 			}
+						py::print("here6");
 			assembly.row(i) = coords.t(); 
 		}
 		return(assembly);

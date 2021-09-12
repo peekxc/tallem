@@ -16,7 +16,7 @@ def pca(x: npt.ArrayLike, d: int = 2, center: bool = True) -> npt.ArrayLike:
 	assert not(is_distance_matrix(x)), "Input should be a point cloud, not a distance matrix."
 	if center: x -= x.mean(axis = 0)
 	ew, ev = np.linalg.eigh(np.cov(x, rowvar=False))
-	idx = np.argsort(ew)[::-1] # descending order to pick the largets components first 
+	idx = np.argsort(ew)[::-1] # descending order to pick the largest components first 
 	return(np.dot(x, ev[:,idx[range(d)]]))
 
 def sammon(data, d: int = 2, max_iterations: int = 250, max_halves: int = 10):
@@ -73,7 +73,7 @@ def sammon(data, d: int = 2, max_iterations: int = 250, max_halves: int = 10):
 ## Classical MDS 
 def cmds(a: npt.ArrayLike, d: int = 2, coords: bool = True):
 	''' Computes classical MDS (cmds) w/ a being a distance matrix '''
-	a = dist(a, as_matrix=True) if not(is_distance_matrix(a)) else np.array(a, copy=False)
+	a = dist(a, as_matrix=True) if not(is_distance_matrix(a)) else np.asanyarray(a)
 	n, m = a.shape
 	if n <= 1: return(np.repeat(0.0, m))
 	C = np.eye(n) - (1.0/n)*np.ones(shape=(n,n))
@@ -94,33 +94,34 @@ def neighborhood_graph(a: npt.ArrayLike, k: Optional[int] = 15, radius: Optional
 	Computes the neighborhood graph of a point cloud or distance matrix 'a'. 
 	Returns a sparse weighted adjacency matrix where positive entries indicate the distance between points in 'a'. 
 	'''
-	if radius is None and k is None: raise RuntimeError("Either radius or k must be supplied")
-	a = as_np_array(a)
-	n = a.shape[0]
+	return(neighborhood_list(a, a, k, radius, **kwargs))
+	# if radius is None and k is None: raise RuntimeError("Either radius or k must be supplied")
+	# a = as_np_array(a)
+	# n = a.shape[0]
 
-	## If 'a' is a point cloud, form a KD tree to extract the neighbors
-	if not(is_distance_matrix(a)):
-		tree = KDTree(data=a, **kwargs)
-		if radius is not None:
-			pairs = tree.query_pairs(r=radius*2.0)
-			r, c = np.array([p[0] for p in pairs]), np.array([p[1] for p in pairs])
-			d = dist(a[r,:], a[c,:], pairwise = True)
-		else:
-			knn = tree.query(a, k=k+1)
-			r, c, d = np.repeat(range(n), repeats=k), knn[1][:,1:].flatten(), knn[0][:,1:].flatten()
-	else: 
-		if radius is not None: 
-			r, c = np.where(a <= (radius*2.0))
-			valid = (r != c) & (r < c)
-			r, c = r[valid], c[valid]
-			d = a[r,c]
-		else: 
-			knn = np.apply_along_axis(lambda a_row: np.argsort(a_row)[0:(k+1)],axis=1,arr=a)
-			r, c = np.repeat(range(n), repeats=5), np.ravel(knn[:,1:])
-			d = a[r,c]
+	# ## If 'a' is a point cloud, form a KD tree to extract the neighbors
+	# if not(is_distance_matrix(a)):
+	# 	tree = KDTree(data=a, **kwargs)
+	# 	if radius is not None:
+	# 		pairs = tree.query_pairs(r=radius*2.0)
+	# 		r, c = np.array([p[0] for p in pairs]), np.array([p[1] for p in pairs])
+	# 		d = dist(a[r,:], a[c,:], pairwise = True)
+	# 	else:
+	# 		knn = tree.query(a, k=k+1)
+	# 		r, c, d = np.repeat(range(n), repeats=k), knn[1][:,1:].flatten(), knn[0][:,1:].flatten()
+	# else: 
+	# 	if radius is not None: 
+	# 		r, c = np.where(a <= (radius*2.0))
+	# 		valid = (r != c) & (r < c)
+	# 		r, c = r[valid], c[valid]
+	# 		d = a[r,c]
+	# 	else: 
+	# 		knn = np.apply_along_axis(lambda a_row: np.argsort(a_row)[0:(k+1)],axis=1,arr=a)
+	# 		r, c = np.repeat(range(n), repeats=k), np.ravel(knn[:,1:])
+	# 		d = a[r,c]
 
-	## Form the neighborhood graph 
-	D = csc_matrix((d, (r, c)), dtype=np.float32, shape=(n,n))
+	# ## Form the neighborhood graph 
+	# D = csc_matrix((d, (r, c)), dtype=np.float32, shape=(n,n))
 	return(D)
 
 
@@ -149,9 +150,9 @@ def neighborhood_list(centers: npt.ArrayLike, a: npt.ArrayLike, k: Optional[int]
 			knn = tree.query(a, k=k)
 			r, c, d = np.repeat(range(a.shape[0]), repeats=k), knn[1].flatten(), knn[0].flatten()
 	else: 
-		D = dist(a, b)
+		D = dist(a, b, metric=metric)
 		if radius is not None: 
-			I = np.argwhere(D <= (radius*2.0))
+			I = np.argwhere(D <= radius)
 			r, c = I[:,0], I[:,1]
 			d = D[r,c]
 		else: 
@@ -160,7 +161,6 @@ def neighborhood_list(centers: npt.ArrayLike, a: npt.ArrayLike, k: Optional[int]
 			d = D[r,c]
 	G = csc_matrix((d, (r, c)), dtype=np.float32, shape=(max(max(r), n), max(max(c), m)))
 	return(G)
-
 
 def floyd_warshall(a: npt.ArrayLike):
 	'''floyd_warshall(adjacency_matrix) -> shortest_path_distance_matrix
@@ -183,24 +183,23 @@ def floyd_warshall(a: npt.ArrayLike):
 
 def connected_radius(a: npt.ArrayLike) -> float:
 	''' Returns the smallest 'r' such that the union of balls of radius 'r' space is connected'''
-	a = dist(a, as_matrix=True) if not(is_distance_matrix(a)) else np.array(a, copy=False)
+	a = dist(a, as_matrix=True) if not(is_distance_matrix(a)) else np.asanyarray(a)
 	return(np.max(minimum_spanning_tree(csr_matrix(a))))
 
 def enclosing_radius(a: npt.ArrayLike) -> float:
 	''' Returns the smallest 'r' such that the Rips complex on the union of balls of radius 'r' is contractible to a point. '''
-	a = dist(a, as_matrix=True) if not(is_distance_matrix(a)) else np.array(a, copy=False)
+	a = dist(a, as_matrix=True) if not(is_distance_matrix(a)) else np.asanyarray(a)
 	return(np.min(np.amax(a, axis = 0)))
  
 def geodesic_dist(a: npt.ArrayLike):
-	d = dist(a, as_matrix=True) if not(is_distance_matrix(a)) else np.array(a, copy=False)
+	d = dist(a, as_matrix=True) if not(is_distance_matrix(a)) else np.asanyarray(a)
 	return(floyd_warshall(d))
 
 def isomap(a: npt.ArrayLike, d: int = 2, **kwargs) -> npt.ArrayLike:
 	''' Returns the isomap embedding of a given point cloud or distance matrix. '''
-	a = np.array(a, copy=False),
-	G = neighborhood_graph(a, **kwargs)
+	G = neighborhood_graph(np.asanyarray(a), **kwargs)
 	assert connected_components(G, directed = False)[0] == 1, "Error: graph not connected. Can only run isomap on a fully connected neighborhood graph."
-	return(cmds(geodesic_dist(G)))
+	return(cmds(geodesic_dist(G.todense()), d))
 
 # TODO: remove sklearn eventually
 from sklearn.manifold import MDS

@@ -4,8 +4,9 @@ from typing import Iterable, Dict
 from scipy.sparse import csc_matrix
 from .alignment import global_translations
 from .utility import find_where
+from .cover import CoverLike
 
-def assemble_frames(stf, A: npt.ArrayLike, cover: Iterable, pou: csc_matrix, local_models: Dict, translations: Dict) -> npt.ArrayLike:
+def assemble_frames(stf, A: npt.ArrayLike, cover: CoverLike, pou: csc_matrix, local_models: Dict, translations: Dict) -> npt.ArrayLike:
 	''' Performs the final assembly of all the frames. '''
 	if len(translations) != len(cover): raise ValueError("There should be a translation vector for each subset of the cover.")
 	assembly = np.zeros((stf.n, stf.D), dtype=np.float64)
@@ -25,10 +26,10 @@ def assemble_frames(stf, A: npt.ArrayLike, cover: Iterable, pou: csc_matrix, loc
 		assembly[i,:] = coords
 	return(assembly)
 
-def assembly_fast(stf, A: npt.ArrayLike, cover: Iterable, pou: csc_matrix, local_models: Dict, translations: Dict) -> npt.ArrayLike:
+def assembly_fast(stf, A: npt.ArrayLike, cover: CoverLike, pou: csc_matrix, local_models: Dict, translations: Dict) -> npt.ArrayLike:
 	''' Performs the final assembly of all the frames. '''
 	offsets = np.vstack([ offset for index,offset in translations.items() ])
-	cover_subsets = [subset for index, subset in cover]
+	cover_subsets = [subset for index, subset in cover.items()]
 	local_models = [coords for index, coords in local_models.items()]
 	return(stf.assemble_frames(A, pou.tocsc(), cover_subsets, local_models, offsets))
 

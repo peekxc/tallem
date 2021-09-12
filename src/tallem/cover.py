@@ -20,7 +20,7 @@ from itertools import combinations, product
 
 ## --- Cover protocol type (its structural subtype) --- 
 #
-# a *Cover* matches the Mapping[T, Union[Sequence, ArrayLike]] type
+# a *Cover* is some type supporting the mixins of the Mapping[T, Union[Sequence, ArrayLike]] type
 #  	- Supports mapping mixins (__getitem__, __iter__, __len__, keys, items, values)
 #  	- The key type T = TypeVar('T') can be any type; i.e. any index set can be used
 #  	- If value is a Sequence type => supports mixins (__getitem__, __len__, __contains__, __iter__, __reversed__, .index(), and .count()), and is sorted (precondition)!
@@ -31,6 +31,10 @@ from itertools import combinations, product
 # (o) [cover].set_distance(X: ArrayLike, index: T) -> yields *normalized* distance of X to set T, such that 
 # 	  	1. d(x,T) >= 0.0  <=> (non-negative)
 # 			2. d(x,T) <= 1.0  <=> (x is contained within set T)  
+#
+# The set_distance function is only needed in constructing the partition of unity subordinate to the cover. If the user supplies a custom 
+# partition of unity, then it is unneeded/unused, hence why it is optional. 
+
 
 ## --- Design of PoU function --- 
 # 
@@ -65,8 +69,8 @@ class CoverLike(Collection[Tuple[T, Union[Sequence, ArrayLike]]], Protocol):
 	def keys(self) -> Iterator[T] : ...
 	def values(self) -> Iterator[Union[Sequence, ArrayLike]] : ...
 	def items(self) -> Iterator[Tuple[T, Union[Sequence, ArrayLike]]]: ...
-	# def set_distance(self, X: ArrayLike, index: T): ...
 	def set_contains(self, X: ArrayLike, index: T): ...
+	# def set_distance(self, X: ArrayLike, index: T): ...
 
 ## Minimally, one must implement keys(), __getitem__(), and set_distance()		 
 class Cover(CoverLike):
@@ -83,11 +87,13 @@ class Cover(CoverLike):
 			yield self[j]
 	def items(self) -> Iterator[Tuple[T, Union[Sequence, ArrayLike]]]: 
 		return(zip(self.keys(), self.values()))
-	# def set_distance(self, X: ArrayLike, index: T): 
-	# 	raise NotImplementedError("This cover has not defined a set distance function.")
 	def set_contains(self, X: ArrayLike, index: T):
+		# if isinstance(self[index], Sequence):
+		#	self[index].index()
 		raise NotImplementedError("This cover has not defined a set contains function.")
 		# return(np.array(self.set_distance(X, index) <= 1.0, dtype=bool))
+	def set_distance(self, X: ArrayLike, index: T): 
+		raise NotImplementedError("This cover has not defined a set distance function.")
 
 def bump(similarity: float, method: Optional[str] = "triangular", **kwargs):
 	''' Applies a bump function to weight a given similarity measure using a variety of bump functions '''
@@ -161,23 +167,61 @@ class BallCover(Cover):
 	def keys(self):
 		return(range(len(self)))
 
-	def __len__(self):
+	def __len__(self) -> int:
 		return(len(self.centers))
 
-	def set_contains(self, a: npt.ArrayLike, index: int):
+	def set_contains(self, a: npt.ArrayLike, index: int) -> ArrayLike:
 		dx = dist(a, self.centers[[index], :], metric=self.metric)
 		return(dx <= self.radius(index))
 	
-	# def set_distance(self, a: npt.ArrayLike, index: int):
-	# 	dx = dist(a, self.centers[[index], :], metric=self.metric)
-	# 	return(dx / self.radius(index))
+	def set_distance(self, a: npt.ArrayLike, index: int):
+		''' Returns normalized distance  such that (d(a, index) <= 1.0) -> a is within closure(cover[index]) '''
+		dx = dist(a, self.centers[[index], :], metric=self.metric)
+		return(dx / self.radius(index))
 
 ## This is just a specialized ball cover
-# class LandmarkCover():
+# class LandmarkCover(BallCover):
+# 	def __init__(self, centers: ArrayLike, radii: npt.ArrayLike, metric = "euclidean", space: Optional[Union[npt.ArrayLike, str]] = "union"):
+# 		''' 
+# 		centers := (m x d) matrix of points giving the ball locations in 'space'
+# 		radii := scalar, or (m)-len array giving the radii associated with every ball
+# 		space := the space the balls are meant to cover. Can be a point set, a set of intervals (per column) indicating a subspace of R^d, 
+# 						 or a string indicating a common configuration space. By default, the union of the supplied balls defines the underlying space.
+# 		'''
+
+# 		## Detect the space, if different 
+# 		if space != "union" and not(space is None):
+# 			if space is str: raise NotImplementedError("Haven't implemented parsing of special spaces")
+# 			self.bounds = space
+
+# 		## Assign attributes
+# 		self.centers = np.asanyarray(centers)
+# 		self.radii = radii 
+# 		self.metric = metric
 
 from .utility import cartesian_product
 from shapely.geometry import Polygon, Point
 from scipy.optimize import golden
+
+
+## A partition of unity can be constructed on:
+## 	1. a set of balls within a metric space of arbitrary dimension, all w/ some fixed radius
+##  2. a set of balls within a metric space of arbitrary dimension, each w/ a ball-specific radius
+##  3. a set of convex polytopes within a metric space of arbitrary dimension
+##  4. a set of polygons (possibly non-convex) /within a metric space (2D only)
+##  5. a set of arbitrary geometries within a metric space (user-supplied)
+
+
+
+def dist_to_balls(a: ArrayLike, B: ArrayLike, R: ArrayLike, metric: str = "euclidean"):
+	a, B = np.asanyarray(a), np.asanyarray(B)
+	if isinstance(R, float) or len(R) == 1:
+		## Case 1
+		return(dist(a, B, metric=metric)/R)
+	else:
+		## Case 2 
+		return(dist(a, B, metric=metric)/R) # broadcast?
+
 
 def dist_to_boundary(P: npt.ArrayLike, x: npt.ArrayLike):
 	''' Given ordered vertices constituting polygon boundary and a point 'x', determines distance from 'x' to polygon boundary on ray emenating from centroid '''
@@ -354,7 +398,7 @@ class IntervalCover(Cover):
 	# 	return(list(np.ndindex(*self.n_sets) if self.implicit else self.sets.keys()))
 
 	def validate(self):
-		elements = { subset for index, subset in cover }
+		elements = { subset for index, subset in cover.items() }
 		return(len(elements) >= self.n)	
 	
 	def set_contains(self, a: npt.ArrayLike, index: Tuple) -> ArrayLike:
@@ -415,44 +459,50 @@ class IntervalCover(Cover):
 ## cover := CoverLike (supports set_contains, values)
 ## similarity := string or Callable 
 ## weights := not implemented
-def partition_of_unity(B: npt.ArrayLike, cover: Iterable, similarity: Union[str, Callable[npt.ArrayLike, npt.ArrayLike]] = "triangular", weights: Optional[npt.ArrayLike] = None) -> csc_matrix:
+def partition_of_unity(B: npt.ArrayLike, cover: CoverLike, similarity: Union[str, Callable[npt.ArrayLike, npt.ArrayLike]] = "triangular", weights: Optional[npt.ArrayLike] = None) -> csc_matrix:
 	if (B.ndim != 2): raise ValueError("Error: filter must be matrix.")
 	J = len(cover)
 	# weights = np.ones(J) if weights is None else np.array(weights)
 	# assert len(weights) != J, "weights must have length matching the number of sets in the cover."
-	assert similarity is not None, "phi map must be a real-valued function, or a string indicating one of the precomputed ones."
-	
+	assert similarity is not None, "similarity map must be a real-valued function, or a string indicating one of the precomputed ones."
+	assert isinstance(cover, CoverLike), "cover must be CoverLike"
+	assert "set_distance" in dir(cover), "cover must be set_distance() function to construct a partition of unity."
+
 	## Derive centroids, use dB metric to define distances => partition of unity to each subset 
 	#if isinstance(cover, IntervalCover):
-	if hasattr(cover, "index_set"):
-		max_r = np.linalg.norm(cover.set_width)/2.0
-		def beta(cover_set):
-			index, subset = cover_set
-			centroid = cover.bbox[0:1,:] + (np.array(index) * cover.base_width) + cover.base_width/2.0
-			dist_to_poles = np.sqrt(np.sum(cover._diff_to(B, centroid)**2, axis = 1))
-			beta_j = bump(dist_to_poles/max_r, similarity)
-			# if np.any(beta_j[np.setdiff1d(range(B.shape[0]), subset)] > 0.0):
-				# raise ValueError("Invalid similarity function. Partition must be subordinate to the cover.")
-			## TODO: rework so this isn't needed!
-			beta_j = np.maximum(max_r - dist_to_poles, 0.0)
-			beta_j[np.setdiff1d(range(B.shape[0]), subset)] = 0.0
-			assert np.all(beta_j[np.setdiff1d(range(B.shape[0]), subset)] == 0.0), "Invalid similarity function. Partition must be subordinate to the cover."
-			return(beta_j)
-	else: 
-		raise ValueError("Only interval cover is supported for now.")
+	# if hasattr(cover, "index_set"):
+	# 	max_r = np.linalg.norm(cover.set_width)/2.0
+	# 	def beta(cover_set):
+	# 		index, subset = cover_set
+	# 		centroid = cover.bbox[0:1,:] + (np.array(index) * cover.base_width) + cover.base_width/2.0
+	# 		dist_to_poles = np.sqrt(np.sum(cover._diff_to(B, centroid)**2, axis = 1))
+	# 		beta_j = bump(dist_to_poles/max_r, similarity)
+	# 		# if np.any(beta_j[np.setdiff1d(range(B.shape[0]), subset)] > 0.0):
+	# 			# raise ValueError("Invalid similarity function. Partition must be subordinate to the cover.")
+	# 		## TODO: rework so this isn't needed!
+	# 		beta_j = np.maximum(max_r - dist_to_poles, 0.0)
+	# 		beta_j[np.setdiff1d(range(B.shape[0]), subset)] = 0.0
+	# 		assert np.all(beta_j[np.setdiff1d(range(B.shape[0]), subset)] == 0.0), "Invalid similarity function. Partition must be subordinate to the cover."
+	# 		return(beta_j)
+	# else: 
+	# 	raise ValueError("Only interval cover is supported for now.")
 
 	# Apply the phi map to each subset, collecting the results into lists
 	row_indices, beta_image = [], []
-	for index, subset in cover: 
+	for index, subset in cover.items(): 
 		
 		## varphi_j represents the (beta_j \circ f)(X) = \beta_j(B)
 		## As such, the vector returned should be of length n
-		varphi_j = beta((index, subset))
+		# varphi_j = beta((index, subset))
 		# if len(varphi_j) != cover.n_points: raise ValueError("Alignment function 'beta' must return a set of values for every point in X.")
 
+		dx = cover.set_distance(B[np.array(subset),:], index)
+		sd = np.maximum(0.0, 1.0 - dx) ## todo: fix w/ bump functions
+
 		## Record non-zero row indices + the function values themselves
-		row_indices.append(np.nonzero(varphi_j)[0])
-		beta_image.append(np.ravel(varphi_j[row_indices[-1]]))
+		row_indices.append(subset[np.nonzero(sd)[0]])
+		beta_image.append(np.ravel(sd[np.nonzero(sd)[0]]))
+		# beta_image.append(np.ravel(sd[row_indices[-1]]))
 
 	## Use a CSC-sparse matrix to represent the partition of unity
 	row_ind = np.hstack(row_indices)
@@ -461,11 +511,10 @@ def partition_of_unity(B: npt.ArrayLike, cover: Iterable, similarity: Union[str,
 	pou = diags(1/pou.sum(axis=1).A.ravel()) @ pou
 	#pou /= np.sum(pou, axis = 1)
 
-	## The final partition of unity weights elements in the cover over B
-	for j in range(J):
+	## This checks the support(pou) \subseteq closure(cover) property
+	for j, index in enumerate(cover.keys()):
 		j_membership = np.where(pou[:,j].todense() > 0)[0]
-		subset_j = cover[cover.index_set[j]]
-		ind = find_where(j_membership, subset_j)
+		ind = find_where(j_membership, cover[index])
 		if (np.any(ind == None)):
 			raise ValueError("The partition of unity must be supported on the closure of the cover elements.")
 	return(pou)

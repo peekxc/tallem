@@ -1,26 +1,21 @@
 ## TALLEM __init__.py file 
-## IMports all the main utilities of TALLEM and provides a wrapper for the entire function
+## Imports all the main utilities of TALLEM and provides a wrapper for the entire function
 
+## Base external imports 
 import numpy as np
 import numpy.typing as npt
+from numpy.typing import ArrayLike
 from typing import Callable, Iterable, List, Set, Dict, Optional, Tuple, Any, Union, Sequence
 from itertools import combinations
 from scipy.sparse import issparse, csc_matrix
-# from . import sc
-# from . import distance 
-# from . import procrustes 
-# from . import mds
-# from . import samplers 
-# from . import stiefel 
-# from . import cover
-# from . import utility
-# from . import assembly
 
+# TODO: define __all__
 # __all__ = [
 # 	'function_1',
 # 	'function_2'
 # ]
-# TODO: define __all__
+
+## tallem-specific relative imports
 from .sc import delta0D
 from .distance import dist
 from .alignment import opa, align_models, global_translations
@@ -29,59 +24,53 @@ from .stiefel import frame_reduction
 from .cover import IntervalCover, partition_of_unity
 from .utility import find_where
 from .assembly import assemble_frames, assembly_fast
+from .cover import CoverLike
+from .dimred import *
 
-
+## To eventually remove or make optional to install
 import autograd.scipy.linalg as auto_scipy 
 import autograd.numpy as auto_np
 from pymanopt.manifolds import Stiefel
 from pymanopt import Problem
 from pymanopt.solvers import SteepestDescent
 
-
-# %% debug 
-# PoU = partition_of_unity(B, cover = cover, beta = "triangular")
-
-	## Phi map: supplying i returns the phi map for the largest 
-	## value in the partition of unity; supplying j as well returns 
-	## the specific phi map for the jth cover element (possibly 0)
-	# def phi(i, j = None):
-	# 	J = P.shape[1]
-	# 	k = np.argmax(P[i,:]) if j is None else j
-	# 	out = np.zeros((d*J, d))
-	# 	def weighted_omega(j):
-	# 		nonlocal i, k
-	# 		w = np.sqrt(P[i,j])
-	# 		pair_exists = np.array([pair in Omega_map.keys() for pair in [(k,j), (j,k)]])
-	# 		if w == 0.0 or not(pair_exists.any()):
-	# 			return(w*np.eye(d))
-	# 		return(w*Omega_map[(k,j)]['rotation'] if pair_exists[0] else w*Omega_map[(j,k)]['rotation'].T)
-	# 	return(np.vstack([weighted_omega(j) for j in range(J)]))
-
-	
-## Rotation, scaling, translation, and distance information for each intersecting cover subset
-
-# from collections.abc import Iterable
-
 class TALLEM():
 	'''
 	TALLEM: Topological Assembly of Locally Euclidean Models
 
-	Parameters: 
-		X := an (n x p) numpy array representing *n* points in *p* space.
-		B := an (n x q) numpy array representing the image of f : X -> B, where f is a map that cpatures the topology and non-linearity of X. 
-		cover := Iterable of length J that covers some topological space B, where B is the image of some map f : X -> B
+	__init__(cover, local_map, n_components, pou) -> (TALLEM instance): 
+		cover := CoverLike iterable of length J that covers some topological space B, where B is the image of some map f : X -> B
 		local_map := a callable mapping (m x p) subsets of X to some (m x d) space, where d < p, which approximately preserves the metric on X. 
+		n_components := target embedding dimension
 		pou := partition of unity, either one of ['triangular', 'quadratic'], or an (n x J) ArrayLike object whose rows
 					 yield weights indicating the strength of membership of that point with each set in the cover.
-		
+
+	fit(X, B, pou) -> (TALLEM instance): 
+		X := an (n x p) numpy array representing *n* points in *p* space.
+		B := an (n x q) numpy array representing the image of f : X -> B, where f is a map that cpatures the topology and non-linearity of X. 
+
+	fit_transform() -> ArrayLike:
+
+	transform() -> ArrayLike:
+
 	'''
 	
-	def __init__(self, cover: Iterable, local_map: Callable[npt.ArrayLike, npt.ArrayLike], n_components: int = 2, pou: Union[str, csc_matrix] = "triangular"):
-		assert isinstance(cover, Iterable), "cover argument must be an Iterable."
+	def __init__(self, cover: CoverLike, local_map: Union[str, Callable[npt.ArrayLike, npt.ArrayLike]], n_components: int = 2, pou: Union[str, csc_matrix] = "triangular"):
+		assert isinstance(cover, CoverLike), "cover argument must be an CoverLike."
 		
 		## Store callable as part of the cover's initialization
-		self.D = n_components ## Target dimension of the embedding 
-		self.local_map = local_map
+		self.D = n_components ## Target dimension of the embedding (D) 
+
+		if isinstance(local_map, str):
+			dr_methods = ["mmds", "cmds", "nmds", "pca", "iso", "lle", "le", "hlle"]
+			method, d = re.findall(r'(\w+)(\d+)', "mmds2")[0]
+			if not(method in dr_methods):
+				raise ValueError("Invalid method supplied")
+			def dr_function(d): return(lambda x: f(x, d))
+			local_f = [mmds, cmds, nmds, pca, isomap][dr_methods.index(method)]
+			self.local_map = dr_function(local_f, d)
+		else:
+			self.local_map = local_map
 		
 		## Validate cover 
 		## TODO: use generic to generalize this to a type-erased generic! 
@@ -100,19 +89,19 @@ class TALLEM():
 		
 		## Map the local euclidean models
 		## Note: the extra array constructor ensures singleton subsets are reported as matrices
-		self.models = { index : self.local_map(X[np.array(subset),:]) for index, subset in self.cover }
+		self.models = { index : self.local_map(X[np.array(subset),:]) for index, subset in self.cover.items() }
 
 		## Construct a partition of unity
 		J = len(self.cover)
 		if isinstance(pou, str):
+			## In this case, cover must have a set_distance(...) function!
 			self.pou = partition_of_unity(B, cover = self.cover, similarity = pou)
 		elif issparse(pou): 
 			if pou.shape[1] != len(self.cover):
 				raise ValueError("Partition of unity must have one column per element of the cover")
-			for i in range(J):
-				pou_nonzero = np.where(pou[:,i].todense() > 0)[0]
-				cover_subset = self.cover[self.cover.index_set[i]]
-				is_invalid_pou = np.any(find_where(pou_nonzero, cover_subset) is None)
+			for j, index in enumerate(self.cover.keys()):
+				pou_nonzero = np.where(pou[:,j].todense() > 0)[0]
+				is_invalid_pou = np.any(find_where(pou_nonzero, self.cover[index]) is None)
 				if (is_invalid_pou):
 					raise ValueError("The partition of unity must be supported on the closure of the cover elements.")
 		else: 
@@ -121,13 +110,14 @@ class TALLEM():
 		## Align the local reference frames using Procrustes
 		self.alignments = align_models(self.cover, self.models)
 		
-		## Get global translation vectors using cocyle condition 	
+		## Get global translation vectors using cocyle condition
 		self.translations = global_translations(self.cover, self.alignments)
 
 		## Solve the Stiefel manifold optimization for the projection matrix 
 		self.A0, self.A, self._stf = frame_reduction(self.alignments, self.pou, self.D, fast_gradient=False, optimize=False)
 
 		## Assemble the frames!
+		## See: https://github.com/rasbt/python-machine-learning-book/blob/master/faq/underscore-convention.md
 		#self.embedding_ = assemble_frames(self._stf, self.A, self.cover, self.pou, self.models, self.translations)
 		self.embedding_ = assembly_fast(self._stf, self.A, self.cover, self.pou, self.models, self.translations)
 		return(self)

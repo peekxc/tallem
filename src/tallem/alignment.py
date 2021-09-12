@@ -4,9 +4,10 @@ import numpy.typing as npt
 from typing import Iterable, Dict
 from itertools import combinations
 from .sc import delta0D
+from .cover import CoverLike
 
 # %% Alignment definitions
-def global_translations(cover: Iterable, alignments: Dict):
+def global_translations(cover: CoverLike, alignments: Dict):
 	## Get optimal translation vectors 
 	index_pairs = list(alignments.keys())
 	d = len(alignments[index_pairs[0]]['translation'])
@@ -29,9 +30,9 @@ def global_translations(cover: Iterable, alignments: Dict):
 	return(offsets)
 
 ## Solve Procrustes problem for each non-empty intersection	
-def align_models(cover: Iterable, models: Dict):
+def align_models(cover: CoverLike, models: Dict):
 	if len(cover) != len(models): raise ValueError("There should be a local euclidean model associated with each subset of the cover.")
-	J = cover.index_set
+	J = list(cover.keys())
 	PA_map = {} # Procrustes analysis map
 	for i, j in combinations(J, 2):
 		subset_i, subset_j, ii, jj = cover[i], cover[j], J.index(i), J.index(j)

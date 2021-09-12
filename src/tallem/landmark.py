@@ -50,3 +50,16 @@ def landmarks(a: npt.ArrayLike, k: Optional[int], method: str = "maxmin", seed: 
 		max_radius = float('inf')
 	cover_radii = np.insert(cover_radii, 0, max_radius, axis = 0)
 	return({ "indices" : landmark_idx, "radii" : cover_radii })
+
+def landmarks_dist(a: npt.ArrayLike, k: Optional[int], method: str = "maxmin", seed: int = 0, diameter: bool = False, metric = "euclidean"):
+	L, R = np.array(seed, dtype=int), np.array([float('inf')], dtype=float)
+	# D = dist(a, as_matrix=True, metric=metric)
+	for ki in range(1, k):
+		d = dist(a, a[np.array(L),:], metric=metric)
+		d[d == 0] = float('inf')
+		d = np.apply_along_axis(np.min, 1, d)
+		d[d == float('inf')] = 0.0
+		d[L] = 0.0
+		L, R = np.append(L, np.argmax(d)), np.append(R, d[np.argmax(d)])
+	return({ "indices" : L, "radii" : R })
+
