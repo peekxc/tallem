@@ -36,7 +36,7 @@ def huber_loss(embed_map: Callable, subsetter: Callable[[], Iterable[int]], epsi
 	return(cost_function)
 
 ## --- Optimization to find the best A matrix --- 
-def frame_reduction(alignments: Dict, pou: npt.ArrayLike, D: int, optimize=True, fast_gradient = True):
+def frame_reduction(alignments: Dict, pou: npt.ArrayLike, D: int, optimize=False, fast_gradient=False):
 	n, J, d = pou.shape[0], pou.shape[1], len(alignments[list(alignments.keys())[0]]['translation'])
 	
 	## Start off with StiefelLoss pybind11 module
@@ -49,7 +49,8 @@ def frame_reduction(alignments: Dict, pou: npt.ArrayLike, D: int, optimize=True,
 	stf.init_rotations(I1, I2, R, J)
 
 	## Populate frame matrix map
-	for i in range(n): stf.populate_frame(i, np.sqrt(np.ravel(pou[i,:].todense())), False)
+	for i in range(n): 
+		stf.populate_frame(i, np.sqrt(np.ravel(pou[i,:].todense())), False)
 
 	## Get the initial frame 
 	Fb = stf.all_frames()

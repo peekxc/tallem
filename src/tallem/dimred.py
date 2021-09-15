@@ -195,11 +195,18 @@ def geodesic_dist(a: npt.ArrayLike):
 	d = dist(a, as_matrix=True) if not(is_distance_matrix(a)) else np.asanyarray(a)
 	return(floyd_warshall(d))
 
+from sklearn.manifold import Isomap
 def isomap(a: npt.ArrayLike, d: int = 2, **kwargs) -> npt.ArrayLike:
 	''' Returns the isomap embedding of a given point cloud or distance matrix. '''
-	G = neighborhood_graph(np.asanyarray(a), **kwargs)
-	assert connected_components(G, directed = False)[0] == 1, "Error: graph not connected. Can only run isomap on a fully connected neighborhood graph."
-	return(cmds(geodesic_dist(G.todense()), d))
+	if "k" in kwargs.keys():
+		metric = "euclidean" if not("metric" in kwargs.keys()) else kwargs["metric"]
+		E = Isomap(n_neighbors=kwargs["k"], n_components=d, metric=metric)
+		return(E.fit_transform(a))
+	else: 
+		G = neighborhood_graph(np.asanyarray(a), **kwargs)
+		assert connected_components(G, directed = False)[0] == 1, "Error: graph not connected. Can only run isomap on a fully connected neighborhood graph."
+		return(cmds(geodesic_dist(G.todense()), d))
+
 
 # TODO: remove sklearn eventually
 from sklearn.manifold import MDS

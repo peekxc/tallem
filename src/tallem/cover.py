@@ -12,6 +12,7 @@ from scipy.sparse.csgraph import minimum_spanning_tree,connected_components
 from .distance import dist 
 from .utility import find_where, cartesian_product
 from .dimred import neighborhood_graph, neighborhood_list
+from .landmark import landmarks, landmarks_dist
 
 ## Type tools 
 from typing import *
@@ -180,30 +181,209 @@ class BallCover(Cover):
 		return(dx / self.radius(index))
 
 ## This is just a specialized ball cover
-# class LandmarkCover(BallCover):
-# 	def __init__(self, centers: ArrayLike, radii: npt.ArrayLike, metric = "euclidean", space: Optional[Union[npt.ArrayLike, str]] = "union"):
-# 		''' 
-# 		centers := (m x d) matrix of points giving the ball locations in 'space'
-# 		radii := scalar, or (m)-len array giving the radii associated with every ball
-# 		space := the space the balls are meant to cover. Can be a point set, a set of intervals (per column) indicating a subspace of R^d, 
-# 						 or a string indicating a common configuration space. By default, the union of the supplied balls defines the underlying space.
-# 		'''
+class LandmarkCover(BallCover):
+	def __init__(self, space: npt.ArrayLike, k: int, metric = "euclidean", **kwargs): # TODO: allow distance matrix
+		''' 
+		k := the number of landmark points to use
+		space := the space the balls are meant to cover. Must be an (n x d) matrix representing a point set in R^d.
+		metric := string or Callable indicating the type of metric distance to use in defining the landmarks. 
+		... := additional keyword arguments are passed to the landmarks(...) function. 
+		'''
+		assert k >= 2, "Number of landmarks must be at least 2."
+		space = np.asanyarray(space)
+		self.dimension = space.shape[1]
+		self.k = k
+		L = landmarks_dist(space, k, **kwargs)
+		r, centers = np.min(L['radii']), space[np.array(L['indices']),:]
+		super().__init__(centers, r, metric)
+	
+	# landmarks(space, 12, metric=lambda x,y: np.linalg.norm(x-y))
+	## What is the purpose of construct(...) for all covers?
+	def construct(self, a: npt.ArrayLike):
+		super().construct(a)
+		return(self)
 
-# 		## Detect the space, if different 
-# 		if space != "union" and not(space is None):
-# 			if space is str: raise NotImplementedError("Haven't implemented parsing of special spaces")
-# 			self.bounds = space
+## maybe: identify = [i_0, ..., i_d] where i_k \in [-1, 0, +1], where -1 indicates reverse orientation, 0 no identification, and +1 regular orientation
+class IntervalCover(Cover):
+	'''
+	A Cover *is* an iterable
+	Cover -> divides data into subsets, satisfying covering property, retains underlying neighbor structures + metric (if any) 
+	parameters: 
+		space := the type of space to construct a cover on. Can be a point set, a set of intervals (per column) indicating the domain of the cover, 
+						 or a string indicating a common configuration space. 
+		n_sets := number of cover elements to use to create the cover 
+		overlap := proportion of overlap between adjacent sets per dimension, as a number in [0,1). It is recommended, but not required, to keep this parameter below 0.5. 
+		gluing := optional, whether to identify the sides of the cover as aligned in the same direction (1), in inverted directions (-1), or no identification (0) (default). 
+		implicit := optional, whether to store all the subsets in a precomputed dictionary, or construct them on-demand. Defaults to the former.
+	'''
+	def __init__(self, a: ArrayLike, n_sets: List[int], overlap: List[float], metric: str = "euclidean", implicit: bool = False, space: Optional[Union[npt.ArrayLike, str]] = None, **kwargs):
 
-# 		## Assign attributes
-# 		self.centers = np.asanyarray(centers)
-# 		self.radii = radii 
-# 		self.metric = metric
+		## Reshape a to always be a matrix of points, even if 1-dimensional
+		a = np.asanyarray(a)
+		if a.ndim == 1: a = a.reshape((len(a), 1))
+
+		## If space is specified, check inputs
+		if not(space is None):
+			if space is str: raise NotImplementedError("Haven't implemented parsing of special spaces")
+			space = np.asanyarray(space)
+			if space.ndim == 1: space = np.reshape(space, (len(space), 1))
+			if space.ndim != 2: raise ValueError("Invalid data shape. Must be a matrix.")
+			self.dimension = space.shape[1]
+			self.bbox = space
+			self._data = a
+			# if space.shape[0] == 2: 
+			# 	self.bbox = space
+			# 	self._data = a
+			# else: 
+			# 	self.bbox = np.vstack((np.amin(space, axis=0), np.amax(space, axis=0)))
+			# 	self._data = space
+		else: 
+			nsets = 1 if isinstance(n_sets, int) else len(n_sets)
+			nover = 1 if isinstance(overlap, float) else len(overlap)
+			self.dimension = np.max([nsets, nover])
+			self.bbox = np.vstack((np.amin(a, axis=0), np.amax(a, axis=0)))
+			# self.bbox = np.repeat([0,1], self.dimension, axis=0).reshape((2, self.dimension))
+			self._data = a
+
+		## Set intrinsic properties of the cover
+		self.metric = metric
+		self.implicit = implicit
+		self.n_sets = np.repeat(n_sets, self.dimension) if (isinstance(n_sets, int) or len(n_sets) == 1) else np.array(n_sets)
+		self.overlap = np.repeat(overlap, self.dimension) if (isinstance(overlap, float) or len(overlap) == 1) else np.array(overlap)
+		assert np.all([self.overlap[i] < 1.0 for i in range(self.dimension)]), "Proportion overlap must be < 1.0"
+
+		## Assert these parameters match the dimension of the cover prior to assignment
+		if len(self.n_sets) != self.dimension or len(self.overlap) != self.dimension:
+			raise ValueError("Dimensions mismatch: supplied set or overlap arity does not match dimension of the cover.")
+		self.base_width = np.diff(self.bbox, axis = 0)/self.n_sets
+		self.set_width = self.base_width + (self.base_width*self.overlap)/(1.0 - self.overlap)
+		
+		## Choose how to handle edge orientations
+		# self.gluing = np.repeat(Gluing.NONE, self.dimension) if gluing is None else gluing
+		# if len(self.gluing) != self.dimension:
+		# 	raise ValueError("Invalid gluing vector given. Must match the dimension of the cover.")
+		
+		## If implicit = False, then construct the sets and store them
+		## otherwise, they must be constructed on demand via __call__
+		if not(self.implicit) and not(self._data is None): 
+			self.sets = self.construct(self._data)
+
+	# def _diff_to(self, x: npt.ArrayLike, point: npt.ArrayLike):
+	# 	i_dist = np.zeros(x.shape)
+	# 	for d_i in range(self.dimension):
+	# 		diff = abs(x[:,d_i] - point[:,d_i])
+	# 		if self.gluing[d_i] == 0:
+	# 			i_dist[:,d_i] = diff
+	# 		elif self.gluing[d_i] == 1:
+	# 			rng = abs(self.bbox[1:2,d_i] - self.bbox[0:1,d_i])
+	# 			i_dist[:,d_i] = np.minimum(diff, abs(rng - diff))
+	# 		elif self.gluing[d_i] == -1:
+	# 			rng = abs(self.bbox[1:2,d_i] - self.bbox[0:1,d_i])
+	# 			coords = self.bbox[1:2,d_i] - x[:,d_i] # Assume inside the box
+	# 			diff = abs(coords - point[d_i])
+	# 			i_dist[:,d_i] = np.minimum(diff, abs(rng - coords))
+	# 		else:
+	# 			raise ValueError("Invalid value for gluing parameter")
+	# 	return(i_dist)
+
+	
+	def keys(self):
+		return(np.ndindex(*self.n_sets))
+
+	def values(self):
+		if self.implicit:
+			for index in self.keys():
+				yield self[index]
+		else: 
+			for ind in self.sets.values():
+				yield ind
+
+	def __getitem__(self, index):
+		if isinstance(index, tuple):
+			return(self.construct(self._data, index) if self.implicit else self.sets[index])
+		elif int(index) == index:
+			index = list(self.sets.keys())[index]
+			return(index, self[index])
+		else: 
+			raise ValueError("Cover must be indexed by either a tuple or an integer index")
+	
+	def __len__(self):
+		return(np.prod(self.n_sets))
+
+	def __repr__(self) -> str:
+		domain_str = " x ".join(np.apply_along_axis("{}".format, axis=0, arr=self.bbox))
+		return("Interval Cover with {} sets and {} overlap over the domain {}".format(self.n_sets, self.overlap, domain_str))
+	
+	def plot(self):
+		if self.dimension == 1:
+			import matplotlib.pyplot as plt
+			import matplotlib.patches as patches
+			fig, ax = plt.subplots(figsize=(12, 6))
+			rng = np.abs(self.bbox[1] - self.bbox[0])
+			plt.xlim([self.bbox[0]-(0.15*rng), self.bbox[1]+(0.15*rng)])
+			plt.ylim([-1, 1])
+			plt.hlines(0,self.bbox[0],self.bbox[1], colors="black")
+			frame = plt.gca()
+			frame.axes.get_yaxis().set_visible(False)
+			for index, _ in self:
+				centroid = self.bbox[0:1,:] + (np.array(index) * self.base_width) + self.base_width/2.0 
+				anchor = (centroid - self.set_width/2.0, -0.5)
+				rect = patches.Rectangle(anchor, self.set_width, 1.0, linewidth=0.5, edgecolor='black', facecolor='#BEBEBE33')
+				ax.add_patch(rect)
+			plt.eventplot(np.ravel(self._data), orientation = "horizontal", linewidths=0.05, lineoffsets=0)
+
+
+	@property
+	def data(self):
+		return(self._data)
+	
+	def set_contains(self, a: npt.ArrayLike, index: Tuple) -> ArrayLike:
+		membership = np.zeros(a.shape[0], dtype="bool")
+		membership[self.construct(a, index)] = True 
+		return(membership)
+		# eps = self.base_width/2.0
+		# centroid = self.bbox[0:1,:] + (np.array(index) * self.base_width) + eps
+		# C = np.zeros(a.shape[0], dtype="bool")
+		# for i, x in enumerate(a): 
+		# 	inside = np.array([(xj >= centroid[j]-eps[j]) and (xj <= centroid[j]+eps[j]) for j, xj in enumerate(x)])
+		# 	C[i] = np.all(inside)
+		# return(C)
+
+	def set_distance(self, a: npt.ArrayLike, index: Tuple) -> ArrayLike:
+		assert index in list(self.keys()), "Invalid index given"
+		a = np.asanyarray(a)
+		if self.dimension == 1:
+			eps = self.base_width/2.0
+			centroid = self.bbox[0:1,:] + (np.array(index) * self.base_width) + eps
+			# diff = self._diff_to(np.asanyarray(a), centroid)
+			# return(diff / eps)
+			diff = np.ravel(dist(a, centroid, metric=self.metric)) / eps
+			return(diff.flatten()) ## must be flattened array
+		elif self.dimension == 2: 
+			eps = self.base_width/2.0
+			centroid = self.bbox[0:1,:] + (np.array(index) * self.base_width) + eps
+			p = cartesian_product(np.tile([-1,1], (self.dimension,1)))[[0,1,3,2],:] * centroid
+			D = np.zeros(a.shape[0])
+			for i, x in enumerate(a):
+				e, dc = dist_to_boundary(p, x)
+				D[i] = dc/e
+			return(D.flatten())
+		else: 
+			raise NotImplementedError("Interval cover only supports dimensions up to 2")
+
+	def construct(self, a: npt.ArrayLike, index: Optional[npt.ArrayLike] = None):
+		if index is not None:
+			# centroid = self.bbox[0:1,:] + (np.array(index) * self.base_width) + self.base_width/2.0
+			#diff = self.set_distance(a, centroid)
+			#return(np.ravel(np.where(np.bitwise_and.reduce(diff <= self.set_width/2.0, axis = 1))))
+			return(np.nonzero(self.set_distance(a, index) <= 1.0)[0])
+		else:
+			cover_sets = { index : self.construct(a, index) for index in self.keys() }
+			return(cover_sets)
 
 from .utility import cartesian_product
 from shapely.geometry import Polygon, Point
 from scipy.optimize import golden
-
-
 ## A partition of unity can be constructed on:
 ## 	1. a set of balls within a metric space of arbitrary dimension, all w/ some fixed radius
 ##  2. a set of balls within a metric space of arbitrary dimension, each w/ a ball-specific radius
@@ -248,189 +428,6 @@ def dist_to_boundary(P: npt.ArrayLike, x: npt.ArrayLike):
 
 
 
-## maybe: identify = [i_0, ..., i_d] where i_k \in [-1, 0, +1], where -1 indicates reverse orientation, 0 no identification, and +1 regular orientation
-class IntervalCover(Cover):
-	'''
-	A Cover *is* an iterable
-	Cover -> divides data into subsets, satisfying covering property, retains underlying neighbor structures + metric (if any) 
-	parameters: 
-		space := the type of space to construct a cover on. Can be a point set, a set of intervals (per column) indicating the domain of the cover, 
-						 or a string indicating a common configuration space. 
-		n_sets := number of cover elements to use to create the cover 
-		overlap := proportion of overlap between adjacent sets per dimension, as a number in [0,1). It is recommended, but not required, to keep this parameter below 0.5. 
-		gluing := optional, whether to identify the sides of the cover as aligned in the same direction (1), in inverted directions (-1), or no identification (0) (default). 
-		implicit := optional, whether to store all the subsets in a precomputed dictionary, or construct them on-demand. Defaults to the former.
-	'''
-	def __init__(self, n_sets: List[int], overlap: List[float], gluing: Optional[List[Gluing]] = None, space: Optional[Union[npt.ArrayLike, str]] = None, metric: str = "euclidean", implicit: bool = False, **kwargs):
-					
-		## If space is specified, check inputs
-		if not(space is None):
-			if space is str: raise NotImplementedError("Haven't implemented parsing of special spaces")
-			space = np.asanyarray(space)
-			if len(space.shape) == 1: space = np.reshape(space, (len(space), 1))
-			if len(space.shape) != 2: raise ValueError("Invalid data shape. Must be a matrix.")
-			self.dimension = space.shape[1]
-			if space.shape[0] == 2: 
-				self.bbox = space
-				self._data = None
-			else: 
-				self.bbox = np.vstack((np.amin(space, axis=0), np.amax(space, axis=0)))
-				self._data = space
-		else: 
-			nsets = 1 if isinstance(n_sets, int) else len(n_sets)
-			nover = 1 if isinstance(overlap, float) else len(overlap)
-			self.dimension = np.max([nsets, nover])
-			self.bbox = np.repeat([0,1], self.dimension, axis=0).reshape((2, self.dimension))
-			self._data = None
-
-		## Set intrinsic properties of the cover
-		self.metric = metric
-		self.implicit = implicit
-		self.n_sets = np.repeat(n_sets, self.dimension) if (isinstance(n_sets, int) or len(n_sets) == 1) else np.array(n_sets)
-		self.overlap = np.repeat(overlap, self.dimension) if (isinstance(overlap, float) or len(overlap) == 1) else np.array(overlap)
-		assert np.all([self.overlap[i] < 1.0 for i in range(self.dimension)]), "Proportion overlap must be < 1.0"
-
-		## Assert these parameters match the dimension of the cover prior to assignment
-		if len(self.n_sets) != self.dimension or len(self.overlap) != self.dimension:
-			raise ValueError("Dimensions mismatch: supplied set or overlap arity does not match dimension of the cover.")
-		self.base_width = np.diff(self.bbox, axis = 0)/self.n_sets
-		self.set_width = self.base_width + (self.base_width*self.overlap)/(1.0 - self.overlap)
-		
-		## Choose how to handle edge orientations
-		self.gluing = np.repeat(Gluing.NONE, self.dimension) if gluing is None else gluing
-		if len(self.gluing) != self.dimension:
-			raise ValueError("Invalid gluing vector given. Must match the dimension of the cover.")
-		
-		## If implicit = False, then construct the sets and store them
-		## otherwise, they must be constructed on demand via __call__
-		if not(self.implicit) and not(self._data is None): 
-			self.sets = self.construct(self._data)
-
-	def _diff_to(self, x: npt.ArrayLike, point: npt.ArrayLike):
-		i_dist = np.zeros(x.shape)
-		for d_i in range(self.dimension):
-			diff = abs(x[:,d_i] - point[:,d_i])
-			if self.gluing[d_i] == 0:
-				i_dist[:,d_i] = diff
-			elif self.gluing[d_i] == 1:
-				rng = abs(self.bbox[1:2,d_i] - self.bbox[0:1,d_i])
-				i_dist[:,d_i] = np.minimum(diff, abs(rng - diff))
-			elif self.gluing[d_i] == -1:
-				rng = abs(self.bbox[1:2,d_i] - self.bbox[0:1,d_i])
-				coords = self.bbox[1:2,d_i] - x[:,d_i] # Assume inside the box
-				diff = abs(coords - point[d_i])
-				i_dist[:,d_i] = np.minimum(diff, abs(rng - coords))
-			else:
-				raise ValueError("Invalid value for gluing parameter")
-		return(i_dist)
-	
-	def construct(self, a: npt.ArrayLike, index: Optional[npt.ArrayLike] = None):
-		if index is not None:
-			centroid = self.bbox[0:1,:] + (np.array(index) * self.base_width) + self.base_width/2.0
-			diff = self._diff_to(a, centroid)
-			return(np.ravel(np.where(np.bitwise_and.reduce(diff <= self.set_width/2.0, axis = 1))))
-			# return(np.nonzero(self.set_distance(a, index) <= 1.0)[0])
-		else:
-			cover_sets = { index : self.construct(a, index) for index in np.ndindex(*self.n_sets) }
-			return(cover_sets)
-	
-	def keys(self):
-		return(np.ndindex(*self.n_sets) if self.implicit else self.sets.keys())
-
-	def values(self):
-		if self.implicit:
-			for index in self.keys():
-				yield self[index]
-		else: 
-			for ind in self.sets.values():
-				yield ind
-
-	def __getitem__(self, index):
-		if isinstance(index, tuple):
-			return(self.construct(self._data, index) if self.implicit else self.sets[index])
-		elif int(index) == index:
-			index = list(self.sets.keys())[index]
-			return(index, self[index])
-		else: 
-			raise ValueError("Cover must be indexed by either a tuple or an integer index")
-		
-	# def __call__(self, a: Optional[npt.ArrayLike]):
-	# 	if a is not None:
-	# 		a = np.array(a, copy=False)
-	# 		if a.shape[2] != self.dimension: raise ValueError("The dimensionality of the supplied data does not match the dimension of the cover.")
-	# 		self._data = a
-	# 		if not self.implicit:
-	# 			self.sets = self.construct(a)
-	# 	return self
-	
-	def __len__(self):
-		return(np.prod(self.n_sets))
-
-	def __repr__(self) -> str:
-		domain_str = " x ".join(np.apply_along_axis("{}".format, axis=0, arr=self.bbox))
-		return("Interval Cover with {} sets and {} overlap over the domain {}".format(self.n_sets, self.overlap, domain_str))
-	
-	def plot(self):
-		if self.dimension == 1:
-			import matplotlib.pyplot as plt
-			import matplotlib.patches as patches
-			fig, ax = plt.subplots(figsize=(12, 6))
-			rng = np.abs(self.bbox[1] - self.bbox[0])
-			plt.xlim([self.bbox[0]-(0.15*rng), self.bbox[1]+(0.15*rng)])
-			plt.ylim([-1, 1])
-			plt.hlines(0,self.bbox[0],self.bbox[1], colors="black")
-			frame = plt.gca()
-			frame.axes.get_yaxis().set_visible(False)
-			for index, _ in self:
-				centroid = self.bbox[0:1,:] + (np.array(index) * self.base_width) + self.base_width/2.0 
-				anchor = (centroid - self.set_width/2.0, -0.5)
-				rect = patches.Rectangle(anchor, self.set_width, 1.0, linewidth=0.5, edgecolor='black', facecolor='#BEBEBE33')
-				ax.add_patch(rect)
-			plt.eventplot(np.ravel(self._data), orientation = "horizontal", linewidths=0.05, lineoffsets=0)
-
-
-	@property
-	def data(self):
-		return(self._data)
-
-	# @property
-	# def index_set(self):
-	# 	return(list(np.ndindex(*self.n_sets) if self.implicit else self.sets.keys()))
-
-	def validate(self):
-		elements = { subset for index, subset in cover.items() }
-		return(len(elements) >= self.n)	
-	
-	def set_contains(self, a: npt.ArrayLike, index: Tuple) -> ArrayLike:
-		membership = np.zeros(a.shape[0], dtype="bool")
-		membership[self.construct(a, index)] = True 
-		return(membership)
-		# eps = self.base_width/2.0
-		# centroid = self.bbox[0:1,:] + (np.array(index) * self.base_width) + eps
-		# C = np.zeros(a.shape[0], dtype="bool")
-		# for i, x in enumerate(a): 
-		# 	inside = np.array([(xj >= centroid[j]-eps[j]) and (xj <= centroid[j]+eps[j]) for j, xj in enumerate(x)])
-		# 	C[i] = np.all(inside)
-		# return(C)
-
-	# def set_distance(self, a: npt.ArrayLike, index: Tuple) -> ArrayLike:
-	# 	if self.dimension == 1:
-	# 		eps = self.base_width/2.0
-	# 		centroid = self.bbox[0:1,:] + (np.array(index) * self.base_width) + eps
-	# 		diff = self._diff_to(np.asanyarray(a), centroid)
-	# 		return(diff / eps)
-	# 	elif self.dimension == 2: 
-	# 		eps = self.base_width/2.0
-	# 		centroid = self.bbox[0:1,:] + (np.array(index) * self.base_width) + eps
-	# 		p = cartesian_product(np.tile([-1,1], (self.dimension,1)))[[0,1,3,2],:] * centroid
-	# 		D = np.zeros(a.shape[0])
-	# 		for i, x in enumerate(a):
-	# 			e, dc = dist_to_boundary(p, x)
-	# 			D[i] = dc/e
-	# 		return(D)
-	# 	else: 
-	# 		raise NotImplementedError("Interval cover only supports dimensions up to 2")
-
 ## TODO: Use code below to partition data set, then use multi-D "floodfill" type search 
 ## to obtain O(n + k) complexity. Could also bound how many sets overlap and search all k of those
 ## to yield O(nk) vectorized
@@ -449,10 +446,6 @@ class IntervalCover(Cover):
 
 
 
-# def LandmarkCover:
-# 	def __init__(self):
-# 			self.neighbor = BallTree(a, kwargs)
-
 ## A Partition of unity is 
 ## B := point cloud from some topological space
 ## phi := function mapping a subset of m points to (m x J) matrix 
@@ -461,6 +454,7 @@ class IntervalCover(Cover):
 ## weights := not implemented
 def partition_of_unity(B: npt.ArrayLike, cover: CoverLike, similarity: Union[str, Callable[npt.ArrayLike, npt.ArrayLike]] = "triangular", weights: Optional[npt.ArrayLike] = None) -> csc_matrix:
 	if (B.ndim != 2): raise ValueError("Error: filter must be matrix.")
+	assert B.shape[1] == cover.dimension, "Dimension of point set given to PoU differs from cover dimension."
 	J = len(cover)
 	# weights = np.ones(J) if weights is None else np.array(weights)
 	# assert len(weights) != J, "weights must have length matching the number of sets in the cover."
@@ -519,17 +513,3 @@ def partition_of_unity(B: npt.ArrayLike, cover: CoverLike, similarity: Union[str
 			raise ValueError("The partition of unity must be supported on the closure of the cover elements.")
 	return(pou)
 	
-
-def partition_of_unity_old(a: npt.ArrayLike, centers: npt.ArrayLike, radius: np.float64, d = dist) -> csc_matrix:
-	'''
-	Partitions 'a' into a partition of unity using a tent function. 
-	If m points are partitioned by n center points, then 
-	the result is a (m x n) matrix of weights yielding the normalized 
-	distance from each point to the given set of centers. Each row 
-	is normalized to sum to 1. 
-	'''
-	a = np.array(a)
-	centers = np.array(centers)
-	P = np.array(np.maximum(0, radius - d(a, centers)), dtype = np.float32)
-	P = (P.T / np.sum(P, axis = 1)).T
-	return(P)

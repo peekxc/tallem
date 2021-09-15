@@ -24,12 +24,13 @@ def landmarks(a: npt.ArrayLike, k: Optional[int], method: str = "maxmin", seed: 
 	## Change metric if need be
 	pc = [Point(a[i,:]) for i in range(n)]
 	if metric != "euclidean":
-		def metric_dist(self, other): 
-			p1 = np.fromiter(self, dtype=np.float32)
-			p2 = np.fromiter(other, dtype=np.float32) 
-			return(dist(p1,p2,metric=metric).item())
-		for p in pc: 
-			p.dist = types.MethodType(metric_dist, p)
+		# def metric_dist(self, other): 
+		# 	p1 = np.fromiter(self, dtype=np.float32)
+		# 	p2 = np.fromiter(other, dtype=np.float32) 
+		# 	return(dist(p1,p2,metric=metric).item())
+		# for p in pc: 
+		# 	p.dist = types.MethodType(metric_dist, p)
+		return(landmarks_dist(a, k, method, seed, diameter, metric))
 
 	## Find the landmarks using clarksons greedy algorithm
 	landmark_iter = clarksongreedy._greedy(pc, seed=pc[seed], alpha=alpha) 

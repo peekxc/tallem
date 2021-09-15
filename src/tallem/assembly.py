@@ -31,5 +31,7 @@ def assembly_fast(stf, A: npt.ArrayLike, cover: CoverLike, pou: csc_matrix, loca
 	offsets = np.vstack([ offset for index,offset in translations.items() ])
 	cover_subsets = [subset for index, subset in cover.items()]
 	local_models = [coords for index, coords in local_models.items()]
-	return(stf.assemble_frames(A, pou.tocsc(), cover_subsets, local_models, offsets))
+	if not(isinstance(pou, csc_matrix)):
+		pou_csc = pou.tocsc(copy=False)
+	return(stf.assemble_frames(A, pou_csc, cover_subsets, local_models, offsets))
 
