@@ -90,6 +90,11 @@ class TALLEM():
 		if B.ndim == 1: B = B.reshape((len(B), 1))
 		if pou is None: pou = self.pou
 		
+		## Validate cover 
+		membership = np.zeros(X.shape[0], dtype=bool)
+		for ind in self.cover.values(): membership[ind] = True
+		assert np.all(membership == True), "Supplied cover invalid: the union of the values does not contain all of B as a subset."
+		
 		## Map the local euclidean models
 		## Note: the extra array constructor ensures singleton subsets are reported as matrices
 		self.models = { index : self.local_map(X[np.array(subset),:]) for index, subset in self.cover.items() }
@@ -126,12 +131,7 @@ class TALLEM():
 		self.embedding_ = assembly_fast(self._stf, self.A, self.cover, self.pou, self.models, self.translations)
 		return(self)
 
-	def fit_transform(self, X: npt.ArrayLike, B: Optional[npt.ArrayLike] = None, **fit_params) -> npt.ArrayLike:
-		X = np.asanyarray(X)
-		n = X.shape[0]
-		membership = np.zeros(n, dtype=bool)
-		for ind in cover.values(): membership[ind] = True
-		assert np.all(membership == True), "Supplied cover invalid: the union of the values does not contain all of B as a subset."
+	def fit_transform(self, X: npt.ArrayLike, B: Optional[npt.ArrayLike] = None, **fit_params) -> npt.ArrayLike:		
 		self.fit(X, B, **fit_params)
 		return(self.embedding_)
 

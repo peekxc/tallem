@@ -195,8 +195,7 @@ struct StiefelLoss {
 	// This is equivalent to Phi_{origin}(x) where 'weights' are specific to 'x'
 	auto generate_frame(const size_t origin, py::array_t< double > weights) -> py::array_t< double > {
 		const size_t J = weights.size();
-		auto w = weights.unchecked< 1 >();		
-		arma::mat d_frame(d*J, d); // output 
+		arma::mat d_frame(d*J, d, 0.0); // output 
 		vector< double > weights_vec = weights.cast< vector< double > >();
 		generate_frame_(origin, weights_vec, d_frame);
 		return(carma::mat_to_arr< double >(d_frame, true));
@@ -217,6 +216,7 @@ struct StiefelLoss {
 				d_frame(r_rng, arma::span::all) = std::sqrt(weights[j]) * I; 
 				continue;
 			} else if (weights[j] == 0.0){
+				d_frame(r_rng, arma::span::all) = std::sqrt(weights[j]) * I; 
 				continue; 
 			} else {
 				// If pair exists, load it up, otherwise use identity
