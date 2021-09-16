@@ -36,10 +36,8 @@ def align_models(cover: CoverLike, models: Dict):
 	PA_map = {} # Procrustes analysis map
 	for i, j in combinations(index_set, 2):
 		subset_i, subset_j, ii, jj = cover[i], cover[j], index_set.index(i), index_set.index(j)
-		# ij_ind, i_idx, j_idx = np.intersect1d(subset_i, subset_j, return_indices=True)
-		ij_ind = np.intersect1d(subset_i, subset_j)
+		ij_ind, i_idx, j_idx = np.intersect1d(subset_i, subset_j, return_indices=True)
 		if len(ij_ind) > 2:
-			i_idx, j_idx = np.searchsorted(subset_i, ij_ind), np.searchsorted(subset_j, ij_ind)
 			PA_map[(ii,jj)] = opa(models[j][j_idx,:], models[i][i_idx,:], rotation_only=False, transform=False)
 	return(PA_map)
 

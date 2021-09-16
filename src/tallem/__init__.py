@@ -127,7 +127,6 @@ class TALLEM():
 
 		## Assemble the frames!
 		## See: https://github.com/rasbt/python-machine-learning-book/blob/master/faq/underscore-convention.md
-		#self.embedding_ = assemble_frames(self._stf, self.A, self.cover, self.pou, self.models, self.translations)
 		self.embedding_ = assembly_fast(self._stf, self.A, self.cover, self.pou, self.models, self.translations)
 		return(self)
 
@@ -141,7 +140,7 @@ class TALLEM():
 	def assemble(self, pou: Optional[csc_matrix] = None, D_frame: Optional[npt.ArrayLike] = None) -> npt.ArrayLike:
 		if D_frame is None: D_frame = self.A
 		if pou is None: pou = self.pou
-		return(assemble_frames(self._stf, D_frame, self.cover, pou, self.models, self.translations))
+		return(assembly_fast(self._stf, D_frame, self.cover, pou, self.models, self.translations))
 
 	def _profile(self, **kwargs):
 		import line_profiler

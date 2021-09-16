@@ -509,7 +509,8 @@ def partition_of_unity(B: npt.ArrayLike, cover: CoverLike, similarity: Union[str
 	row_ind = np.hstack(row_indices)
 	col_ind = np.repeat(range(J), [len(subset) for subset in row_indices])
 	pou = csc_matrix((np.hstack(beta_image), (row_ind, col_ind)))
-	pou = diags(1/pou.sum(axis=1).A.ravel()) @ pou
+	pou = csc_matrix(pou / pou.sum(axis=1)) # todo: move this to sd above
+	# pou = diags(1/pou.sum(axis=1).A.ravel()) @ pou
 	#pou /= np.sum(pou, axis = 1)
 
 	## This checks the support(pou) \subseteq closure(cover) property
@@ -518,5 +519,5 @@ def partition_of_unity(B: npt.ArrayLike, cover: CoverLike, similarity: Union[str
 		ind = find_where(j_membership, cover[index])
 		if (np.any(ind == None)):
 			raise ValueError("The partition of unity must be supported on the closure of the cover elements.")
-	return(pou)
+	return(pou.tocsc())
 	

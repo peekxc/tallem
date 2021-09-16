@@ -24,3 +24,36 @@ import matplotlib.pyplot as plt
 fig = plt.figure()
 ax = fig.add_subplot(projection='3d')
 ax.scatter3D(*emb.T, c = B)
+
+
+# %% Debugging 
+top = TALLEM(cover, local_map="pca2", n_components=3)
+top.fit(X, B)
+top._profile(X=X)
+
+from src.tallem.assembly import assembly_fast2
+
+# %% 
+%%time 
+E = assembly_fast2(top._stf, top.A, top.cover, top.pou.transpose().tocsc(), top.models, top.translations)
+
+# np.all(E == top.assemble().T)
+
+# %% 
+%%time
+top.assemble()
+
+## True!
+np.all(top.fit_transform(X, B).T == E)
+
+# %%
+%%time 
+n = X.shape[0]
+for i in range(n): top._stf.populate_frame(i, np.sqrt(np.ravel(top.pou[i,:].todense())), False)
+# f1 = top._stf.all_frames()
+# %%
+%%time 
+iota = np.array(top.pou.argmax(axis=1)).flatten()
+pou_t = top.pou.transpose().tocsc()
+top._stf.populate_frames(iota, pou_t, False) # populate all the iota-mapped frames in vectorized fashion
+# f2 = top._stf.all_frames()

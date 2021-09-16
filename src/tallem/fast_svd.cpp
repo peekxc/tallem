@@ -195,7 +195,7 @@ struct StiefelLoss {
 	// This is equivalent to Phi_{origin}(x) where 'weights' are specific to 'x'
 	auto generate_frame(const size_t origin, py::array_t< double > weights) -> py::array_t< double > {
 		const size_t J = weights.size();
-		arma::mat d_frame(d*J, d, 0.0); // output 
+		arma::mat d_frame(d*J, d, arma::fill::zeros); // output 
 		vector< double > weights_vec = weights.cast< vector< double > >();
 		generate_frame_(origin, weights_vec, d_frame);
 		return(carma::mat_to_arr< double >(d_frame, true));
@@ -300,6 +300,7 @@ struct StiefelLoss {
 	
 	// Using the rotations from the omega map, initialize the phi matrix representing the concatenation 
 	// of the weighted frames for some *fixed* choice of iota 
+	// iota := n-length vector of indices each in [0, J) indicating the most similar cover set
 	// pou := (J x n) sparse csc_matrix representing the partition of unity
 	// Note the transpose! 
 	void populate_frames(const py::array_t< size_t >& iota, py::object& pou, bool sparse = false){
@@ -320,7 +321,7 @@ struct StiefelLoss {
 
 		// Generate all the frames using iota
 		vector< double > weights(J, 0.0);
-		arma::mat d_frame(d*J, d);
+		arma::mat d_frame(d*J, d, arma::fill::zeros);
 		for (size_t i = 0; i < n; ++i){
 			
 			// Fill the weight vector
@@ -340,9 +341,7 @@ struct StiefelLoss {
 		}
 		
 		// If sparse, make sure to clean up 
-		if (sparse){
-			frames_sparse.clean(std::numeric_limits< double >::epsilon());
-		}
+		if (sparse){ frames_sparse.clean(std::numeric_limits< double >::epsilon()); }
 	} // populate_frames
 
 
@@ -405,7 +404,7 @@ struct StiefelLoss {
 	}
 
 
-	// A := (dJ x D) dense orthonormal matrix [representing A^T]
+	// A := (dJ x D) dense orthonormal matrix 
 	// pou := (J x n) sparse matrix representing the transpose of the PoU
 	// cover_subsets := (J)-length vector of sorted cover sets 
 	// local_models := (J)-length vector of column-oriented euclidean coordinate models (point for each column)
@@ -450,6 +449,8 @@ struct StiefelLoss {
 		}
 	}
 
+	// Uses the fast_assembly2() function. 
+	// All inputs as passed as-is to fast_assembly2; do not transpose anything here
 	auto assemble_frames2(const py::array_t< double >& A, py::object& pou, py::list& cover_subsets, const py::list& local_models, const py::array_t< double >& T ) -> py::array_t< double > {
 		arma::mat A_ = carma::arr_to_mat(A);
 		
@@ -465,7 +466,7 @@ struct StiefelLoss {
 		auto models = vector< arma::mat >();
 		for (auto pts: local_models){
 			py::array_t< double > pts_ = pts.cast< py::array_t< double > >();
-			models.push_back(carma::arr_to_mat(pts_).t());
+			models.push_back(carma::arr_to_mat(pts_));
 		}
 
 		// Copy/move the translations

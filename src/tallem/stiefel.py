@@ -2,12 +2,14 @@ import numpy as np
 import numpy.typing as npt
 from typing import Callable, Iterable, List, Set, Dict, Optional, Tuple, Any, Union, Sequence
 from itertools import combinations
+from scipy.sparse import csc_matrix, issparse
 
 from .sc import delta0D
 from .distance import dist
 from .cover import partition_of_unity
 from .samplers import uniform_sampler
 from . import fast_svd
+
 
 import autograd.scipy.linalg as auto_scipy 
 import autograd.numpy as auto_np
@@ -36,7 +38,8 @@ def huber_loss(embed_map: Callable, subsetter: Callable[[], Iterable[int]], epsi
 	return(cost_function)
 
 ## --- Optimization to find the best A matrix --- 
-def frame_reduction(alignments: Dict, pou: npt.ArrayLike, D: int, optimize=False, fast_gradient=False):
+def frame_reduction(alignments: Dict, pou: csc_matrix, D: int, optimize=False, fast_gradient=False):
+	assert isinstance(pou, csc_matrix), "Partition of unity must be represented as a CSC sparse matrix"
 	n, J, d = pou.shape[0], pou.shape[1], len(alignments[list(alignments.keys())[0]]['translation'])
 	
 	## Start off with StiefelLoss pybind11 module
@@ -45,15 +48,18 @@ def frame_reduction(alignments: Dict, pou: npt.ArrayLike, D: int, optimize=False
 	## Initialize rotation matrix hashmap 
 	I1 = [index[0] for index in alignments.keys()]
 	I2 = [index[1] for index in alignments.keys()]
-	R = np.vstack([pa['rotation'] for index, pa in alignments.items()])
+	
+	# Stack Omegas contiguously
+	# R is (dL x d), where 0 <= L <= (J choose 2) (num. non-empty intersections between cover sets)
+	R = np.vstack([pa['rotation'] for index, pa in alignments.items()]) 
 	stf.init_rotations(I1, I2, R, J)
 
 	## Populate frame matrix map
-	for i in range(n): 
-		stf.populate_frame(i, np.sqrt(np.ravel(pou[i,:].todense())), False)
+	iota = np.array(pou.argmax(axis=1)).flatten()
+	stf.populate_frames(iota, pou.transpose().tocsc(), False) # populate all the iota-mapped frames in vectorized fashion
 
 	## Get the initial frame 
-	Fb = stf.all_frames()
+	Fb = stf.all_frames() ## Note these are already weighted w/ the sqrt(varphi)'s!
 	Eval, Evec = np.linalg.eigh(Fb @ Fb.T)
 	A0 = Evec[:,np.argsort(-Eval)[:D]]
 	if (not(optimize)): return(A0, A0, stf)
