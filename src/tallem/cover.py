@@ -357,12 +357,19 @@ class IntervalCover(Cover):
 			centroid = self.bbox[0:1,:] + (np.array(index) * self.base_width) + eps
 			# diff = self._diff_to(np.asanyarray(a), centroid)
 			# return(diff / eps)
-			diff = np.ravel(dist(a, centroid, metric=self.metric)) / eps
+			diff = np.ravel(dist(a, centroid, metric=self.metric)) / (self.set_width/2.0)
 			return(diff.flatten()) ## must be flattened array
 		elif self.dimension == 2: 
 			eps = self.base_width/2.0
 			centroid = self.bbox[0:1,:] + (np.array(index) * self.base_width) + eps
-			p = cartesian_product(np.tile([-1,1], (self.dimension,1)))[[0,1,3,2],:] * centroid
+			width = self.set_width/2
+			p = centroid + cartesian_product(np.tile([-1,1], (self.dimension,1)))[[0,1,3,2],:] * width
+			# p = np.array([
+			# 	[centroid[0] - width[0], centroid[1] - width[1]],
+			# 	[centroid[0] - width[0], centroid[1] + width[1]],
+			# 	[centroid[0] + width[0], centroid[1] + width[1]],
+			# 	[centroid[0] + width[0], centroid[1] - width[1]]
+			# ])
 			D = np.zeros(a.shape[0])
 			for i, x in enumerate(a):
 				e, dc = dist_to_boundary(p, x)

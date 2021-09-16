@@ -75,8 +75,7 @@ class TALLEM():
 			assert isinstance(local_map, Callable), "local model map must be a function."
 			self.local_map = local_map
 		
-		## Validate cover 
-		## TODO: use generic to generalize this to a type-erased generic! 
+		## Assign cover as-is, validate on fit
 		self.cover = cover 
 
 		## Validate the partition of unity respects the closure condition relative to the cover 
@@ -128,6 +127,11 @@ class TALLEM():
 		return(self)
 
 	def fit_transform(self, X: npt.ArrayLike, B: Optional[npt.ArrayLike] = None, **fit_params) -> npt.ArrayLike:
+		X = np.asanyarray(X)
+		n = X.shape[0]
+		membership = np.zeros(n, dtype=bool)
+		for ind in cover.values(): membership[ind] = True
+		assert np.all(membership == True), "Supplied cover invalid: the union of the values does not contain all of B as a subset."
 		self.fit(X, B, **fit_params)
 		return(self.embedding_)
 

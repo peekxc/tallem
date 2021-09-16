@@ -9,6 +9,10 @@ def flywing():
 	return([arr1, arr2])
 
 def mobius_band(n_polar=66, n_wide=9, scale_band=0.25, embed=3, plot=False):
+
+	## Make deterministic	
+	np.random.seed(0)
+	
 	# %% Generate small data set on Mobius Band 
 	s = np.linspace(-scale_band, scale_band, 2*n_wide)	# width/radius
 	t = np.linspace(0, 2*np.pi, n_polar)   # circular coordinate 

@@ -90,6 +90,19 @@
 		"variant": "cpp",
 		"armadillo": "cpp",
 		"carma": "cpp",
-		"filesystem": "cpp"
+		"filesystem": "cpp",
+		"hash_map": "cpp",
+		"*.tcc": "cpp",
+		"codecvt": "cpp",
+		"compare": "cpp",
+		"concepts": "cpp",
+		"condition_variable": "cpp",
+		"memory_resource": "cpp",
+		"numbers": "cpp",
+		"semaphore": "cpp",
+		"stop_token": "cpp",
+		"cfenv": "cpp",
+		"cinttypes": "cpp",
+		"queue": "cpp"
 	}
 }

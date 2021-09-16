@@ -7,6 +7,7 @@
 #include <pybind11/numpy.h>
 #include <cmath> // fabs
 #include <chrono>
+#include <limits>
 #include "svd_3x3.h" // fast 3x3 svd
 #include "carma_svd.h" // fast 3x3 svd using carma
 
@@ -196,38 +197,54 @@ struct StiefelLoss {
 		const size_t J = weights.size();
 		auto w = weights.unchecked< 1 >();		
 		arma::mat d_frame(d*J, d); // output 
-		arma::mat I = arma::eye(d, d);
-		for (size_t j = 0; j < J; ++j){
-			auto r_rng = arma::span(j*d,(j+1)*d-1); 
-			double w_j = static_cast< double >(w(j));
-			if (j == origin || w_j == 0.0){ 
-				d_frame(r_rng, arma::span::all) = w_j * I; 
-				continue;
-			} else {
-				// If pair exists, load it up, otherwise use identity
-				const size_t key = rank_comb2(origin, j, J); 
-				bool key_exists = rotations.find(key) != rotations.end();
-				d_frame(r_rng, arma::span::all) = double(w(j))*(key_exists ? (origin < j ? rotations[key] : rotations[key].t()) : I);
-			}
-		}
+		vector< double > weights_vec = weights.cast< vector< double > >();
+		generate_frame_(origin, weights_vec, d_frame);
 		return(carma::mat_to_arr< double >(d_frame, true));
 	}
 
 	// This generates a given dense (dJ x d) frame with the weighted rotation matrices given in the 'rotations' table
 	// Note: this applies sqrt to the phi weights! 
+	// TODO: should the weights be sqrt'ed on identity matrices? Assume yes.
+	// TODO: consider filling a (d x dJ) matrix instead to be more cache-friendly
 	void generate_frame_(const size_t origin, const vector< double >& weights, arma::mat& d_frame) {
 		const size_t J = weights.size();	
 		arma::mat I = arma::eye(d, d);
+
+		// This fills up the (dJ x d) frame one (d x d) matrix at a time 
 		for (size_t j = 0; j < J; ++j){
 			auto r_rng = arma::span(j*d,(j+1)*d-1); 
-			if (j == origin || weights[j] == 0.0){ 
+			if (j == origin){ 
 				d_frame(r_rng, arma::span::all) = std::sqrt(weights[j]) * I; 
 				continue;
+			} else if (weights[j] == 0.0){
+				continue; 
 			} else {
 				// If pair exists, load it up, otherwise use identity
 				const size_t key = rank_comb2(origin, j, J); 
 				bool key_exists = rotations.find(key) != rotations.end();
 				d_frame(r_rng, arma::span::all) = std::sqrt(weights[j])*(key_exists ? (origin < j ? rotations[key] : rotations[key].t()) : I);
+			}
+		}
+	}
+
+	// This generates a given dense (d x dJ) frame with the weighted rotation matrices given in the 'rotations' table
+	// Note: this applies sqrt to the phi weights! 
+	void generate_frame_T(const size_t origin, const vector< double >& weights, arma::mat& d_frame) {
+		const size_t J = weights.size();	
+		arma::mat I = arma::eye(d, d);
+
+		// This fills up the (d x dJ) frame one (d x d) matrix at a time (column-wise)
+		for (size_t j = 0; j < J; ++j){
+			auto c_rng = arma::span(j*d,(j+1)*d-1); 
+			auto weight = std::sqrt(weights[j]);
+			if (j == origin || weights[j] == 0.0){ 
+				d_frame(arma::span::all, c_rng) = std::sqrt(weights[j]) * I; 
+				continue;
+			} else {
+				// If pair exists, load it up, otherwise use identity
+				const size_t key = rank_comb2(origin, j, J); 
+				bool key_exists = rotations.find(key) != rotations.end();
+				d_frame(arma::span::all, c_rng) = weight *  (key_exists ? (origin < j ? rotations[key] : rotations[key].t()) : I);
 			}
 		}
 	}
@@ -280,6 +297,53 @@ struct StiefelLoss {
 			frames(arma::span::all, arma::span(i*d, (i+1)*d-1)) = d_frame; 
 		}
 	}
+	
+	// Using the rotations from the omega map, initialize the phi matrix representing the concatenation 
+	// of the weighted frames for some *fixed* choice of iota 
+	// pou := (J x n) sparse csc_matrix representing the partition of unity
+	// Note the transpose! 
+	void populate_frames(const py::array_t< size_t >& iota, py::object& pou, bool sparse = false){
+		if (iota.size() != n){
+			throw std::invalid_argument("Invalid input. Must have one weight for each cover element.");
+		}
+
+		// Convert partition of unity to arma
+		arma::sp_mat pou_;
+		to_sparse(pou, pou_);
+		const size_t J = pou_.n_rows;
+
+		if (sparse && frames_sparse.is_empty()){
+			frames_sparse.resize(d*J, d*n);
+		} else if (!sparse && frames.is_empty()){
+			frames.resize(d*J, d*n);
+		}	 
+
+		// Generate all the frames using iota
+		vector< double > weights(J, 0.0);
+		arma::mat d_frame(d*J, d);
+		for (size_t i = 0; i < n; ++i){
+			
+			// Fill the weight vector
+			weights.assign(J, 0.0);
+			auto ci = pou_.begin_col(i);
+			for (; ci != pou_.end_col(i); ++ci){ weights[ci.row()] = *ci; }
+
+			// Generate the current frame using iota to specify the origin 
+			generate_frame_(iota.at(i), weights, d_frame);
+
+			// Assign the frame to right position in the frames matrix
+			if (sparse){
+				frames_sparse(arma::span::all, arma::span(i*d, (i+1)*d-1)) = d_frame; 
+			} else {
+				frames(arma::span::all, arma::span(i*d, (i+1)*d-1)) = d_frame; 
+			}
+		}
+		
+		// If sparse, make sure to clean up 
+		if (sparse){
+			frames_sparse.clean(std::numeric_limits< double >::epsilon());
+		}
+	} // populate_frames
 
 
 	// Returns the i'th frame of the matrix
@@ -327,7 +391,7 @@ struct StiefelLoss {
 	}
 
 
-	using index_list = std::vector< vector< size_t > >;
+	using index_list = vector< vector< size_t > >;
 	using vec_mats = vector< arma::mat >;
 
 	// Given sorted range [b,e), finds 'element' in log time, or throws an exception if not found
@@ -338,6 +402,79 @@ struct StiefelLoss {
 			return(std::distance(b, lb));
 		}
 		throw std::logic_error("Unable to find element in array.");
+	}
+
+
+	// A := (dJ x D) dense orthonormal matrix [representing A^T]
+	// pou := (J x n) sparse matrix representing the transpose of the PoU
+	// cover_subsets := (J)-length vector of sorted cover sets 
+	// local_models := (J)-length vector of column-oriented euclidean coordinate models (point for each column)
+	// T := (D x n) matrix of translation vectors
+	// Note: with armadillo's csc impmenentations, (dense x sparse) is faster than (sparse x dense)
+	// Output => (D x n) matrix of the assembled coordinates
+	void fast_assembly2(const arma::mat& A, const arma::sp_mat& pou, const index_list& cover_subsets, const vec_mats& local_models, const arma::mat& T, arma::mat& assembly){
+		// arma::mat assembly = arma::zeros(D, n);
+		arma::vec coords = arma::zeros(D);
+		const size_t J = pou.n_rows;
+		
+		// Variables to re-use/cache in the loop 
+		vector< double > phi_i(J); // the partition of unity weights for x_i 
+		arma::mat d_frame(d*J, d); // the current frame to populate 
+		arma::mat U, V;
+		arma::vec s;
+
+		// Build the assembly
+		for (size_t i = 0; i < n; ++i){
+			phi_i.assign(J, 0.0);
+			coords.zeros();
+
+			// Fill phi weight vector 
+			auto ci = pou.begin_col(i);
+			for (; ci != pou.end_col(i); ++ci){ phi_i[ci.row()] = *ci; }
+
+			// Compute the weighted average of the Fj's using the partition of unity
+			ci = pou.begin_col(i);
+			for (; ci != pou.end_col(i); ++ci){
+				size_t j = ci.row(); 
+				generate_frame_(j, phi_i, d_frame); 			// populates the (dJ x d) frame in d_frame
+				svd_econ(U, s, V, A * (A.t() * d_frame)); // compute SVD of A A^T phi_j (U := dj x r, V := r x d, r <=	 d)
+				
+				// In cover set U_j, find the index of the local coordinate for point x_i, add the translation vector
+				size_t jj = find_index(cover_subsets[j].begin(), cover_subsets[j].end(), i); // todo: remove this
+				arma::vec local_coord = local_models[j].col(jj) + T.col(j); // should be column vector
+				
+				// Add to the current coordinate
+				coords += ((*ci) * A.t() * U * V.t()) * local_coord; // lhs := (D x d), local coords := (d x 1)
+			}
+			assembly.col(i) = coords; 
+		}
+	}
+
+	auto assemble_frames2(const py::array_t< double >& A, py::object& pou, py::list& cover_subsets, const py::list& local_models, const py::array_t< double >& T ) -> py::array_t< double > {
+		arma::mat A_ = carma::arr_to_mat(A);
+		
+		// Partition of unity
+		arma::sp_mat pou_;
+		to_sparse(pou, pou_);
+
+		// Convert cover subsets to C++ versions
+		auto subsets = vector< vector< size_t > >();
+		for (auto ind: cover_subsets){ subsets.push_back(ind.cast< vector< size_t > >()); }
+
+		// Copy the local euclidean models (transposed)	
+		auto models = vector< arma::mat >();
+		for (auto pts: local_models){
+			py::array_t< double > pts_ = pts.cast< py::array_t< double > >();
+			models.push_back(carma::arr_to_mat(pts_).t());
+		}
+
+		// Copy/move the translations
+		arma::mat translations = carma::arr_to_mat(T);
+		
+		// Output assembly
+		arma::mat assembly = arma::zeros(D, n);
+		fast_assembly2(A_, pou_, subsets, models, translations, assembly);
+		return(carma::mat_to_arr(assembly));
 	}
 
 	// TODO: make pou and local_models transposed to access by column
@@ -371,17 +508,6 @@ struct StiefelLoss {
 				svd_econ(U, s, V, A * (A.t() * d_frame)); // compute SVD of A A^T phi_j
 				arma::rowvec local_coord = local_models[j].row(jj) + T.row(j); // should be column vector
 				coords += ((*ri) * A.t() * U * V.t()) * local_coord.t(); // left-side should be (D x d)
-				// if (i == 0){
-				// 	py::print("d_frame:", carma::mat_to_arr(d_frame, true));
-				// 	arma::mat tmp = A * (A.t() * d_frame);
-				// 	py::print("A*A^T*F:", carma::mat_to_arr(tmp, true));
-				// 	//py::print("*:", carma::mat_to_arr((*ri) * A.t() * U * V.t()));
-				// 	py::print("U:", carma::mat_to_arr(U, true));
-				// 	py::print("V:", carma::mat_to_arr(V, true));
-				// 	py::print("s:", carma::col_to_arr(s, true));
-				// 	py::print("local coords:", carma::row_to_arr(local_coord, true));
-				// 	py::print("coords:", carma::col_to_arr(coords, true));
-				// }
 			}
 			assembly.row(i) = coords.t(); 
 		}
@@ -455,7 +581,7 @@ struct StiefelLoss {
 // 	py::print("Info: ", info);
 // }
 
-// diag( D )  +  RHO *  Z * Z_transpose.
+// diag( D ) +  RHO *  Z * Z_transpose.
 void dpr1(py::array_t< float > D, float rho, py::array_t< float > Z, int I){
 	arma::fvec d = carma::arr_to_col(D, true);
 	arma::fvec z = carma::arr_to_col(Z, true);
@@ -505,12 +631,14 @@ PYBIND11_MODULE(fast_svd, m) {
 		.def("init_rotations", &StiefelLoss::init_rotations)
 		.def("get_rotation", &StiefelLoss::get_rotation)		
 		.def("populate_frame", &StiefelLoss::populate_frame)
+		.def("populate_frames", &StiefelLoss::populate_frames)
 		.def("generate_frame", &StiefelLoss::generate_frame)
 		.def("get_frame", &StiefelLoss::get_frame)
 		.def("all_frames", &StiefelLoss::all_frames)
 		.def("embed", &StiefelLoss::embed)
 		.def("benchmark_embedding", &StiefelLoss::benchmark_embedding)
 		.def("assemble_frames", &StiefelLoss::assemble_frames)
+		.def("assemble_frames2", &StiefelLoss::assemble_frames2)
 		.def("__repr__",[](const StiefelLoss &stf) {
 			return("Stiefel Loss w/ parameters n="+std::to_string(stf.n)+",d="+std::to_string(stf.d)+",D="+std::to_string(stf.D));
   	});

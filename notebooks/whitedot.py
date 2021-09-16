@@ -25,6 +25,23 @@ def gaussian_pixel(center, Sigma, d=17,s=1):
 		grid[r,c] = s*F[i]
 	return(grid)
 
+import autograd.numpy as auto_np
+from autograd import jacobian
+scale, image_sz, s = 1, (17, 17), 1
+def gaussian_pixel2(center):
+	x, y = auto_np.meshgrid(range(image_sz[0]), range(image_sz[0]))
+	#grid = (auto_np.abs(center[0] - x)**2 + auto_np.abs(center[1] - y))**2
+	grid = auto_np.exp(-0.5*((x - center[0])**2 + (y - center[1])**2))/auto_np.sqrt((2*auto_np.pi)**2)
+	#grid = auto_np.zeros(shape=image_sz)	# ind = auto_np.ix_(range(image_sz[0]), range(image_sz[1]))
+	#grid[auto_np.ix_(range(image_sz[0]), range(image_sz[0]))] = auto_np.sum(center**2)
+	# for i in range(image_sz[0]):
+	# 	for j in range(image_sz[1]):
+	# 		grid[i,j] = auto_np.exp(-0.5*((i - center[0])**2 + (j - center[1])**2))/auto_np.sqrt((2*auto_np.pi)**2)
+	return(np.ravel(grid)
+
+# jacobian(gaussian_pixel2)(auto_np.array([0.,0.]))
+
+
 # %% Generate data
 import numpy as np
 import random
@@ -199,7 +216,7 @@ def J_determinant(f):
 				D = np.sqrt(np.linalg.det(jac @ jac.T))
 			else: 
 				D = np.sqrt(np.linalg.det(jac.T @ jac)) 
-		return(D if not(math.isnan(d)) else 0.0)
+		return(D if not(math.isnan(D)) else 0.0)
 	return(det)
 
 ## autograd determinant
@@ -303,12 +320,14 @@ Y = random.choices( population=range(0, outer_sz), weights=w, k=n )
 sphere_images = [gaussian_pixel([x,y], sigma, d=outer_sz, s=1) for x,y in zip(X, Y)]
 center_images = [gaussian_pixel(center, sigma, d=outer_sz, s=r) for r in np.linspace(0, 1, 100)]
 
+# jacobian(gaussian_pixel2)
 
-def f(x):
-	x, y = x
-	return(gaussian_pixel([x,y], sigma, d=outer_sz, s=1))
+J_det = J_determinant(gaussian_pixel2)
+J_det(auto_np.array([14.0,14.1]))
 
-J_det = J_determinant(f)
+
+## WRONG
+np.linalg.norm(gaussian_pixel2(auto_np.array([0.1,0.1])) - gaussian_pixel2(auto_np.array([0.1,0.1])))
 
 sampler = rejection_sampler(
 	parameterization = f, 
@@ -410,4 +429,44 @@ for angle in range(0, 360, 30):
 	ax.scatter3D(*pc.T, color=bin_color(knn_dist, col_pal))
 	ax.view_init(30, angle)
 	plt.pause(1.50)
+
+
+# %% optimizing the assembly 
+import numpy as np
+from src.tallem.datasets import mobius_band
+from src.tallem.cover import IntervalCover, LandmarkCover
+from src.tallem import TALLEM
+
+M = mobius_band(n_polar=66, n_wide=9, scale_band = 0.25, plot=True, embed=3)
+X, B = M['points'], M['parameters'][:,[1]]
+
+## Run TALLEM on polar coordinate cover 
+m_dist = lambda x,y: np.minimum(abs(x - y), (2*np.pi) - abs(x - y))
+cover = IntervalCover(B, n_sets = 10, overlap = 0.40, space = [0, 2*np.pi], metric = m_dist)
+# cover = LandmarkCover(B, k = 10, metric = m_dist).construct(B)
+
+top = TALLEM(cover, local_map="pca2", n_components=3)
+top.fit(X, B)
+
+import matplotlib.pyplot as plt
+fig = plt.figure()
+ax = fig.add_subplot(projection='3d')
+ax.scatter3D(*top.embedding_.T, c = B)
+
+# id0 = np.nonzero(cover.set_distance(B, (0,)) <= 1.0)
+# id1 = np.nonzero(cover.set_distance(B, (1,)) <= 1.0)
+# int_pts, ind0, ind1 = np.intersect1d(id0, id1, return_indices=True)
+
+
+
+
+# models = { index : top.local_map(X[np.array(subset),:]) for index, subset in cover.items() }
+# from src.tallem.cover import partition_of_unity
+# pou = partition_of_unity(B, cover = cover, similarity = "triangular") 
+# pou[1,:].todense()
+
+
+
+
+
 
