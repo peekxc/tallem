@@ -1,6 +1,6 @@
 # Topological Assembly of Local Euclidean Models 
 
-This repository hosts `tallem`, a [Python project](https://packaging.python.org/glossary/#term-Project) which implements TALLEM--a topologically inspired non-linear dimensionality reduction method. 
+This repository implements TALLEM - a topologically inspired non-linear dimensionality reduction method.
 
 Given some data set *X* and a map <img class='latex-inline math' style="background: white; vertical-align:-0.105206pt;" src="https://render.githubusercontent.com/render/math?math=\large f%20%3A%20X%20%5Cto%20B&mode=inline"> onto some topological space _B_ which captures the topology/nonlinearity of _X_, TALLEM constructs a map <img style="background: white; vertical-align:-0.105206pt" class='latex-inline math' src="https://render.githubusercontent.com/render/math?math=\large F%20%3A%20X%20%5Cto%20%5Cmathbb%7BR%7D%5ED%20&mode=inline"> mapping _X_ to a _D_-dimensional space. 
 
@@ -21,7 +21,7 @@ Since prebuilt wheels are not yet provided, a [C++17 compliant compiler](https:/
 
 ## Installing
 
-Currently, `tallem` must be built from source--wheels will be made available on PyPI in the future. 
+Currently, `tallem` must be built from source--wheels will be made available on PyPI or some other host in the future. 
 
 Meson and Ninja are installeable with `pip`:
 
@@ -31,7 +31,7 @@ pip install meson ninja
 
 Armadillo [provides a variety of installation options](http://arma.sourceforge.net/download.html).
 
-CARMA is a [header-only](https://en.wikipedia.org/wiki/Header-only), the source files only require the directory where the files are   requires building from source using [CMAKE](https://cmake.org/runningcmake/). On UNIX-like terminals, this can be achieved via: 
+CARMA is a [header-only](https://en.wikipedia.org/wiki/Header-only), the source files only require the directory where the files are requires building from source using [CMAKE](https://cmake.org/runningcmake/). On UNIX-like terminals, this can be achieved via: 
 
 ```bash
 git clone https://github.com/RUrlus/carma
@@ -68,11 +68,8 @@ from tallem.datasets import mobius_band
 ## Get mobius band data + its parameter space
 X, B = mobius_band(n_polar=26, n_wide=6, embed=3).values()
 
-## The polar coordinate captures how the frames of reference rotate about B 
-B_polar = B[:,1].reshape((B.shape[0], 1))
-
-## The parameter space is discretized with a cover 
-cover = IntervalCover(B_polar, n_sets = 10, overlap = 0.30, gluing=[1])
+## Construct a cover over the polar coordinate
+cover = IntervalCover(B[:,[1]], n_sets = 10, overlap = 0.30, gluing=[1])
 
 ## Local euclidean models are specified with a function
 f = lambda x: classical_MDS(dist(x, as_matrix=True), k = 2)
