@@ -49,13 +49,26 @@ top._stf.populate_frames(iota, pou_t, False)
 iota = np.array(top.pou.argmax(axis=1)).flatten()
 pou_t = top.pou.transpose().tocsc()
 
-#%% 
+#%% Dense population
 %%time
+iota = np.array(top.pou.argmax(axis=1)).flatten()
 top._stf.populate_frames(iota, pou_t, False)
 
 #%% 
 %%time
-top._stf.populate_frames_sparse(iota, pou_t)
+top._stf.populate_frames_sparse(pou_t)
+
+#%%
+%%time
+ew, ev = top._stf.initial_guess(top._stf.D, True)
+
+#%% 
+Fb = top._stf.all_frames() ## Note these are already weighted w/ the sqrt(varphi)'s!
+
+#%% 
+%%time 
+Eval, Evec = np.linalg.eigh(Fb @ Fb.T)
+A0 = Evec[:,np.argsort(-Eval)[:D]]
 
 #%% 
 # top._stf.populate_frames_sparse(iota, pou_t)

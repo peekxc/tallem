@@ -57,13 +57,18 @@ def frame_reduction(alignments: Dict, pou: csc_matrix, I: npt.ArrayLike, D: int,
 
 	## Populate frame matrix map
 	# iota = np.array(pou.argmax(axis=1)).flatten()
-	pou_t = pou.transpose().tocsc()
-	stf.populate_frames(I, pou_t, False) # populate all the iota-mapped frames in vectorized fashion
+	# pou_t = pou.transpose().tocsc()
+	# stf.populate_frames(I, pou_t, False) # populate all the iota-mapped frames in vectorized fashion
 
-	## Get the initial frame 
-	Fb = stf.all_frames() ## Note these are already weighted w/ the sqrt(varphi)'s!
-	Eval, Evec = np.linalg.eigh(Fb @ Fb.T)
-	A0 = Evec[:,np.argsort(-Eval)[:D]]
+	# ## Get the initial frame 
+	# Fb = stf.all_frames() ## Note these are already weighted w/ the sqrt(varphi)'s!
+	# Eval, Evec = np.linalg.eigh(Fb @ Fb.T)
+	# A0 = Evec[:,np.argsort(-Eval)[:D]]
+
+	## Compute the initial guess
+	stf.populate_frames_sparse(pou.transpose().tocsc()) # populate all the iota-mapped frames in vectorized fashion
+	ew, ev = stf.initial_guess(D, True)
+	A0 = np.flip(ev,axis=1)
 	if (not(optimize)): return(A0, A0, stf)
 
 	## Setup optimization using Pymanopt

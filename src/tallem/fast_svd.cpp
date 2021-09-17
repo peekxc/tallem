@@ -353,26 +353,21 @@ struct StiefelLoss {
 		return(carma::col_to_arr< unsigned long long >(std::move(u)));
 	}
 
-	void populate_frames_sparse(const py::array_t< size_t >& iota, py::object& pou){
-		if (iota.size() != n){
-			throw std::invalid_argument("Invalid input. Must have one weight for each cover element.");
-		}
-
+	void populate_frames_sparse(py::object& pou){
 		// Convert partition of unity to arma
 		arma::sp_mat pou_;
 		to_sparse(pou, pou_);
 		const size_t J = pou_.n_rows;
 
+		if (pou_.n_cols != n){
+			throw std::invalid_argument("Invalid input. Must have one weight for each cover element.");
+		}
+
 		// Prepare the vectors needed to construct the sparse matrix using COO-input 
-		// arma::uvec R, C; 
-		// arma::vec X; 
-		// vector< arma::uword > R, C;
 		vector< arma::uword > RC; 
 		vector< double > X;
 
 		// Output iterators
-		// auto r_out = std::back_inserter(R);
-		// auto c_out = std::back_inserter(C);
 		auto rc_out = std::back_inserter(RC);
 		auto x_out = std::back_inserter(X);
 
@@ -384,22 +379,16 @@ struct StiefelLoss {
 			weights.assign(J, 0.0);
 			auto ci = pou_.begin_col(i);
 			for (; ci != pou_.end_col(i); ++ci){ weights[ci.row()] = *ci; }
+			size_t iota_i = std::distance(weights.begin(), std::max_element(weights.begin(), weights.end()));
 
 			// Generate the current frame using iota to specify the origin 
-			generate_frame_ijx(iota.at(i), weights, i*d, rc_out, x_out);
+			generate_frame_ijx(iota_i, weights, i*d, rc_out, x_out);
 		}
 		
-		// If sparse, make sure to clean up 
-		// if (sparse){ frames_sparse.clean(std::numeric_limits< double >::epsilon()); }
-		
-		// sp_mat(locations, values, n_rows, n_cols, sort_locations = true, check_for_zeros = true)
-		// locations := (2 x m) dense umat of locations 
-		// arma::umat locations(RC.size()/2, 2, arma::fill::none);
-		// locations.col(0) = arma::uvec(R);
-		// locations.col(1) = arma::uvec(C);
+		// Assign to frames_sparse
 		auto locations = arma::umat(RC.data(), 2, RC.size()/2, false, true);
 		frames_sparse = arma::sp_mat(std::move(locations), arma::vec(std::move(X)), d*J, d*n);
-	} // populate_frames
+	} // populate_frames_sparse
 
 	// Using the rotations from the omega map, initialize the phi matrix representing the concatenation 
 	// of the weighted frames for some *fixed* choice of iota 
@@ -447,6 +436,19 @@ struct StiefelLoss {
 		// If sparse, make sure to clean up 
 		if (sparse){ frames_sparse.clean(std::numeric_limits< double >::epsilon()); }
 	} // populate_frames
+
+	py::tuple initial_guess(const size_t D, bool sparse=true){
+		if (sparse){
+			if (frames_sparse.empty()) { throw std::invalid_argument("Frames sparse matrix has not been populated."); } 
+			arma::vec eigval;
+			arma::mat eigvec;
+			arma::eigs_sym(eigval, eigvec, frames_sparse * frames_sparse.t(), D, "lm"); // largest first
+			return py::make_tuple(carma::col_to_arr(eigval), carma::mat_to_arr(eigvec));
+		} else {
+			// eig_sym( eigval, eigvec, X )
+		}
+		return py::make_tuple(1);
+	}
 
 
 	// Returns the i'th frame of the matrix
@@ -772,6 +774,7 @@ PYBIND11_MODULE(fast_svd, m) {
 		.def("benchmark_embedding", &StiefelLoss::benchmark_embedding)
 		.def("assemble_frames", &StiefelLoss::assemble_frames)
 		.def("assemble_frames2", &StiefelLoss::assemble_frames2)
+		.def("initial_guess", &StiefelLoss::initial_guess)
 		.def("__repr__",[](const StiefelLoss &stf) {
 			return("Stiefel Loss w/ parameters n="+std::to_string(stf.n)+",d="+std::to_string(stf.d)+",D="+std::to_string(stf.D));
   	});
