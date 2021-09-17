@@ -249,6 +249,54 @@ struct StiefelLoss {
 		}
 	}
 
+	// TODO: come back to this to fix the populate_frames functions efficiency
+	template< typename OutputIt1, typename OutputIt2 >
+	void generate_frame_ijx(const size_t origin, const vector< double >& weights, const size_t col_offset, OutputIt1 RC, OutputIt2 X){
+		
+		// For each cover set, detect whether there exists rotation matrices to transform between them
+		const size_t J = weights.size(); 
+		for (size_t j = 0; j < J; ++j){
+			if (j == origin){ 
+				const size_t row_offset = (j*d);
+				auto weight = std::sqrt(weights[j]);
+				for (size_t ri = 0; ri < d; ++ri){
+					// py::print("row: ", row_offset + ri, ", col: ", col_offset + ri, ", val: ", weight);
+					*RC++ = row_offset + ri; // row index of non-zero element
+					*RC++ = col_offset + ri; // column index of non-zero element
+					*X++ = weight;
+				}
+			}
+			else if (weights[j] == 0.0){
+				continue; 
+			} else { // j != origin and weights[j] > 0
+				auto weight = std::sqrt(weights[j]);
+				const size_t row_offset = (j*d), key = rank_comb2(origin, j, J); 
+				
+				// If key exists, there's a non-empty intersection between the cover sets (i,j)
+				// otherwise, just use the (weighted) identity matrix
+				bool key_exists = rotations.find(key) != rotations.end();
+				if (!key_exists){
+					for (size_t ri = 0; ri < d; ++ri){
+						// py::print("row: ", row_offset + ri, ", col: ", col_offset + ri, ", val: ", weight);
+						*RC++ = row_offset + ri; // row index of non-zero element
+						*RC++ = col_offset + ri; // column index of non-zero element
+						*X++ = weight;
+					}
+				} else {
+					const arma::mat& omega = origin < j ? rotations[key] : rotations[key].t();
+					arma::umat nz_ind = arma::ind2sub(arma::size(omega), arma::find(omega != 0.0));
+					nz_ind.each_col([&](arma::uvec& a){ 
+						// py::print("| row: ", row_offset + a[0], ", col: ", col_offset + a[1], ", val: ", omega(a[0], a[1]));
+						*RC++ = row_offset + a[0];
+						*RC++ = col_offset + a[1];
+						*X++ = weight*omega(a[0], a[1]);
+					});  
+				}
+			}
+		}
+	}
+
+
 	// Using the rotations from the omega map, initialize the phi matrix representing the concatenation 
 	// of the weighted frames for some choice of iota 
 	// py::array_t< double > iota, bool sparse = false
@@ -305,11 +353,60 @@ struct StiefelLoss {
 		return(carma::col_to_arr< unsigned long long >(std::move(u)));
 	}
 
+	void populate_frames_sparse(const py::array_t< size_t >& iota, py::object& pou){
+		if (iota.size() != n){
+			throw std::invalid_argument("Invalid input. Must have one weight for each cover element.");
+		}
+
+		// Convert partition of unity to arma
+		arma::sp_mat pou_;
+		to_sparse(pou, pou_);
+		const size_t J = pou_.n_rows;
+
+		// Prepare the vectors needed to construct the sparse matrix using COO-input 
+		// arma::uvec R, C; 
+		// arma::vec X; 
+		// vector< arma::uword > R, C;
+		vector< arma::uword > RC; 
+		vector< double > X;
+
+		// Output iterators
+		// auto r_out = std::back_inserter(R);
+		// auto c_out = std::back_inserter(C);
+		auto rc_out = std::back_inserter(RC);
+		auto x_out = std::back_inserter(X);
+
+		// Generate all the frames using iota
+		vector< double > weights(J, 0.0);
+		for (size_t i = 0; i < n; ++i){
+			
+			// Fill the weight vector
+			weights.assign(J, 0.0);
+			auto ci = pou_.begin_col(i);
+			for (; ci != pou_.end_col(i); ++ci){ weights[ci.row()] = *ci; }
+
+			// Generate the current frame using iota to specify the origin 
+			generate_frame_ijx(iota.at(i), weights, i*d, rc_out, x_out);
+		}
+		
+		// If sparse, make sure to clean up 
+		// if (sparse){ frames_sparse.clean(std::numeric_limits< double >::epsilon()); }
+		
+		// sp_mat(locations, values, n_rows, n_cols, sort_locations = true, check_for_zeros = true)
+		// locations := (2 x m) dense umat of locations 
+		// arma::umat locations(RC.size()/2, 2, arma::fill::none);
+		// locations.col(0) = arma::uvec(R);
+		// locations.col(1) = arma::uvec(C);
+		auto locations = arma::umat(RC.data(), 2, RC.size()/2, false, true);
+		frames_sparse = arma::sp_mat(std::move(locations), arma::vec(std::move(X)), d*J, d*n);
+	} // populate_frames
+
 	// Using the rotations from the omega map, initialize the phi matrix representing the concatenation 
 	// of the weighted frames for some *fixed* choice of iota 
 	// iota := n-length vector of indices each in [0, J) indicating the most similar cover set
 	// pou := (J x n) sparse csc_matrix representing the partition of unity
 	// Note the transpose! 
+	// TODO: change this to construct the sparse matrix *not* using block assignments
 	void populate_frames(const py::array_t< size_t >& iota, py::object& pou, bool sparse = false){
 		if (iota.size() != n){
 			throw std::invalid_argument("Invalid input. Must have one weight for each cover element.");
@@ -365,6 +462,30 @@ struct StiefelLoss {
 		py::array_t< double > res = carma::mat_to_arr< double >(frames, true);
 		return(res);
 	}
+
+	auto all_frames_sparse() -> py::tuple {
+		// py::tuple shape = S.attr("shape").cast< py::tuple >();
+		// const size_t nr = shape[0].cast< size_t >(), nc = shape[1].cast< size_t >();
+		// S.attr("indices") = py::array_t< arma::uword >();
+		// S.attr("indptr") = py::array_t< arma::uword >()
+		// arma::uvec ind_ptr = carma::arr_to_col(.cast< py::array_t< arma::uword > >());
+		// arma::vec data = carma::arr_to_col(S.attr("data").cast< py::array_t< double > >());
+		// out = arma::sp_mat(std::move(ind), std::move(ind_ptr), std::move(data), nr, nc);
+
+		// py::array_t< double > res = carma::mat_to_arr< double >(frames, true);
+		// return(res);
+		frames_sparse.sync();
+		//const ptr_aux_mem, number_of_elements
+		auto ri = carma::col_to_arr(arma::uvec(frames_sparse.row_indices, frames_sparse.n_nonzero));
+		auto cp = carma::col_to_arr(arma::uvec(frames_sparse.col_ptrs, frames_sparse.n_cols+1));
+		auto x = carma::col_to_arr(arma::vec(frames_sparse.values, frames_sparse.n_nonzero));
+		// auto ri = carma::col_to_arr< const arma::uword >(*frames_sparse.row_indices, true);
+		// auto out = py::dict(
+		// 	"indices"= py::array(ri), 
+		// 	"indptr"=cp, "values"=x);
+		return(py::make_tuple(ri, cp, x));
+	}
+
 
 	void embed(const py::array_t< double >& At){
 		arma::Mat< double > A_star { carma::arr_to_mat< double >(At) };
@@ -531,6 +652,7 @@ struct StiefelLoss {
 		out = arma::sp_mat(std::move(ind), std::move(ind_ptr), std::move(data), nr, nc);
 	}
 
+
 	// Wrapper for the fast_assembly above
 	auto assemble_frames(py::array_t< double >& A, py::object& pou, py::list& cover_subsets, const py::list& local_models, py::array_t< double >& T ) -> py::array_t< double > {
 		arma::mat A_ = carma::arr_to_mat(A, true);
@@ -640,9 +762,11 @@ PYBIND11_MODULE(fast_svd, m) {
 		.def("get_rotation", &StiefelLoss::get_rotation)		
 		.def("populate_frame", &StiefelLoss::populate_frame)
 		.def("populate_frames", &StiefelLoss::populate_frames)
+		.def("populate_frames_sparse", &StiefelLoss::populate_frames_sparse)
 		.def("generate_frame", &StiefelLoss::generate_frame)
 		.def("get_frame", &StiefelLoss::get_frame)
 		.def("all_frames", &StiefelLoss::all_frames)
+		.def("all_frames_sparse", &StiefelLoss::all_frames_sparse)
 		.def("embed", &StiefelLoss::embed)
 		.def("extract_iota", &StiefelLoss::extract_iota)
 		.def("benchmark_embedding", &StiefelLoss::benchmark_embedding)
