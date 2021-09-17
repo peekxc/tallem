@@ -32,7 +32,7 @@ def dist(x: npt.ArrayLike, y: Optional[npt.ArrayLike] = None, pairwise = False, 
 	if y is None:
 		return(cdist(x, x, metric, **kwargs) if (as_matrix) else pdist(x, metric, **kwargs))
 	else:
-		n, y = x.shape[0], np.array(y, copy=False)
+		n, y = x.shape[0], np.asanyarray(y)
 		if pairwise:
 			if x.shape != y.shape: raise Exception("x and y must have same shape if pairwise=True.")
 			return(np.array([cdist(x[ii:(ii+1),:], y[ii:(ii+1),:], metric, **kwargs).item() for ii in range(n)]))

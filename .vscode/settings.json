@@ -103,6 +103,7 @@
 		"stop_token": "cpp",
 		"cfenv": "cpp",
 		"cinttypes": "cpp",
-		"queue": "cpp"
+		"queue": "cpp",
+		"shared_mutex": "cpp"
 	}
 }

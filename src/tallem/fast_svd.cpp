@@ -298,6 +298,13 @@ struct StiefelLoss {
 		}
 	}
 	
+	auto extract_iota(py::object& pou){
+		arma::sp_mat pou_;
+		to_sparse(pou, pou_);
+		arma::ucolvec u = arma::index_max(pou_,1);
+		return(carma::col_to_arr< unsigned long long >(std::move(u)));
+	}
+
 	// Using the rotations from the omega map, initialize the phi matrix representing the concatenation 
 	// of the weighted frames for some *fixed* choice of iota 
 	// iota := n-length vector of indices each in [0, J) indicating the most similar cover set
@@ -521,7 +528,7 @@ struct StiefelLoss {
 		arma::uvec ind = carma::arr_to_col(S.attr("indices").cast< py::array_t< arma::uword > >());
 		arma::uvec ind_ptr = carma::arr_to_col(S.attr("indptr").cast< py::array_t< arma::uword > >());
 		arma::vec data = carma::arr_to_col(S.attr("data").cast< py::array_t< double > >());
-		out = arma::sp_mat(ind, ind_ptr, data, nr, nc);
+		out = arma::sp_mat(std::move(ind), std::move(ind_ptr), std::move(data), nr, nc);
 	}
 
 	// Wrapper for the fast_assembly above
@@ -637,6 +644,7 @@ PYBIND11_MODULE(fast_svd, m) {
 		.def("get_frame", &StiefelLoss::get_frame)
 		.def("all_frames", &StiefelLoss::all_frames)
 		.def("embed", &StiefelLoss::embed)
+		.def("extract_iota", &StiefelLoss::extract_iota)
 		.def("benchmark_embedding", &StiefelLoss::benchmark_embedding)
 		.def("assemble_frames", &StiefelLoss::assemble_frames)
 		.def("assemble_frames2", &StiefelLoss::assemble_frames2)

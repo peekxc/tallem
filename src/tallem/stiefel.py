@@ -37,8 +37,9 @@ def huber_loss(embed_map: Callable, subsetter: Callable[[], Iterable[int]], epsi
 		return(-nuclear_norm)
 	return(cost_function)
 
+
 ## --- Optimization to find the best A matrix --- 
-def frame_reduction(alignments: Dict, pou: csc_matrix, D: int, optimize=False, fast_gradient=False):
+def frame_reduction(alignments: Dict, pou: csc_matrix, I: npt.ArrayLike, D: int, optimize=False, fast_gradient=False):
 	assert isinstance(pou, csc_matrix), "Partition of unity must be represented as a CSC sparse matrix"
 	n, J, d = pou.shape[0], pou.shape[1], len(alignments[list(alignments.keys())[0]]['translation'])
 	
@@ -55,8 +56,9 @@ def frame_reduction(alignments: Dict, pou: csc_matrix, D: int, optimize=False, f
 	stf.init_rotations(I1, I2, R, J)
 
 	## Populate frame matrix map
-	iota = np.array(pou.argmax(axis=1)).flatten()
-	stf.populate_frames(iota, pou.transpose().tocsc(), False) # populate all the iota-mapped frames in vectorized fashion
+	# iota = np.array(pou.argmax(axis=1)).flatten()
+	pou_t = pou.transpose().tocsc()
+	stf.populate_frames(I, pou_t, False) # populate all the iota-mapped frames in vectorized fashion
 
 	## Get the initial frame 
 	Fb = stf.all_frames() ## Note these are already weighted w/ the sqrt(varphi)'s!

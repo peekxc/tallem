@@ -462,62 +462,40 @@ def dist_to_boundary(P: npt.ArrayLike, x: npt.ArrayLike):
 def partition_of_unity(B: npt.ArrayLike, cover: CoverLike, similarity: Union[str, Callable[npt.ArrayLike, npt.ArrayLike]] = "triangular", weights: Optional[npt.ArrayLike] = None) -> csc_matrix:
 	if (B.ndim != 2): raise ValueError("Error: filter must be matrix.")
 	assert B.shape[1] == cover.dimension, "Dimension of point set given to PoU differs from cover dimension."
-	J = len(cover)
-	# weights = np.ones(J) if weights is None else np.array(weights)
-	# assert len(weights) != J, "weights must have length matching the number of sets in the cover."
 	assert similarity is not None, "similarity map must be a real-valued function, or a string indicating one of the precomputed ones."
 	assert isinstance(cover, CoverLike), "cover must be CoverLike"
 	assert "set_distance" in dir(cover), "cover must be set_distance() function to construct a partition of unity."
 
-	## Derive centroids, use dB metric to define distances => partition of unity to each subset 
-	#if isinstance(cover, IntervalCover):
-	# if hasattr(cover, "index_set"):
-	# 	max_r = np.linalg.norm(cover.set_width)/2.0
-	# 	def beta(cover_set):
-	# 		index, subset = cover_set
-	# 		centroid = cover.bbox[0:1,:] + (np.array(index) * cover.base_width) + cover.base_width/2.0
-	# 		dist_to_poles = np.sqrt(np.sum(cover._diff_to(B, centroid)**2, axis = 1))
-	# 		beta_j = bump(dist_to_poles/max_r, similarity)
-	# 		# if np.any(beta_j[np.setdiff1d(range(B.shape[0]), subset)] > 0.0):
-	# 			# raise ValueError("Invalid similarity function. Partition must be subordinate to the cover.")
-	# 		## TODO: rework so this isn't needed!
-	# 		beta_j = np.maximum(max_r - dist_to_poles, 0.0)
-	# 		beta_j[np.setdiff1d(range(B.shape[0]), subset)] = 0.0
-	# 		assert np.all(beta_j[np.setdiff1d(range(B.shape[0]), subset)] == 0.0), "Invalid similarity function. Partition must be subordinate to the cover."
-	# 		return(beta_j)
-	# else: 
-	# 	raise ValueError("Only interval cover is supported for now.")
-
 	# Apply the phi map to each subset, collecting the results into lists
+	J = len(cover)
 	row_indices, beta_image = [], []
-	for index, subset in cover.items(): 
-		
-		## varphi_j represents the (beta_j \circ f)(X) = \beta_j(B)
-		## As such, the vector returned should be of length n
-		# varphi_j = beta((index, subset))
-		# if len(varphi_j) != cover.n_points: raise ValueError("Alignment function 'beta' must return a set of values for every point in X.")
-
+	iota = np.zeros(J, dtype = int)
+	for i, (index, subset) in enumerate(cover.items()): 
+		## Use normalized set distance to construct partition of unity
 		dx = cover.set_distance(B[np.array(subset),:], index)
 		sd = np.maximum(0.0, 1.0 - dx) ## todo: fix w/ bump functions
 
 		## Record non-zero row indices + the function values themselves
-		row_indices.append(subset[np.nonzero(sd)[0]])
-		beta_image.append(np.ravel(sd[np.nonzero(sd)[0]]))
-		# beta_image.append(np.ravel(sd[row_indices[-1]]))
+		ind = np.nonzero(sd)[0]
+		row_indices.append(subset[ind])
+		beta_image.append(np.ravel(sd[ind]).flatten())
 
 	## Use a CSC-sparse matrix to represent the partition of unity
 	row_ind = np.hstack(row_indices)
 	col_ind = np.repeat(range(J), [len(subset) for subset in row_indices])
 	pou = csc_matrix((np.hstack(beta_image), (row_ind, col_ind)))
-	pou = csc_matrix(pou / pou.sum(axis=1)) # todo: move this to sd above
-	# pou = diags(1/pou.sum(axis=1).A.ravel()) @ pou
-	#pou /= np.sum(pou, axis = 1)
+	pou = csc_matrix(pou / pou.sum(axis=1)) 
+	iota = np.array(pou.argmax(axis=1)).flatten() # todo: improve this
 
 	## This checks the support(pou) \subseteq closure(cover) property
-	for j, index in enumerate(cover.keys()):
-		j_membership = np.where(pou[:,j].todense() > 0)[0]
-		ind = find_where(j_membership, cover[index])
-		if (np.any(ind == None)):
-			raise ValueError("The partition of unity must be supported on the closure of the cover elements.")
-	return(pou.tocsc())
+	## Only run this when not profiling
+	if not('profile' in vars()) and not('profile' in globals()):
+		for j, index in enumerate(cover.keys()):
+			j_membership = np.where(pou[:,j].todense() > 0)[0]
+			ind = find_where(j_membership, cover[index])
+			if (np.any(ind == None)):
+				raise ValueError("The partition of unity must be supported on the closure of the cover elements.")
+	
+	## Return both the partition of unity and the iota (argmax) bijection 
+	return(pou, iota)
 	

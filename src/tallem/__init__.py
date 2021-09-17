@@ -104,7 +104,7 @@ class TALLEM():
 		if isinstance(pou, str):
 			## In this case, cover must have a set_distance(...) function!
 			## This is where the coordinates of B are needed!
-			self.pou = partition_of_unity(B, cover = self.cover, similarity = pou) 
+			self.pou, self.iota = partition_of_unity(B, cover = self.cover, similarity = pou) 
 		elif issparse(pou): 
 			if pou.shape[1] != len(self.cover):
 				raise ValueError("Partition of unity must have one column per element of the cover")
@@ -123,7 +123,7 @@ class TALLEM():
 		self.translations = global_translations(self.cover, self.alignments)
 
 		## Solve the Stiefel manifold optimization for the projection matrix 
-		self.A0, self.A, self._stf = frame_reduction(self.alignments, self.pou, self.D, **kwargs)
+		self.A0, self.A, self._stf = frame_reduction(self.alignments, self.pou, self.iota, self.D, **kwargs)
 
 		## Assemble the frames!
 		## See: https://github.com/rasbt/python-machine-learning-book/blob/master/faq/underscore-convention.md
@@ -149,6 +149,7 @@ class TALLEM():
 		profile.add_function(partition_of_unity)
 		profile.add_function(frame_reduction)
 		profile.add_function(assembly_fast)
+		profile.add_function(align_models)
 		profile.enable_by_count()
 		self.fit(**kwargs)
 		profile.print_stats(output_unit=1e-3)

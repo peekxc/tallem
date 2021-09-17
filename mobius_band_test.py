@@ -28,8 +28,8 @@ ax.scatter3D(*emb.T, c = B)
 
 # %% Debugging 
 top = TALLEM(cover, local_map="pca2", n_components=3)
-top.fit(X, B)
-top._profile(X=X)
+top.fit(X, B, pou="triangular")
+top._profile(X=X, B=B)
 
 from src.tallem.assembly import assembly_fast2
 
