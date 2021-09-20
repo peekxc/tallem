@@ -25,21 +25,29 @@ def gaussian_pixel(center, Sigma, d=17,s=1):
 		grid[r,c] = s*F[i]
 	return(grid)
 
+# %% Autograd'd pixel
 import autograd.numpy as auto_np
 from autograd import jacobian
 scale, image_sz, s = 1, (17, 17), 1
+denom = np.sqrt((2*np.pi)**2)
 def gaussian_pixel2(center):
-	x, y = auto_np.meshgrid(range(image_sz[0]), range(image_sz[0]))
-	#grid = (auto_np.abs(center[0] - x)**2 + auto_np.abs(center[1] - y))**2
-	grid = auto_np.exp(-0.5*((x - center[0])**2 + (y - center[1])**2))/auto_np.sqrt((2*auto_np.pi)**2)
-	#grid = auto_np.zeros(shape=image_sz)	# ind = auto_np.ix_(range(image_sz[0]), range(image_sz[1]))
-	#grid[auto_np.ix_(range(image_sz[0]), range(image_sz[0]))] = auto_np.sum(center**2)
-	# for i in range(image_sz[0]):
-	# 	for j in range(image_sz[1]):
-	# 		grid[i,j] = auto_np.exp(-0.5*((i - center[0])**2 + (j - center[1])**2))/auto_np.sqrt((2*auto_np.pi)**2)
-	return(np.ravel(grid)
+	x, y = auto_np.meshgrid(auto_np.arange(image_sz[0]), auto_np.arange(image_sz[0]))
+	grid = auto_np.exp(-0.5*((x - center[0])**2 + (y - center[1])**2))/denom
+	return(auto_np.ravel(grid).flatten())
 
 # jacobian(gaussian_pixel2)(auto_np.array([0.,0.]))
+# from torch.autograd.functional import jacobian as t_jacobian
+
+# denom = np.sqrt((2*np.pi)**2)
+# def gaussian_pixel2_torch(center):
+# 	x, y = torch.autograd.torch.meshgrid(torch.autograd.torch.arange(image_sz[0]), torch.autograd.torch.arange(image_sz[0]))
+# 	grid = torch.autograd.torch.exp(-0.5*((x - center[0]) + (y - center[1])))/denom
+# 	return(torch.autograd.torch.ravel(grid))
+
+# center = torch.tensor([0.0,0.0])
+# inputs = torch.rand(2, 2)
+# J = t_jacobian(gaussian_pixel2_torch, inputs=center, strict=True)
+
 
 
 # %% Generate data
@@ -257,13 +265,15 @@ def f(x):
 	e3 = r*auto_np.sin(theta)
 	return(auto_np.array([e1, e2, e3]))
 
-phi = np.random.uniform(low=0, high=2*np.pi, size=1000)
-theta = np.random.uniform(low=0, high=2*np.pi, size=1000)
+theta = np.random.uniform(low=0, high=2*np.pi, size=2500)
+phi = np.random.uniform(low=0, high=2*np.pi, size=2500)
 T = np.asanyarray([f(x) for x in np.c_[phi, theta]])
-seaborn.pairplot(pandas.DataFrame(T))
+seaborn.pairplot(pandas.DataFrame(T), height=7)
 
 ## Uniformly sampled torus using autograd 
 J_det = J_determinant(f)
+# J_det = lambda x: (r**2) * (R + r*np.cos(x[0]))**2
+J_det = lambda x: (1 + (r/R)*np.cos(x[0]))/(2*np.pi)
 
 ## Double-check
 # J_det(auto_np.array([0., 0.]))
@@ -277,8 +287,48 @@ sampler = rejection_sampler(
 	max_jacobian = (r**2)*(R + r)**2
 )
 # det() = r**2(R + r cos(θ))**2
-T2 = sampler(1000)
-seaborn.pairplot(pandas.DataFrame(T2))
+T2 = sampler(2500)
+seaborn.pairplot(pandas.DataFrame(T2), height=7)
+
+# %% Try stratified sampling on torus
+bins = 8
+# strata <- hist(x = f, breaks = seq(min(f), max(f), length.out = n.strata+1L), plot = FALSE)
+# ns <- table(sample(x = seq(n.strata), size = m, replace = TRUE, prob = strata$counts/length(f)))
+
+## Suppose we want 1000 samples. We calculate the area of each cell/stratum in the strafication of 
+## [0,1]^2, then obtain how many samples should exist in each strata. We then make a rejection sampler
+## constructed *on the bounds of the strata of interest*, sampling how ever many points needed according 
+## to the original input parameterization. The rejection sampler *should* fix the warping within that strata. 
+n = 2500
+B = bins**2 
+n_per_stratum = int(np.floor(n / B))
+n_extra = n % B
+
+from src.tallem.utility import cartesian_product
+
+cell_min = np.linspace(0, 2*np.pi, 4, endpoint=False)
+cell_max = np.linspace(cell_min[1], 2*np.pi, 4, endpoint=True)
+
+bins = 4
+samples = []
+for i in range(bins):
+	for j in range(bins):
+		sampler = rejection_sampler(
+			parameterization = f, 
+			jacobian = J_det, 
+			min_params = [cell_min[i], cell_min[j]],
+			max_params = [cell_max[i], cell_max[j]],
+			max_jacobian = (r**2)*(R + r)**2
+		)
+		samples.append(sampler(n_per_stratum))
+
+samples = np.vstack(samples)
+seaborn.pairplot(pandas.DataFrame(samples), height=7)
+
+# cell_area = (1.0/bins)**2
+# cell_area*1000
+
+
 
 ## The idea 
 # j_vals <- do.call(jacobian, args = param_vals)
@@ -325,17 +375,71 @@ center_images = [gaussian_pixel(center, sigma, d=outer_sz, s=r) for r in np.lins
 J_det = J_determinant(gaussian_pixel2)
 J_det(auto_np.array([14.0,14.1]))
 
+from src.tallem.utility import cartesian_product
+jd = np.array([J_det(np.array(p, dtype=float)) for p in cartesian_product((range(image_sz[0]), range(image_sz[1])))])
+
+sampler = rejection_sampler(
+	parameterization = gaussian_pixel2, 
+	jacobian = J_det, 
+	min_params = [0.0, 0.0],
+	max_params = image_sz,
+	max_jacobian = np.max(jd)
+)
+
+images = sampler(15)
+images[0,:].reshape(image_sz)
+
+for i in range(1, 15):
+	fig.add_subplot(3, 5, i)
+	plot_image(images[i,:].reshape(image_sz))
+
+def plot_image(P, max_val = "default"):
+	if max_val == "default": 
+		max_val = np.max(P)
+	import matplotlib.pyplot as plt
+	fig = plt.figure(figsize=(8, 8))
+	plt.imshow(P, cmap='gray', vmin=0, vmax=max_val)
+	fig.gca().axes.get_xaxis().set_visible(False)
+	fig.gca().axes.get_yaxis().set_visible(False)
+
+
+images = sampler(1000)
+
+#%% 
+from src.tallem.cover import LandmarkCover
+from src.tallem import TALLEM
+
+c_images = np.vstack([np.ravel(img).flatten() for img in center_images])
+images = np.vstack((images, c_images))
+
+cover = LandmarkCover(images, k=15).construct(images)
+
+# %% 
+%%time
+embedding = TALLEM(cover, local_map="pca3", n_components=3).fit_transform(images, images)
+
+# %% 
+from src.tallem.distance import dist
+D = dist(embedding, as_matrix=True)
+knn_dist = np.apply_along_axis(lambda x: np.sort(x)[15], 1, D)
+
+from src.tallem.color import bin_color, linear_gradient
+col_pal = linear_gradient(["red", "purple", "blue"], 25)['hex']
+
+ # color=bin_color(knn_dist, col_pal)
+for angle in np.linspace(0, 360, 10):
+	ax = plt.figure(figsize=(8,8)).add_subplot(projection='3d')
+	ax.scatter3D(*embedding.T, color=bin_color(knn_dist, col_pal))
+	ax.view_init(30, angle)
+	plt.pause(0.50)
+
+# len(reduce(np.union1d, list(cover.values())))
+
 
 ## WRONG
 np.linalg.norm(gaussian_pixel2(auto_np.array([0.1,0.1])) - gaussian_pixel2(auto_np.array([0.1,0.1])))
 
-sampler = rejection_sampler(
-	parameterization = f, 
-	jacobian = J_det, 
-	min_params = [-1.0, -1.0],
-	max_params = [1.0, 1.0],
-	max_jacobian = 1.0
-)
+
 
 
 
@@ -465,6 +569,18 @@ ax.scatter3D(*top.embedding_.T, c = B)
 # pou = partition_of_unity(B, cover = cover, similarity = "triangular") 
 # pou[1,:].todense()
 
+
+
+
+
+# %% Uniform samples around the sphere
+# Using the fundamental polygon 
+
+# def sphere_point(pt):
+# 	assert len(pt) == 2, "" 
+# 	x,y = pt
+# 	if y < 0:
+# 		return(1 - (np.abs(y) % 1), 
 
 
 

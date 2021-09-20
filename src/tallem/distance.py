@@ -40,3 +40,12 @@ def dist(x: npt.ArrayLike, y: Optional[npt.ArrayLike] = None, pairwise = False, 
 			if x.ndim == 1: x = np.reshape(x, (1, len(x)))
 			if y.ndim == 1: y = np.reshape(y, (1, len(y)))
 			return(cdist(x, y, metric, **kwargs))
+
+
+# import numba 
+# def cyclic_dist(lb, ub):
+# 	''' Mobius band distance '''
+# 	return(1.0)
+
+
+# def 

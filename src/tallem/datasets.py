@@ -8,6 +8,47 @@ def flywing():
 	arr2 = np.array([[477.0, 557.0], [130.129, 374.307], [52.0, 334.0], [67.662, 306.953], [111.916, 323.0], [55.119, 275.854], [107.935, 277.723], [101.899, 259.73], [175.0, 329.0], [171.0, 345.0], [589.0, 527.0], [591.0, 468.0], [299.0, 363.0], [306.0, 317.0], [406.0, 288.0]])
 	return([arr1, arr2])
 
+
+# import autograd.numpy as auto_np
+# from autograd import jacobian
+# scale, image_sz, s = 1, (17, 17), 1
+
+## need closure to encase denom + sigma
+
+def gaussian_pixel2(d, n_pixels):
+	from scipy.stats import norm
+	sigma = d/3.0
+	Sigma = auto_np.diag([sigma, sigma])
+	sigma_inv = auto_np.linalg.inv(Sigma)[0,0]
+	denom = np.sqrt(((2*np.pi)**2) * auto_np.linalg.det(Sigma))
+	normal_constant = norm.pdf(0, loc=0, scale=sigma)
+	def blob(mu): # generates blob at location mu 
+		# mu = mu.reshape((2, 1))
+		# np.exp(-0.5 * ((x - mu).T @ SigmaI @ (x - mu))).flatten()
+		#x, y = auto_np.meshgrid(auto_np.arange(n_pixels), auto_np.arange(n_pixels))
+		loc = auto_np.linspace(0, 1, n_pixels, False) + (1/(2*n_pixels))
+		x,y = auto_np.meshgrid(loc, loc)
+		grid = auto_np.exp(-0.5*(sigma_inv * ((x-mu[0])**2 + (y-mu[1])**2)))/denom
+		#grid = auto_np.exp(-0.5*((x - mu[0])**2 + (y - mu[1])**2))/denom
+		#return(auto_np.ravel(grid).flatten())
+		return(grid/normal_constant)
+	return(blob)
+# plot_image(gaussian_pixel2(1/32, 11)([-0.5, 0.5]))
+
+
+def white_blob(d: float, n_pixel: int, n: Optional[int], mu: Optional[ArrayLike]):
+	''' 
+	Generates a grayscale image data set where white blobs are placed on a (n_pixel x n_pixel) grid
+	using a multivariate normal density whose standard deviation sigma (in both directions) is sigma=d/3.
+	If 'n' is specified, then 'n' samples are generated from a larger space s([-d, 1+d]^2) where s(*)
+	denotes the scaling of the interval [-d,1+d] by 'n_pixel'. 
+	'''
+	assert d > 0 and d <= 0.5, "d must be in the range 0 < d <= 0.5"
+	sigma = d/3 # because 3*sigma \approx 99% of normal distribution 
+	X, Y = np.random.uniform(low=-d,high=1+d,size=n), np.random.uniform(low=-d,high=1+d,size=n)
+	[gaussian_pixel2(auto_np.array([x,y])) for x,y in zip(X, Y)]
+
+
 def mobius_band(n_polar=66, n_wide=9, scale_band=0.25, embed=3, plot=False):
 
 	## Make deterministic	

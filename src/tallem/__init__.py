@@ -97,14 +97,16 @@ class TALLEM():
 		
 		## Map the local euclidean models
 		## Note: the extra array constructor ensures singleton subsets are reported as matrices
-		self.models = { index : self.local_map(X[np.array(subset),:]) for index, subset in self.cover.items() }
+		#self.models = { index : self.local_map(X[np.array(subset),:]) for index, subset in self.cover.items() }
+		from .dimred import fit_local_models
+		self.models = fit_local_models(self.local_map, X, self.cover)
 
 		## Construct a partition of unity
 		J = len(self.cover)
 		if isinstance(pou, str):
 			## In this case, cover must have a set_distance(...) function!
 			## This is where the coordinates of B are needed!
-			self.pou, self.iota = partition_of_unity(B, cover = self.cover, similarity = pou) 
+			self.pou = partition_of_unity(B, cover = self.cover, similarity = pou) 
 		elif issparse(pou): 
 			if pou.shape[1] != len(self.cover):
 				raise ValueError("Partition of unity must have one column per element of the cover")
@@ -123,7 +125,7 @@ class TALLEM():
 		self.translations = global_translations(self.cover, self.alignments)
 
 		## Solve the Stiefel manifold optimization for the projection matrix 
-		self.A0, self.A, self._stf = frame_reduction(self.alignments, self.pou, self.iota, self.D, **kwargs)
+		self.A0, self.A, self._stf = frame_reduction(self.alignments, self.pou, self.D, **kwargs)
 
 		## Assemble the frames!
 		## See: https://github.com/rasbt/python-machine-learning-book/blob/master/faq/underscore-convention.md

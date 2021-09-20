@@ -10,12 +10,14 @@ from src.tallem import TALLEM
 from src.tallem.cover import IntervalCover
 from src.tallem.datasets import mobius_band
 
+
+#%% 
 ## Generate mobius band + polar coordinate 
 M = mobius_band(n_polar=66, n_wide=9, scale_band = 0.25, plot=False, embed=6)
 X, B = M['points'], M['parameters'][:,[1]]
 
 ## Assemble the embedding with TALLEM
-m_dist = lambda x,y: np.minimum(abs(x - y), (2*np.pi) - abs(x - y))
+m_dist = lambda x,y: np.sum(np.minimum(abs(x - y), (2*np.pi) - abs(x - y)))
 cover = IntervalCover(B, n_sets = 10, overlap = 0.40, space = [0, 2*np.pi], metric = m_dist)
 emb = TALLEM(cover, local_map="pca2", n_components=3).fit_transform(X, B)
 
@@ -28,8 +30,23 @@ ax.scatter3D(*emb.T, c = B)
 
 # %% Debugging 
 top = TALLEM(cover, local_map="pca2", n_components=3)
-top.fit(X, B, pou="triangular")
-# top._profile(X=X, B=B)
+# top.fit(X, B, pou="triangular")
+top._profile(X=X, B=B)
+
+# %% 
+import line_profiler
+profile = line_profiler.LineProfiler()
+def do_func():
+	c = 0
+	for i in range(1000): c += i
+	#if not('profile' in vars()) and not('profile' in globals()):
+	for i in range(1000): c += np.sqrt(np.cos(i*5))
+	return(c)
+profile.add_function(do_func)
+profile.enable_by_count()
+do_func()
+profile.print_stats(output_unit=1e-3)
+
 
 # %% 
 iota = np.array(top.pou.argmax(axis=1)).flatten()

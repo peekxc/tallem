@@ -175,6 +175,7 @@ class BallCover(Cover):
 		dx = dist(a, self.centers[[index], :], metric=self.metric)
 		return(dx <= self.radius(index))
 	
+	## TODO: make efficient/demand arbitrary metrics behave in a vectorized fashion
 	def set_distance(self, a: npt.ArrayLike, index: int):
 		''' Returns normalized distance  such that (d(a, index) <= 1.0) -> a is within closure(cover[index]) '''
 		dx = dist(a, self.centers[[index], :], metric=self.metric)
@@ -459,7 +460,7 @@ def dist_to_boundary(P: npt.ArrayLike, x: npt.ArrayLike):
 ## cover := CoverLike (supports set_contains, values)
 ## similarity := string or Callable 
 ## weights := not implemented
-def partition_of_unity(B: npt.ArrayLike, cover: CoverLike, similarity: Union[str, Callable[npt.ArrayLike, npt.ArrayLike]] = "triangular", weights: Optional[npt.ArrayLike] = None) -> csc_matrix:
+def partition_of_unity(B: npt.ArrayLike, cover: CoverLike, similarity: Union[str, Callable[npt.ArrayLike, npt.ArrayLike]] = "triangular", weights: Optional[npt.ArrayLike] = None, check_subordinate=False) -> csc_matrix:
 	if (B.ndim != 2): raise ValueError("Error: filter must be matrix.")
 	assert B.shape[1] == cover.dimension, "Dimension of point set given to PoU differs from cover dimension."
 	assert similarity is not None, "similarity map must be a real-valued function, or a string indicating one of the precomputed ones."
@@ -469,7 +470,6 @@ def partition_of_unity(B: npt.ArrayLike, cover: CoverLike, similarity: Union[str
 	# Apply the phi map to each subset, collecting the results into lists
 	J = len(cover)
 	row_indices, beta_image = [], []
-	iota = np.zeros(J, dtype = int)
 	for i, (index, subset) in enumerate(cover.items()): 
 		## Use normalized set distance to construct partition of unity
 		dx = cover.set_distance(B[np.array(subset),:], index)
@@ -485,17 +485,16 @@ def partition_of_unity(B: npt.ArrayLike, cover: CoverLike, similarity: Union[str
 	col_ind = np.repeat(range(J), [len(subset) for subset in row_indices])
 	pou = csc_matrix((np.hstack(beta_image), (row_ind, col_ind)))
 	pou = csc_matrix(pou / pou.sum(axis=1)) 
-	iota = np.array(pou.argmax(axis=1)).flatten() # todo: improve this
 
 	## This checks the support(pou) \subseteq closure(cover) property
 	## Only run this when not profiling
-	if not('profile' in vars()) and not('profile' in globals()):
+	if check_subordinate:
 		for j, index in enumerate(cover.keys()):
 			j_membership = np.where(pou[:,j].todense() > 0)[0]
 			ind = find_where(j_membership, cover[index])
 			if (np.any(ind == None)):
 				raise ValueError("The partition of unity must be supported on the closure of the cover elements.")
-	
+
 	## Return both the partition of unity and the iota (argmax) bijection 
-	return(pou, iota)
+	return(pou)
 	
