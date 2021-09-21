@@ -366,6 +366,8 @@ struct StiefelLoss {
 		// Prepare the vectors needed to construct the sparse matrix using COO-input 
 		vector< arma::uword > RC; 
 		vector< double > X;
+		RC.reserve(2*d*d*n);
+		X.reserve(d*d*n);
 
 		// Output iterators
 		auto rc_out = std::back_inserter(RC);

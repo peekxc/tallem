@@ -97,9 +97,9 @@ class TALLEM():
 		
 		## Map the local euclidean models
 		## Note: the extra array constructor ensures singleton subsets are reported as matrices
-		#self.models = { index : self.local_map(X[np.array(subset),:]) for index, subset in self.cover.items() }
-		from .dimred import fit_local_models
-		self.models = fit_local_models(self.local_map, X, self.cover)
+		self.models = { index : self.local_map(X[np.array(subset),:]) for index, subset in self.cover.items() }
+		# from .dimred import fit_local_models
+		# self.models = fit_local_models(self.local_map, X, self.cover)
 
 		## Construct a partition of unity
 		J = len(self.cover)

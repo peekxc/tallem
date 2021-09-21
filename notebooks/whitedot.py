@@ -394,8 +394,7 @@ for i in range(1, 15):
 	plot_image(images[i,:].reshape(image_sz))
 
 def plot_image(P, max_val = "default"):
-	if max_val == "default": 
-		max_val = np.max(P)
+	if max_val == "default": max_val = np.max(P)
 	import matplotlib.pyplot as plt
 	fig = plt.figure(figsize=(8, 8))
 	plt.imshow(P, cmap='gray', vmin=0, vmax=max_val)

@@ -223,13 +223,13 @@ def nmds(a: npt.ArrayLike, d: int = 2, **kwargs):
 
 from numba import njit, prange
 
-@njit(parallel=True)
-def fit_local_models(f, X, cover):
-	index_set = list(cover.keys())
-	subsets = list(cover.values())
-	result = {}
-	for j in prange(len(cover)):
-		index, subset = index_set[j], subsets[j]
-		result[index] = f(X[np.array(subset),:])
-	return(result)
+# @njit(parallel=True)
+# def fit_local_models(f, X, cover):
+# 	index_set = list(cover.keys())
+# 	subsets = list(cover.values())
+# 	result = {}
+# 	for j in prange(len(cover)):
+# 		index, subset = index_set[j], subsets[j]
+# 		result[index] = f(X[np.array(subset),:])
+# 	return(result)
 

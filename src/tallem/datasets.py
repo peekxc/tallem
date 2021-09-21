@@ -1,6 +1,8 @@
 import numpy as np
 from matplotlib.tri import Triangulation
 import matplotlib.pyplot as pyplot
+from typing import *
+from numpy.typing import ArrayLike
 
 def flywing():
 	''' Fly wings example (Klingenberg, 2015 | https://en.wikipedia.org/wiki/Procrustes_analysis) '''
