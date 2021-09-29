@@ -46,6 +46,8 @@ struct StiefelLoss {
 	arma::mat frames; // all column-stacked frames (dJ x dn) for some choice of iota, weighted by PoU
 	arma::sp_mat frames_sparse; 
 
+	arma::sp_mat pou; // (J x n) partition of unity
+
 	np_array_t output; // preallocated output for (A^T x Phi) => (D x dn)
 
 
@@ -251,47 +253,41 @@ struct StiefelLoss {
 
 	// TODO: come back to this to fix the populate_frames functions efficiency
 	template< typename OutputIt1, typename OutputIt2 >
-	void generate_frame_ijx(const size_t origin, const vector< double >& weights, const size_t col_offset, OutputIt1 RC, OutputIt2 X){
+	inline void generate_frame_ijx(const size_t origin, const size_t j, const size_t J, const double weight, const size_t col_offset, OutputIt1 RC, OutputIt2 X){
 		
 		// For each cover set, detect whether there exists rotation matrices to transform between them
-		const size_t J = weights.size(); 
-		for (size_t j = 0; j < J; ++j){
-			if (j == origin){ 
-				const size_t row_offset = (j*d);
-				auto weight = std::sqrt(weights[j]);
+		if (j == origin){ 
+			const size_t row_offset = (j*d);
+			auto w = std::sqrt(weight);
+			for (size_t ri = 0; ri < d; ++ri){
+				// py::print("row: ", row_offset + ri, ", col: ", col_offset + ri, ", val: ", weight);
+				*RC++ = row_offset + ri; // row index of non-zero element
+				*RC++ = col_offset + ri; // column index of non-zero element
+				*X++ = w;
+			}
+		} else { // j != origin and weights[j] > 0
+			const size_t row_offset = (j*d), key = rank_comb2(origin, j, J); 
+			auto w = std::sqrt(weight);
+			
+			// If key exists, there's a non-empty intersection between the cover sets (i,j)
+			// otherwise, just use the (weighted) identity matrix
+			bool key_exists = rotations.find(key) != rotations.end();
+			if (!key_exists){
 				for (size_t ri = 0; ri < d; ++ri){
 					// py::print("row: ", row_offset + ri, ", col: ", col_offset + ri, ", val: ", weight);
 					*RC++ = row_offset + ri; // row index of non-zero element
 					*RC++ = col_offset + ri; // column index of non-zero element
 					*X++ = weight;
 				}
-			}
-			else if (weights[j] == 0.0){
-				continue; 
-			} else { // j != origin and weights[j] > 0
-				auto weight = std::sqrt(weights[j]);
-				const size_t row_offset = (j*d), key = rank_comb2(origin, j, J); 
-				
-				// If key exists, there's a non-empty intersection between the cover sets (i,j)
-				// otherwise, just use the (weighted) identity matrix
-				bool key_exists = rotations.find(key) != rotations.end();
-				if (!key_exists){
-					for (size_t ri = 0; ri < d; ++ri){
-						// py::print("row: ", row_offset + ri, ", col: ", col_offset + ri, ", val: ", weight);
-						*RC++ = row_offset + ri; // row index of non-zero element
-						*RC++ = col_offset + ri; // column index of non-zero element
-						*X++ = weight;
-					}
-				} else {
-					const arma::mat& omega = origin < j ? rotations[key] : rotations[key].t();
-					arma::umat nz_ind = arma::ind2sub(arma::size(omega), arma::find(omega != 0.0));
-					nz_ind.each_col([&](arma::uvec& a){ 
-						// py::print("| row: ", row_offset + a[0], ", col: ", col_offset + a[1], ", val: ", omega(a[0], a[1]));
-						*RC++ = row_offset + a[0];
-						*RC++ = col_offset + a[1];
-						*X++ = weight*omega(a[0], a[1]);
-					});  
-				}
+			} else {
+				const arma::mat& omega = origin < j ? rotations[key] : rotations[key].t();
+				arma::umat nz_ind = arma::ind2sub(arma::size(omega), arma::find(omega != 0.0));
+				nz_ind.each_col([&](arma::uvec& a){ 
+					// py::print("| row: ", row_offset + a[0], ", col: ", col_offset + a[1], ", val: ", omega(a[0], a[1]));
+					*RC++ = row_offset + a[0];
+					*RC++ = col_offset + a[1];
+					*X++ = weight*omega(a[0], a[1]);
+				});  
 			}
 		}
 	}
@@ -345,23 +341,24 @@ struct StiefelLoss {
 			frames(arma::span::all, arma::span(i*d, (i+1)*d-1)) = d_frame; 
 		}
 	}
-	
-	auto extract_iota(py::object& pou){
-		arma::sp_mat pou_;
-		to_sparse(pou, pou_);
-		arma::ucolvec u = arma::index_max(pou_,1);
+
+	void setup_pou(py::object& P_csc){
+		to_sparse(P_csc, pou);
+	}
+		
+	auto extract_iota(){
+		// weights.assign(J, 0.0);
+		// auto ci = pou_.begin_col(i);
+		// for (; ci != pou_.end_col(i); ++ci){ weights[ci.row()] = *ci; }
+		// size_t iota_i = std::distance(weights.begin(), std::max_element(weights.begin(), weights.end()));
+		arma::ucolvec u = arma::index_max(pou,1);
 		return(carma::col_to_arr< unsigned long long >(std::move(u)));
 	}
 
-	void populate_frames_sparse(py::object& pou){
-		// Convert partition of unity to arma
-		arma::sp_mat pou_;
-		to_sparse(pou, pou_);
-		const size_t J = pou_.n_rows;
-
-		if (pou_.n_cols != n){
-			throw std::invalid_argument("Invalid input. Must have one weight for each cover element.");
-		}
+	void populate_frames_sparse(py::array_t< arma::uword >& iota){
+		if (pou.n_cols != n){ throw std::invalid_argument("Invalid input. Must have one weight for each cover element."); }
+		const size_t J = pou.n_rows;
+		arma::uvec I = carma::arr_to_col(iota);
 
 		// Prepare the vectors needed to construct the sparse matrix using COO-input 
 		vector< arma::uword > RC; 
@@ -374,17 +371,13 @@ struct StiefelLoss {
 		auto x_out = std::back_inserter(X);
 
 		// Generate all the frames using iota
-		vector< double > weights(J, 0.0);
 		for (size_t i = 0; i < n; ++i){
 			
-			// Fill the weight vector
-			weights.assign(J, 0.0);
-			auto ci = pou_.begin_col(i);
-			for (; ci != pou_.end_col(i); ++ci){ weights[ci.row()] = *ci; }
-			size_t iota_i = std::distance(weights.begin(), std::max_element(weights.begin(), weights.end()));
-
-			// Generate the current frame using iota to specify the origin 
-			generate_frame_ijx(iota_i, weights, i*d, rc_out, x_out);
+			// Iterate through sparse columns
+			auto ci = pou.begin_col(i);
+			for (; ci != pou.end_col(i); ++ci){ 
+				generate_frame_ijx(I[i], ci.row(), J, *ci, i*d, rc_out, x_out);
+			}
 		}
 		
 		// Assign to frames_sparse
@@ -534,6 +527,14 @@ struct StiefelLoss {
 		}
 		throw std::logic_error("Unable to find element in array.");
 	}
+	void to_sparse(const py::object& S, arma::sp_mat& out){
+		py::tuple shape = S.attr("shape").cast< py::tuple >();
+		const size_t nr = shape[0].cast< size_t >(), nc = shape[1].cast< size_t >();
+		arma::uvec ind = carma::arr_to_col(S.attr("indices").cast< py::array_t< arma::uword > >());
+		arma::uvec ind_ptr = carma::arr_to_col(S.attr("indptr").cast< py::array_t< arma::uword > >());
+		arma::vec data = carma::arr_to_col(S.attr("data").cast< py::array_t< double > >());
+		out = arma::sp_mat(std::move(ind), std::move(ind_ptr), std::move(data), nr, nc);
+	}
 
 
 	// A := (dJ x D) dense orthonormal matrix 
@@ -646,16 +647,6 @@ struct StiefelLoss {
 		}
 		return(assembly);
 	}
-
-	void to_sparse(const py::object& S, arma::sp_mat& out){
-		py::tuple shape = S.attr("shape").cast< py::tuple >();
-		const size_t nr = shape[0].cast< size_t >(), nc = shape[1].cast< size_t >();
-		arma::uvec ind = carma::arr_to_col(S.attr("indices").cast< py::array_t< arma::uword > >());
-		arma::uvec ind_ptr = carma::arr_to_col(S.attr("indptr").cast< py::array_t< arma::uword > >());
-		arma::vec data = carma::arr_to_col(S.attr("data").cast< py::array_t< double > >());
-		out = arma::sp_mat(std::move(ind), std::move(ind_ptr), std::move(data), nr, nc);
-	}
-
 
 	// Wrapper for the fast_assembly above
 	auto assemble_frames(py::array_t< double >& A, py::object& pou, py::list& cover_subsets, const py::list& local_models, py::array_t< double >& T ) -> py::array_t< double > {
@@ -773,6 +764,7 @@ PYBIND11_MODULE(fast_svd, m) {
 		.def("all_frames_sparse", &StiefelLoss::all_frames_sparse)
 		.def("embed", &StiefelLoss::embed)
 		.def("extract_iota", &StiefelLoss::extract_iota)
+		.def("setup_pou", &StiefelLoss::setup_pou)
 		.def("benchmark_embedding", &StiefelLoss::benchmark_embedding)
 		.def("assemble_frames", &StiefelLoss::assemble_frames)
 		.def("assemble_frames2", &StiefelLoss::assemble_frames2)
@@ -780,7 +772,6 @@ PYBIND11_MODULE(fast_svd, m) {
 		.def("__repr__",[](const StiefelLoss &stf) {
 			return("Stiefel Loss w/ parameters n="+std::to_string(stf.n)+",d="+std::to_string(stf.d)+",D="+std::to_string(stf.D));
   	});
-	
 }
 
 

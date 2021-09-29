@@ -20,6 +20,7 @@ top = TALLEM(cover, local_map="pca2", n_components=3)
 embedding = top.fit_transform(X, B)
 
 
+
 # %% Attempt #1: generate frames Phi_x in python, on demand
 n, d, D, J = top._stf.n, top._stf.d, top._stf.D, len(top.cover)
 P = top.pou 
@@ -39,8 +40,7 @@ def phi(i, j = None):
 # %% Regular Python generation 
 %%time
 Phi = np.zeros(shape=(d*J, d*n))
-for i in range(n):
-	Phi[:,(i*d):((i+1)*d)] = phi(i)
+for i in range(n): Phi[:,(i*d):((i+1)*d)] = phi(i)
 # ~ 11.5 s
 
 # %% Setup numba 
@@ -59,7 +59,6 @@ def phi(i): ## assume iota + constants d, J, and n are defined
 	out = np.zeros(shape=(d*J, d))
 	for j in prange(J):
 		k, w = iota[i], np.sqrt(pou[i,j])
-		# key = rank_comb2(i=k,j=j,n=J)
 		if w == 0.0 or not((j,k) in A.keys()) and not((k,j) in A.keys()):
 			out[(j*d):((j+1)*d),:] = w*np.eye(d)
 		else: 
@@ -71,7 +70,6 @@ def phi(i): ## assume iota + constants d, J, and n are defined
 Phi = np.zeros(shape=(d*J, d*n))
 for i in range(n): Phi[:,(i*d):((i+1)*d)] = phi(i)
 # ~ 7.26 s
-
 
 # %% Numba attempt 2 O(nJ + |R|  + dJ*dn) memory 
 ## Automatically monotonically increasing
@@ -105,13 +103,12 @@ def populate_frames():
 %%time 
 Phi = populate_frames() # ~ 2 ms 
 # ~ 3.03 ms
-# 22954
 
 # %% Numba attempt 3 (setup) --- O(nJ + n + J^2 * d^2  + dJ*dn) memory 
 keys = [(i,j) for i in range(J) for j in range(J)]
 R = np.vstack([A[key]['rotation'] if key in A.keys() else np.eye(d) for key in keys])
 
-@jit(nopython=True, parallel=True) 
+@jit(nopython=True, parallel=False) 
 def populate_frames():
 	Phi = np.zeros(shape=(d*J, d*n))
 	for i in prange(n):
@@ -123,34 +120,27 @@ def populate_frames():
 
 # %% Numba attempt 3
 %%time 
-Phi = populate_frames() # 4.83 ms
-# 27576
+Phi = populate_frames() # 5.89 ms
 
 # %% C++ attempt 1 (setup)
-P = top.pou.transpose().tocsc()
+P_csc = top.pou.transpose().tocsc()
 iota = np.ravel(top.pou.argmax(axis=1).flatten())
 
-# %% C++ attempt 1 
+# %% C++ attempt 1 - O()
 %%time
-top._stf.populate_frames(iota, P, False) 
-# 32.8 ms
+top._stf.populate_frames(iota, P_csc, False) 
+# 32.3 ms
 
-
-# %% C++ attempt 1 (sparse) 
-%%time
-top._stf.populate_frames(iota, P, True)
-
+# %% C++ version attempt 2 (setup, sparse)
+top._stf.setup_pou(top.pou.transpose().tocsc())
+iota = top._stf.extract_iota()
 
 # %% C++ version attempt 2 (sparse)
 %%time
-top._stf.populate_frames_sparse(P) # ~ 18 ms
-# 25.4 ms
-# len(top._stf.all_frames_sparse()[2])
-# 32088
+top._stf.populate_frames_sparse(iota) # ~ 18 ms
+# 10.3 ms
 
-# %% 
-
-
+#%% 
 	# ## Start off with StiefelLoss pybind11 module
 	# stf = fast_svd.StiefelLoss(n, d, D)
 

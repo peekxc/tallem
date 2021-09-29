@@ -16,7 +16,7 @@ def flywing():
 # scale, image_sz, s = 1, (17, 17), 1
 
 ## need closure to encase denom + sigma
-
+import autograd.numpy as auto_np
 def gaussian_pixel2(d, n_pixels):
 	from scipy.stats import norm
 	sigma = d/3.0

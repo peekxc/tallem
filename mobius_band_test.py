@@ -13,13 +13,28 @@ from src.tallem.datasets import mobius_band
 
 #%% 
 ## Generate mobius band + polar coordinate 
-M = mobius_band(n_polar=66, n_wide=9, scale_band = 0.25, plot=False, embed=6)
+M = mobius_band(n_polar=120, n_wide=15, scale_band = 0.25, plot=False, embed=6)
 X, B = M['points'], M['parameters'][:,[1]]
 
 ## Assemble the embedding with TALLEM
 m_dist = lambda x,y: np.sum(np.minimum(abs(x - y), (2*np.pi) - abs(x - y)))
-cover = IntervalCover(B, n_sets = 10, overlap = 0.40, space = [0, 2*np.pi], metric = m_dist)
-emb = TALLEM(cover, local_map="pca2", n_components=3).fit_transform(X, B)
+cover = IntervalCover(B, n_sets = 20, overlap = 0.40, space = [0, 2*np.pi], metric = m_dist)
+
+from src.tallem.dimred import isomap
+local_map = lambda x: isomap(x, d=3, k=15)
+
+top = TALLEM(cover, local_map=local_map, n_components=3)
+emb = top.fit_transform(X, B)
+
+
+
+
+top._profile(X=X, B=B)
+
+
+
+
+
 
 ## Visualize the resulting embedding
 import matplotlib.pyplot as plt

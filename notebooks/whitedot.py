@@ -271,9 +271,9 @@ T = np.asanyarray([f(x) for x in np.c_[phi, theta]])
 seaborn.pairplot(pandas.DataFrame(T), height=7)
 
 ## Uniformly sampled torus using autograd 
-J_det = J_determinant(f)
+# J_det = J_determinant(f)
 # J_det = lambda x: (r**2) * (R + r*np.cos(x[0]))**2
-J_det = lambda x: (1 + (r/R)*np.cos(x[0]))/(2*np.pi)
+# J_det = lambda x: (1 + (r/R)*np.cos(x[0]))/(2*np.pi)
 
 ## Double-check
 # J_det(auto_np.array([0., 0.]))
@@ -300,6 +300,7 @@ bins = 8
 ## constructed *on the bounds of the strata of interest*, sampling how ever many points needed according 
 ## to the original input parameterization. The rejection sampler *should* fix the warping within that strata. 
 n = 2500
+bins = 4
 B = bins**2 
 n_per_stratum = int(np.floor(n / B))
 n_extra = n % B
@@ -309,7 +310,6 @@ from src.tallem.utility import cartesian_product
 cell_min = np.linspace(0, 2*np.pi, 4, endpoint=False)
 cell_max = np.linspace(cell_min[1], 2*np.pi, 4, endpoint=True)
 
-bins = 4
 samples = []
 for i in range(bins):
 	for j in range(bins):
@@ -571,17 +571,234 @@ ax.scatter3D(*top.embedding_.T, c = B)
 
 
 
+# %% Uniform sampling white dot 
+from src.tallem.datasets import gaussian_pixel2
+blob = gaussian_pixel2(d=0.25, n_pixels=17)
 
-# %% Uniform samples around the sphere
-# Using the fundamental polygon 
+plot_image(blob([0.5, 0.5]))
+plot_image(blob([0, 0]))
+plot_image(blob([0, 1.0]))
+plot_image(blob([1.0, 0.0]))
 
-# def sphere_point(pt):
-# 	assert len(pt) == 2, "" 
-# 	x,y = pt
-# 	if y < 0:
-# 		return(1 - (np.abs(y) % 1), 
+# %% MVN contours 
+M = np.meshgrid(range(100), range(100))
+ind = np.ix_(range(10), range(10))
+
+def mvn_density(x, mu, Sigma):
+	x, mu = np.asanyarray(x), np.asanyarray(mu)
+	if x.ndim == 1: np.array(x).reshape((len(x), 1))
+	if mu.ndim == 1: np.array(mu).reshape((len(mu), 1))
+	Sigma_inv = np.linalg.inv(Sigma)
+	denom = np.sqrt(((2*np.pi)**2) * np.linalg.det(Sigma))
+	return(np.exp((-0.5*((x - mu).T @ Sigma_inv @ (x - mu))))/denom)
+	# np.exp(-0.5*(sigma_inv * ((x-mu[0])**2 + (y-mu[1])**2)))/denom
+
+## Contour on [0,5] x [0, 5] w/ blob radius = 1.0 => sigma = 1/3
+## blob diameter d := 6*sigma, r := 3*sigma 
+c = 3.090232
+Sigma = np.diag([1/c, 1/c])
+mu = np.array([2.5, 2.5])
+
+Z = np.zeros(shape=(100,100))
+X, Y = np.linspace(0, 5, 100), np.linspace(0, 5, 100)
+for i, x in enumerate(X):
+	for j, y in enumerate(Y):
+		Z[i,j] = mvn_density([x, y], mu, Sigma)
+
+## Looks good 
+import matplotlib.pyplot as plt
+X,Y = np.meshgrid(np.linspace(0, 5, 100), np.linspace(0, 5, 100))
+plt.contourf(X, Y, Z, levels=np.linspace(0, 1, 20))
+
+## Make blob version on the domain [0,1] x [0,1]
+import autograd.numpy as auto_np
+def gaussian_blob(n_pixels, r):
+	sd = r/3.090232
+	sigma = sd**2
+	sigma_inv = 1.0/sigma
+	denom = np.sqrt(((2*auto_np.pi)**2) * (sigma**2))
+	def blob(mu): # mu can be anywhere; center of image is [0.5, 0.5]
+		loc = auto_np.linspace(0, 1, n_pixels, False) + 1/(2*n_pixels)
+		x,y = auto_np.meshgrid(loc, loc)
+		grid = auto_np.exp(-0.5*(sigma_inv * ((x-mu[0])**2 + (y-mu[1])**2)))/denom
+		return(auto_np.ravel(grid).flatten())
+	return(blob, auto_np.exp(0)/denom)
+# Differentiable version
+
+p = 0.25 # blob radius as proportion of image (between 0 < p < 1)
+blob, nc = gaussian_blob(17, 0.25)
+# plot_image(blob([0.5, 0.5]).reshape((17,17)), nc)
+# plot_image(blob([-0.25, 0]).reshape((17,17)), nc)
+# plot_image(blob([-0.25, 0]).reshape((17,17)), nc)
+# plot_image(blob([-0.05, -0.05]).reshape((17,17)), nc)
+
+x = np.random.uniform(low=-p, high=1+p, size=(1000,2))
+
+## Generate uniform samples including blob outside image
+blob_images = np.vstack([blob(mu) for mu in x])
+
+# Test case -- use jacobian determinant below
+# from autograd import jacobian
+# J_blob = jacobian(blob)
+# J_blob(auto_np.array([0.5, 0.5]))# works !
+
+J_det = J_determinant(blob)
+max_det = np.max(np.array([J_det(auto_np.array(mu)) for mu in x]))
+
+sampler = rejection_sampler(
+	parameterization = blob, 
+	jacobian = J_det, 
+	min_params = [-p, -p],
+	max_params = [1+p, 1+p],
+	max_jacobian = max_det
+)
+
+plot_image(sampler(1).reshape((17,17)), nc)
+
+blob_images_uniform = sampler(1000)
+
+# %% Get tallem results on uniform blobs in domain
+import pickle
+nc = 24.31768817109262 ## normalizing constant
+X = pickle.load(open('/Users/mpiekenbrock/tallem/blob_images_uniform_domain.p', 'rb'))
+
+## Try PH -- Nope!
+from ripser import ripser
+from persim import plot_diagrams
+diagrams = ripser(np.asanyarray(X))['dgms']
+plot_diagrams(diagrams, show=True)
+# plot_image(blob([0.5, 0.5]).reshape((17,17)), nc)
+
+#%% Tallem on blobs uniform distributed in domain
+import pickle
+import numpy as np
+from src.tallem import TALLEM
+from src.tallem.cover import LandmarkCover
+
+X = pickle.load(open('/Users/mpiekenbrock/tallem/blob_images_uniform_domain.p', 'rb'))
+cover = LandmarkCover(X, 20).construct(X)
+emb = TALLEM(cover, local_map="cmds2", n_components=3).fit_transform(X)
+
+## Rotate embedding + color by distance to centroid
+from src.tallem.color import linear_gradient, bin_color, colors_to_hex
+col_pal = linear_gradient(["red", "purple", "blue"], 25)['hex']
+
+from src.tallem.distance import dist
+centroid = emb.mean(axis=0)
+dist_to_center = dist(centroid[np.newaxis, :], emb)
+
+## Color poles green 
+center_pole = np.argmin(np.array([np.linalg.norm(x - blob([0.5, 0.5])) for x in X]))
+dark_pole = np.argmin(np.array([np.linalg.norm(x - blob([-0.50, -0.50])) for x in X]))
+
+for angle in range(0, 360, 15):
+	ax = plt.figure(figsize=(8,8)).add_subplot(projection='3d')
+	ax.scatter3D(*emb.T, color=bin_color(dist_to_center, col_pal)[0])
+	ax.scatter3D(*emb[[center_pole, dark_pole],:].T, color=colors_to_hex(["green"])[0], s=100)
+	ax.view_init(30, angle)
+	plt.pause(0.75)
+
+# %% Get tallem results on uniform blobs in codomain
+import pickle
+nc = 24.31768817109262 ## normalizing constant
+X = pickle.load(open('/Users/mpiekenbrock/tallem/blob_images_uniform_codomain.p', 'rb'))
+
+cover = LandmarkCover(X, 20).construct(X)
+emb = TALLEM(cover, local_map="cmds2", n_components=3).fit_transform(X)
+
+## Rotate embedding + color by distance to centroid
+from src.tallem.color import linear_gradient, bin_color
+col_pal = linear_gradient(["red", "purple", "blue"], 25)['hex']
+
+from src.tallem.distance import dist
+centroid = emb.mean(axis=0)
+dist_to_center = dist(centroid[np.newaxis, :], emb)
+
+## Color poles green 
+center_pole = np.argmin(np.array([np.linalg.norm(x - blob([0.5, 0.5])) for x in X]))
+dark_pole = np.argmin(np.array([np.linalg.norm(x - blob([-0.50, -0.50])) for x in X]))
+
+for angle in range(0, 360, 15):
+	ax = plt.figure(figsize=(8,8)).add_subplot(projection='3d')
+	ax.scatter3D(*emb.T, color=bin_color(dist_to_center, col_pal)[0])
+	ax.scatter3D(*emb[[center_pole, dark_pole],:].T, color=colors_to_hex(["green"])[0], s=100)
+	ax.view_init(30, angle)
+	plt.pause(0.75)
 
 
+# %% Profile 
+TALLEM(cover, local_map="cmds2", n_components=3)._profile(X=X, B=X)
+
+# %% 
+# pickle.dump(blob_images, open('blob_images_uniform_domain.p', 'wb'))
+# pickle.dump(blob_images_uniform, open('blob_images_uniform_codomain.p', 'wb'))
+
+
+# def mvn_density(x, mu, Sigma):
+# 	x, mu = np.asanyarray(x), np.asanyarray(mu)
+# 	if x.ndim == 1: np.array(x).reshape((len(x), 1))
+# 	if mu.ndim == 1: np.array(mu).reshape((len(mu), 1))
+# 	Sigma_inv = np.linalg.inv(Sigma)
+# 	denom = np.sqrt(((2*np.pi)**2) * np.linalg.det(Sigma))
+# 	return(np.exp((-0.5*((x - mu).T @ Sigma_inv @ (x - mu))))/denom)
+
+
+#%% 
+samples = []
+pt_colors = []
+for x in np.linspace(0.0-p,1.0+p,30):
+	for y in np.linspace(0.0-p,1.0+p,30):
+		samples.append(blob([x, y]))
+		d = np.linalg.norm(np.array([x,y]) - np.array([0.5, 0.5]))
+		pt_colors.append(d)
+		# plot_image(blob([x, y]).reshape((17,17)), max_val=nc)
+
+# NP = blob([0.5, 0.5])
+# for t in np.linspace(0, 1, 100):
+# 	samples.append(t*NP)
+# 	pt_colors.append(1-t)
+
+X = np.vstack(samples)	
+
+# %% 
+from ripser import ripser
+from persim import plot_diagrams
+diagrams = ripser(X, maxdim=2)['dgms']
+plot_diagrams(diagrams, show=True)
+
+#%% 
+from src.tallem import TALLEM 
+from src.tallem.cover import LandmarkCover
+cover = LandmarkCover(X, 8).construct(X)
+
+
+from src.tallem.dimred import isomap
+local_map = lambda x: isomap(x, d=3, k=15)
+
+top = TALLEM(cover, local_map=local_map, n_components=3)
+emb = top.fit_transform(X) # make work for X = distance matrices
+
+top._profile(X=X, B=X)
+
+#%% 
+from src.tallem.color import linear_gradient, bin_color
+col_pal = linear_gradient(["red", "purple", "blue"], 25)['hex']
+
+for angle in range(0, 360, 15):
+	ax = plt.figure(figsize=(8,8)).add_subplot(projection='3d')
+	ax.scatter3D(*emb.T) #color=bin_color(np.array(pt_colors), col_pal)
+	ax.view_init(30, angle)
+	plt.pause(0.75)
+
+# ax = plt.figure(figsize=(8,8)).add_subplot(projection='3d')
+# ax.scatter3D(*emb.T)
+
+# %% 
+from src.tallem.dimred import isomap
+import matplotlib.pyplot as plt
+Y = isomap(X, k = 5, d = 3)
+ax = plt.figure(figsize=(8,8)).add_subplot(projection='3d')
+ax.scatter3D(*Y.T)
 
 
 

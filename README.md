@@ -67,22 +67,27 @@ from tallem.datasets import mobius_band
 
 ## Get mobius band data + its parameter space
 X, B = mobius_band(n_polar=26, n_wide=6, embed=3).values()
+B_polar, B_radius = B[:,[1]], B[:,[0]]
 
 ## Construct a cover over the polar coordinate
-cover = IntervalCover(B[:,[1]], n_sets = 10, overlap = 0.30, gluing=[1])
-
-## Local euclidean models are specified with a function
-f = lambda x: classical_MDS(dist(x, as_matrix=True), k = 2)
+m_dist = lambda x,y: np.sum(np.minimum(abs(x - y), (2*np.pi) - abs(x - y)))
+cover = IntervalCover(B_polar, n_sets = 10, overlap = 0.30, metric = m_dist)
 
 ## Parameterize TALLEM + transform the data to the obtain the coordinization
-embedding = TALLEM(cover=cover, local_map=f, n_components=3)
-X_transformed = embedding.fit_transform(X, B_polar)
+emb = TALLEM(cover=cover, local_map="cmds2", n_components=3).fit_transform(X, B_polar)
 
 ## Draw the coordinates via 3D projection, colored by the polar coordinate
 import matplotlib.pyplot as plt
 fig = plt.figure()
 ax = fig.add_subplot(projection='3d')
-ax.scatter(X_transformed[:,0], X_transformed[:,1], X_transformed[:,2], marker='o', c=B_polar)
+ax.scatter(*emb.T, marker='o', c=B_polar)
 ```
 
 ![mobius band](https://github.com/peekxc/tallem/blob/main/resources/tallem_polar.png?raw=true)
+
+**FAQ**
+
+_The dependencies listed require Python 3.5+, but I'm using an older version of Python. Will`tallem` still run on my machine, and if not, how can I make `tallem` compatible?_
+
+`tallem` requires Python version 3.5 or higher and will not run on older versions of Python. If your version of Python is older than this, consider installing `tallem` in a [virtual environment] that supports Python 3.5+. Alternatively, you're free to make the appropriate changes to `tallem` to make the library compatible with an older version yourself and then issue a PR. 
+
