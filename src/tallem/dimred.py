@@ -1,6 +1,8 @@
 # %% Dimensionality reduction imports 
+import os
 import numpy as np
 import numpy.typing as npt
+import concurrent.futures
 from typing import Optional, Dict, List, Union
 from .distance import dist, is_distance_matrix
 from .utility import as_np_array
@@ -9,6 +11,7 @@ from scipy.linalg import eig as dense_eig
 from scipy.spatial import KDTree
 from scipy.sparse import csc_matrix, csr_matrix
 from scipy.sparse.csgraph import minimum_spanning_tree, connected_components
+
 
 # %%  Dimensionality reduction definitions
 def pca(x: npt.ArrayLike, d: int = 2, center: bool = True) -> npt.ArrayLike:
@@ -221,8 +224,7 @@ def nmds(a: npt.ArrayLike, d: int = 2, **kwargs):
 	return(embedding.fit_transform(a))
 
 
-from numba import njit, prange
-
+#from numba import njit, prange
 # @njit(parallel=True)
 # def fit_local_models(f, X, cover):
 # 	index_set = list(cover.keys())
@@ -233,3 +235,14 @@ from numba import njit, prange
 # 		result[index] = f(X[np.array(subset),:])
 # 	return(result)
 
+def fit_local_models(f, X, cover, n_cores=os.cpu_count()):
+	if n_cores == 1:
+		models = { index : f(X[np.array(subset),:]) for index, subset in cover.items() }
+	else:
+		models = {}
+		do_euclidean_model = lambda ce: (ce[0], f(X[np.array(ce[1]),:])) 
+		with concurrent.futures.ThreadPoolExecutor(max_workers=n_cores) as executor:
+			future = executor.map(do_euclidean_model, cover.items())
+			for index, model in future:
+				models[index] = model
+	return(models)

@@ -55,24 +55,25 @@ def frame_reduction(alignments: Dict, pou: csc_matrix, D: int, optimize=False, f
 	R = np.vstack([pa['rotation'] for index, pa in alignments.items()]) 
 	stf.init_rotations(I1, I2, R, J)
 
-	## Populate frame matrix map
-	iota = np.array(pou.argmax(axis=1)).flatten()
-	pou_t = pou.transpose().tocsc()
-	stf.populate_frames(iota, pou_t, False) # populate all the iota-mapped frames in vectorized fashion
+	# ## Populate frame matrix map
+	# iota = np.array(pou.argmax(axis=1)).flatten()
+	# pou_t = pou.transpose().tocsc()
+	# stf.populate_frames(iota, pou_t, False) # populate all the iota-mapped frames in vectorized fashion
 
-	## Get the initial frame 
-	Fb = stf.all_frames() ## Note these are already weighted w/ the sqrt(varphi)'s!
-	Eval, Evec = np.linalg.eigh(Fb @ Fb.T)
-	A0 = Evec[:,np.argsort(-Eval)[:D]]
+	# ## Get the initial frame 
+	# Fb = stf.all_frames() ## Note these are already weighted w/ the sqrt(varphi)'s!
+	# Eval, Evec = np.linalg.eigh(Fb @ Fb.T)
+	# A0 = Evec[:,np.argsort(-Eval)[:D]]
 
-	# stf.setup_pou(pou.transpose().tocsc())
-	# iota = stf.extract_iota()
-	# stf.populate_frames_sparse(iota)
+	## Store partition of unity in CSC matrix internally to prepare for frame population
+	stf.setup_pou(pou.transpose().tocsc())
+	iota = np.ravel(stf.extract_iota())
+	
+	## Use the bijection given by iota to generate the (sparse) Phi matrix 
+	stf.populate_frames_sparse(iota)
 
-	## Compute the initial guess
-	# stf.populate_frames_sparse(pou.transpose().tocsc()) # populate all the iota-mapped frames in vectorized fashion
-	# ew, ev = stf.initial_guess(D, True)
-	# A0 = np.flip(ev,axis=1)
+	## Compute the initial guess, return it as optimal if not optimizing further
+	ew, A0 = stf.initial_guess(D, True)
 	if (not(optimize)): return(A0, A0, stf)
 
 	## Setup optimization using Pymanopt

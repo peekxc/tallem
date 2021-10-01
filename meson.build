@@ -1,10 +1,13 @@
 ## TALLEM needs C++17 or higher 
-project('tallem', 'cpp', default_options : ['cpp_std=c++17',])
+project('tallem', 'cpp', default_options : ['cpp_std=c++17'])
 project_dir = meson.current_source_dir()
 message(project_dir)
 ## Folder variables 
 fs = import('fs')
 home_dir = fs.expanduser('~')
+
+## To remove armadillo installation warnings
+add_global_arguments('-Wnon-virtual-dtor', language : 'cpp')
 
 ## Find Python 3.9.1 or higher + PyBind11
 py = import('python')
@@ -51,6 +54,14 @@ numpy_include = include_directories(numpy_include_dir)
 ## Target(s)
 py_mod.extension_module('fast_svd', 
 	sources : 'src/tallem/fast_svd.cpp', 
+	dependencies : [py_dep, py_b11, arma, carma], 
+	include_directories : [numpy_include], 
+	install : true, 
+	install_dir : project_dir / 'src' / 'tallem'
+)
+
+py_mod.extension_module('landmark', 
+	sources : 'src/tallem/landmark.cpp', 
 	dependencies : [py_dep, py_b11, arma, carma], 
 	include_directories : [numpy_include], 
 	install : true, 

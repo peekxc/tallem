@@ -10,32 +10,55 @@ from src.tallem import TALLEM
 from src.tallem.cover import IntervalCover
 from src.tallem.datasets import mobius_band
 
-
 #%% 
 ## Generate mobius band + polar coordinate 
 M = mobius_band(n_polar=120, n_wide=15, scale_band = 0.25, plot=False, embed=6)
 X, B = M['points'], M['parameters'][:,[1]]
 
+#%% 
 ## Assemble the embedding with TALLEM
 m_dist = lambda x,y: np.sum(np.minimum(abs(x - y), (2*np.pi) - abs(x - y)))
 cover = IntervalCover(B, n_sets = 20, overlap = 0.40, space = [0, 2*np.pi], metric = m_dist)
 
-from src.tallem.dimred import isomap
-local_map = lambda x: isomap(x, d=3, k=15)
+# from src.tallem.dimred import isomap
+# local_map = lambda x: isomap(x, d=3, k=15)
 
-top = TALLEM(cover, local_map=local_map, n_components=3)
-emb = top.fit_transform(X, B)
+top = TALLEM(cover, local_map="pca2", n_components=3)
+emb = top.fit_transform(X=X, B=B)
 
-
-
-
+# %% 
 top._profile(X=X, B=B)
 
+#%% 
+%%time
+from src.tallem.dimred import fit_local_models
+M = fit_local_models(top.local_map, X, top.cover, 8)
 
+#%% 
 
+ind = list(top.cover.values())
+with concurrent.futures.ProcessPoolExecutor(max_workers=12) as executor:
+	future = executor.map(np.sum, ind)
+	for ind_sum in future:
+		print(ind_sum)
 
+# models = {}
+# do_euclidean_model = lambda ce: (ce[0], top.local_map(X[np.array(ce[1]),:])) 
+# with concurrent.futures.ProcessPoolExecutor(max_workers=12) as executor:
+# 	future = executor.map(do_euclidean_model, top.cover.items())
+# 	for index, model in future:
+# 		models[index] = model
+from multiprocessing import Pool, cpu_count
+def main():
+	hard_work = lambda x: np.sqrt(x) 
+	try:
+			workers = cpu_count()
+	except NotImplementedError:
+			workers = 1
+	pool = Pool(processes=workers)
+	result = pool.map(hard_work, range(100, 1000000))
 
-
+#%%
 ## Visualize the resulting embedding
 import matplotlib.pyplot as plt
 fig = plt.figure()

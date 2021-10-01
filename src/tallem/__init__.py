@@ -17,16 +17,15 @@ from scipy.sparse import issparse, csc_matrix
 # ]
 
 ## tallem-specific relative imports
+from .utility import find_where
 from .sc import delta0D
 from .distance import dist
+from .cover import CoverLike, IntervalCover, partition_of_unity
 from .alignment import opa, align_models, global_translations
 from .samplers import uniform_sampler
-from .stiefel import frame_reduction
-from .cover import IntervalCover, partition_of_unity
-from .utility import find_where
-from .assembly import assemble_frames, assembly_fast
-from .cover import CoverLike
 from .dimred import *
+from .stiefel import frame_reduction
+from .assembly import assemble_frames, assembly_fast
 
 ## To eventually remove or make optional to install
 import autograd.scipy.linalg as auto_scipy 
@@ -94,29 +93,26 @@ class TALLEM():
 		membership = np.zeros(X.shape[0], dtype=bool)
 		for ind in self.cover.values(): membership[ind] = True
 		assert np.all(membership == True), "Supplied cover invalid: the union of the values does not contain all of B as a subset."
-		
-		## Map the local euclidean models
-		## Note: the extra array constructor ensures singleton subsets are reported as matrices
-		self.models = { index : self.local_map(X[np.array(subset),:]) for index, subset in self.cover.items() }
-		# from .dimred import fit_local_models
-		# self.models = fit_local_models(self.local_map, X, self.cover)
+
+		## Map the local euclidean models (in parallel)
+		self.models = fit_local_models(self.local_map, X, self.cover)
 
 		## Construct a partition of unity
-		J = len(self.cover)
-		if isinstance(pou, str):
-			## In this case, cover must have a set_distance(...) function!
-			## This is where the coordinates of B are needed!
-			self.pou = partition_of_unity(B, cover = self.cover, similarity = pou) 
-		elif issparse(pou): 
-			if pou.shape[1] != len(self.cover):
-				raise ValueError("Partition of unity must have one column per element of the cover")
-			for j, index in enumerate(self.cover.keys()):
-				pou_nonzero = np.where(pou[:,j].todense() > 0)[0]
-				is_invalid_pou = np.any(find_where(pou_nonzero, self.cover[index]) is None)
-				if (is_invalid_pou):
-					raise ValueError("The partition of unity must be supported on the closure of the cover elements.")
-		else: 
-			raise ValueError("Invalid partition of unity supplied. Must be either a string or a csc_matrix")
+		self.pou = pou if issparse(pou) else partition_of_unity(B, cover = self.cover, similarity = pou)
+		assert issparse(self.pou), "partition of unity must be a sparse matrix"
+		# 	## In this case, cover must have a set_distance(...) function!
+		# 	## This is where the coordinates of B are needed!
+		# 	 = 
+		# elif issparse(pou): 
+		# 	if pou.shape[1] != len(self.cover):
+		# 		raise ValueError("Partition of unity must have one column per element of the cover")
+		# 	for j, index in enumerate(self.cover.keys()):
+		# 		pou_nonzero = np.where(pou[:,j].todense() > 0)[0]
+		# 		is_invalid_pou = np.any(find_where(pou_nonzero, self.cover[index]) is None)
+		# 		if (is_invalid_pou):
+		# 			raise ValueError("The partition of unity must be supported on the closure of the cover elements.")
+		# else: 
+		# 	raise ValueError("Invalid partition of unity supplied. Must be either a string or a csc_matrix")
 
 		## Align the local reference frames using Procrustes
 		self.alignments = align_models(self.cover, self.models)
@@ -130,6 +126,9 @@ class TALLEM():
 		## Assemble the frames!
 		## See: https://github.com/rasbt/python-machine-learning-book/blob/master/faq/underscore-convention.md
 		self.embedding_ = assembly_fast(self._stf, self.A, self.cover, self.pou, self.models, self.translations)
+		
+		## Save useful information
+		self.n, self.d, self.D = X.shape[0], self._stf.d, self.A0.shape[1]
 		return(self)
 
 	def fit_transform(self, X: npt.ArrayLike, B: Optional[npt.ArrayLike] = None, **fit_params) -> npt.ArrayLike:		

@@ -6,13 +6,14 @@
 ## or something is used. Ultimately returns an (n x J) sparse matrix where each row is normalized to sum to 1. 
 import numpy as np
 import numpy.typing as npt
+from numpy.typing import ArrayLike
 from sklearn.neighbors import BallTree
 from scipy.sparse import csc_matrix, diags
 from scipy.sparse.csgraph import minimum_spanning_tree,connected_components 
 from .distance import dist 
 from .utility import find_where, cartesian_product
 from .dimred import neighborhood_graph, neighborhood_list
-from .landmark import landmarks, landmarks_dist
+from .samplers import landmarks, landmarks_dist
 
 ## Type tools 
 from typing import *
@@ -58,7 +59,7 @@ from itertools import combinations, product
 # 	def index(self, item): ...
 # 	def count(self, item): ...
 
-from numpy.typing import ArrayLike
+
 
 T = TypeVar('T')
 @runtime_checkable
@@ -497,4 +498,20 @@ def partition_of_unity(B: npt.ArrayLike, cover: CoverLike, similarity: Union[str
 
 	## Return both the partition of unity and the iota (argmax) bijection 
 	return(pou)
-	
+
+
+		# if isinstance(pou, str):
+		# 	## In this case, cover must have a set_distance(...) function!
+		# 	## This is where the coordinates of B are needed!
+		# 	self.pou = partition_of_unity(B, cover = self.cover, similarity = pou) 
+		# elif issparse(pou): 
+		# 	if pou.shape[1] != len(self.cover):
+		# 		raise ValueError("Partition of unity must have one column per element of the cover")
+		# 	for j, index in enumerate(self.cover.keys()):
+		# 		pou_nonzero = np.where(pou[:,j].todense() > 0)[0]
+		# 		is_invalid_pou = np.any(find_where(pou_nonzero, self.cover[index]) is None)
+		# 		if (is_invalid_pou):
+		# 			raise ValueError("The partition of unity must be supported on the closure of the cover elements.")
+		# else: 
+		# 	raise ValueError("Invalid partition of unity supplied. Must be either a string or a csc_matrix")
+

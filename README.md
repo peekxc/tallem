@@ -10,8 +10,7 @@ TODO: describe TALLEM more
 
 `tallem` requires _Python >= 3.9.1_, along with the packages listed in [pyproject.toml](https://github.com/peekxc/tallem/blob/a1e7d2cd5d0dab5816ece658a3816dc0425f2391/pyproject.toml#L12). These are automatically downloaded and installed via `pip` using the installation procedure given below.
 
-Externally, `tallem` uses [pybind11](https://github.com/pybind/pybind11/tree/stable) to interface with a variety of software libraries using [C++17](https://en.wikipedia.org/wiki/C%2B%2B17), 
-which themselves must be installed in order to run TALLEM. These include: 
+Externally, `tallem` uses [pybind11](https://github.com/pybind/pybind11/tree/stable) to interface with a variety of software libraries using [C++17](https://en.wikipedia.org/wiki/C%2B%2B17), which themselves must be installed in order to run TALLEM. These include: 
 
 * [Armadillo](http://arma.sourceforge.net/) >= 10.5.2
 * [CARMA](https://github.com/RUrlus/carma) >= v0.5

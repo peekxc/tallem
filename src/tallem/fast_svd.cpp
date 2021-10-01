@@ -277,7 +277,7 @@ struct StiefelLoss {
 					// py::print("row: ", row_offset + ri, ", col: ", col_offset + ri, ", val: ", weight);
 					*RC++ = row_offset + ri; // row index of non-zero element
 					*RC++ = col_offset + ri; // column index of non-zero element
-					*X++ = weight;
+					*X++ = w;
 				}
 			} else {
 				const arma::mat& omega = origin < j ? rotations[key] : rotations[key].t();
@@ -286,7 +286,7 @@ struct StiefelLoss {
 					// py::print("| row: ", row_offset + a[0], ", col: ", col_offset + a[1], ", val: ", omega(a[0], a[1]));
 					*RC++ = row_offset + a[0];
 					*RC++ = col_offset + a[1];
-					*X++ = weight*omega(a[0], a[1]);
+					*X++ = w*omega(a[0], a[1]);
 				});  
 			}
 		}
@@ -347,12 +347,13 @@ struct StiefelLoss {
 	}
 		
 	auto extract_iota(){
+		if (pou.is_empty()){ throw std::invalid_argument("Partition of unity matrix not populated."); }
 		// weights.assign(J, 0.0);
 		// auto ci = pou_.begin_col(i);
 		// for (; ci != pou_.end_col(i); ++ci){ weights[ci.row()] = *ci; }
 		// size_t iota_i = std::distance(weights.begin(), std::max_element(weights.begin(), weights.end()));
-		arma::ucolvec u = arma::index_max(pou,1);
-		return(carma::col_to_arr< unsigned long long >(std::move(u)));
+		arma::urowvec u = arma::index_max(pou,0);
+		return(carma::row_to_arr< unsigned long long >(std::move(u)));
 	}
 
 	void populate_frames_sparse(py::array_t< arma::uword >& iota){
@@ -438,11 +439,18 @@ struct StiefelLoss {
 			arma::vec eigval;
 			arma::mat eigvec;
 			arma::eigs_sym(eigval, eigvec, frames_sparse * frames_sparse.t(), D, "lm"); // largest first
+			eigval = arma::reverse(eigval);
+			eigvec = arma::fliplr(eigvec);
 			return py::make_tuple(carma::col_to_arr(eigval), carma::mat_to_arr(eigvec));
 		} else {
-			// eig_sym( eigval, eigvec, X )
+			if (frames.empty()) { throw std::invalid_argument("Frames matrix has not been populated."); } 
+			arma::vec eigval;
+			arma::mat eigvec;
+			arma::eig_sym(eigval, eigvec, frames * frames.t()); // largest first
+			eigval = arma::reverse(eigval);
+			eigvec = arma::fliplr(eigvec);
+			return py::make_tuple(carma::col_to_arr(eigval), carma::mat_to_arr(eigvec));
 		}
-		return py::make_tuple(1);
 	}
 
 
