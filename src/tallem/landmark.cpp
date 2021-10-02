@@ -190,7 +190,52 @@ py::tuple maxmin(const py::array_t<double>& x, const double eps, const size_t n,
 	}
 }
 
+#include <thread>
+using std::thread; 
+
+void doSomething(int thread_id, vector< double >& output) {
+	output[thread_id] = std::sqrt(static_cast< double >(thread_id));
+}
+
+// Spawns n threads
+auto spawnThreads(int n) -> vector< double > {
+	vector< thread > threads(n);
+	vector< double > output(n, 0.0); 
+	for (int i = 0; i < n; i++) {
+		threads[i] = thread(doSomething, i, std::ref(output));
+	}
+	for (auto& th : threads) { th.join(); } // each thread blocks until it's finished, sequentially 
+	return(output);
+}
+
+
+
+// Classical MDS 
+// D := distance matrix
+void cmds(const arma::mat& D, const size_t d, arma::vec& w, arma::mat& v){
+	const size_t n = D.n_rows;
+	arma::mat H(n, n, arma::fill::none);
+	H.fill(-1/n);
+	H.diag().fill(1-(1/n)); 
+	arma::eig_sym(w, v, -0.5 * H * D * H);
+	// arma::eigs_sym(w, v, -0.5 * H * D * H, d);
+}
+
 PYBIND11_MODULE(landmark, m) {
 	m.def("maxmin", &maxmin, "finds maxmin landmarks");
+	m.def("do_parallel", [](size_t n_threads) -> py::array_t< double > {
+		/* Release GIL before calling into (potentially long-running) C++ code */
+		py::gil_scoped_release release;
+		vector< double > res = spawnThreads(n_threads);
+		py::gil_scoped_acquire acquire;
+		return(carma::col_to_arr(arma::vec(res)));
+	});
+	m.def("cmds", [](py::array_t< double >& X) -> py::tuple {
+		arma::mat v; 
+		arma::vec w; 
+		const arma::mat D = carma::arr_to_mat< double >(X);
+		cmds(D, 2, w, v);
+		return py::make_tuple(carma::col_to_arr< double >(w), carma::mat_to_arr< double >(v));
+	});
 };
 
