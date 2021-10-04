@@ -899,6 +899,13 @@ import numpy as np
 X = np.random.uniform(size=(100,2))
 
 from src.tallem.samplers import landmarks
+from src.tallem.distance import dist
 # landmarks(X, k = 15)
 
+landmarks(X, k = 15)[1]
+landmarks(dist(X, as_matrix=True), k = 15)[1]
+landmarks(dist(X, as_matrix=False), k = 15)[1]
 
+np.ravel(np.sqrt(landmarks(X, k = 15)[1]))
+np.ravel(landmarks(dist(X, as_matrix=False), k = 15)[1])
+np.ravel(landmarks(dist(X, as_matrix=True), k = 15)[1])
