@@ -20,7 +20,7 @@ from scipy.sparse import issparse, csc_matrix
 from .utility import find_where
 from .sc import delta0D
 from .distance import dist
-from .cover import CoverLike, IntervalCover, partition_of_unity
+from .cover import CoverLike, IntervalCover, partition_of_unity, validate_cover
 from .alignment import opa, align_models, global_translations
 from .samplers import uniform_sampler
 from .dimred import *
@@ -49,7 +49,10 @@ class TALLEM():
 		X := an (n x p) numpy array representing *n* points in *p* space.
 		B := an (n x q) numpy array representing the image of f : X -> B, where f is a map that cpatures the topology and non-linearity of X. 
 
-	fit_transform() -> ArrayLike:
+	fit_transform(X, B, kwargs) -> ArrayLike:
+		X := an (n x p) numpy array representing *n* points in *p* space.
+		B := an (n x q) numpy array representing the image of f : X -> B
+		kwargs := extra arguments passed to .fit(**kwargs)
 
 	transform() -> ArrayLike:
 
@@ -90,9 +93,7 @@ class TALLEM():
 		if pou is None: pou = self.pou
 		
 		## Validate cover 
-		membership = np.zeros(X.shape[0], dtype=bool)
-		for ind in self.cover.values(): membership[ind] = True
-		assert np.all(membership == True), "Supplied cover invalid: the union of the values does not contain all of B as a subset."
+		assert validate_cover(X.shape[0], self.cover), "Supplied cover invalid: the union of the values does not contain all of B as a subset."
 
 		## Map the local euclidean models (in parallel)
 		self.models = fit_local_models(self.local_map, X, self.cover)
@@ -100,19 +101,6 @@ class TALLEM():
 		## Construct a partition of unity
 		self.pou = pou if issparse(pou) else partition_of_unity(B, cover = self.cover, similarity = pou)
 		assert issparse(self.pou), "partition of unity must be a sparse matrix"
-		# 	## In this case, cover must have a set_distance(...) function!
-		# 	## This is where the coordinates of B are needed!
-		# 	 = 
-		# elif issparse(pou): 
-		# 	if pou.shape[1] != len(self.cover):
-		# 		raise ValueError("Partition of unity must have one column per element of the cover")
-		# 	for j, index in enumerate(self.cover.keys()):
-		# 		pou_nonzero = np.where(pou[:,j].todense() > 0)[0]
-		# 		is_invalid_pou = np.any(find_where(pou_nonzero, self.cover[index]) is None)
-		# 		if (is_invalid_pou):
-		# 			raise ValueError("The partition of unity must be supported on the closure of the cover elements.")
-		# else: 
-		# 	raise ValueError("Invalid partition of unity supplied. Must be either a string or a csc_matrix")
 
 		## Align the local reference frames using Procrustes
 		self.alignments = align_models(self.cover, self.models)

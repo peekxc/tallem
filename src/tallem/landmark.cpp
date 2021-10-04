@@ -5,6 +5,7 @@
 
 #include <vector>
 #include <functional>
+#include <numeric>
 #include <algorithm>
 
 using std::vector; 
@@ -169,8 +170,6 @@ py::tuple maxmin_dist(
 	return(py::make_tuple(lm, cover_radii));
 }
 
-#include <numeric>
-
 // Maxmin procedure O(n^2)
 py::tuple maxmin(const py::array_t<double>& x, const double eps, const size_t n, bool pairwise_dist){
 	if (pairwise_dist){
@@ -208,8 +207,6 @@ auto spawnThreads(int n) -> vector< double > {
 	return(output);
 }
 
-
-
 // Classical MDS 
 // D := distance matrix
 void cmds(const arma::mat& D, const size_t d, arma::vec& w, arma::mat& v){
@@ -230,11 +227,11 @@ PYBIND11_MODULE(landmark, m) {
 		py::gil_scoped_acquire acquire;
 		return(carma::col_to_arr(arma::vec(res)));
 	});
-	m.def("cmds", [](py::array_t< double >& X) -> py::tuple {
+	m.def("cmds", [](py::array_t< double >& X, const size_t d) -> py::tuple {
 		arma::mat v; 
 		arma::vec w; 
 		const arma::mat D = carma::arr_to_mat< double >(X);
-		cmds(D, 2, w, v);
+		cmds(D, d, w, v);
 		return py::make_tuple(carma::col_to_arr< double >(w), carma::mat_to_arr< double >(v));
 	});
 };

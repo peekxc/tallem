@@ -802,3 +802,35 @@ ax.scatter3D(*Y.T)
 
 
 
+
+
+
+
+
+
+
+# %% 
+from src.tallem import TALLEM
+from src.tallem.cover import IntervalCover, LandmarkCover
+from src.tallem.datasets import mobius_band
+import numpy as np
+
+## Generate mobius band + polar coordinate 
+M = mobius_band(n_polar=120, n_wide=15, scale_band = 0.25, plot=False, embed=6)
+X, B = M['points'], M['parameters'][:,[1]]
+
+## Use cyclic cover 
+m_dist = lambda x,y: np.sum(np.minimum(abs(x - y), (2*np.pi) - abs(x - y)))
+cover = IntervalCover(B, n_sets = 20, overlap = 0.40, space = [0, 2*np.pi], metric = m_dist)
+
+## Run TALLEM
+embedding = TALLEM(cover, local_map="pca2", n_components=2)
+coords = embedding.fit_transform(X=X, B=B)
+
+# %% Plot
+import matplotlib.pyplot as plt
+from src.tallem.color import bin_color, linear_gradient
+ax = plt.figure(figsize=(8,8)).add_subplot(projection='3d')
+ax.scatter3D(*coords.T, c = B)
+
+

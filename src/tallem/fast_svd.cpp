@@ -715,43 +715,43 @@ struct StiefelLoss {
 // }
 
 // diag( D ) +  RHO *  Z * Z_transpose.
-void dpr1(py::array_t< float > D, float rho, py::array_t< float > Z, int I){
-	arma::fvec d = carma::arr_to_col(D, true);
-	arma::fvec z = carma::arr_to_col(Z, true);
-	int N = D.size(), info = 0;
-	arma::fvec delta(N); // used for reconstructing eiegnvectors
-	float lambda = 0; // output eigenvalue
-	slaed4(&N, &I, d.memptr(), z.memptr(), delta.memptr(), &rho, &lambda, &info);
-	py::print("Info: ", info, "updated ev: ", lambda);
-}
+// void dpr1(py::array_t< float > D, float rho, py::array_t< float > Z, int I){
+// 	arma::fvec d = carma::arr_to_col(D, true);
+// 	arma::fvec z = carma::arr_to_col(Z, true);
+// 	int N = D.size(), info = 0;
+// 	arma::fvec delta(N); // used for reconstructing eiegnvectors
+// 	float lambda = 0; // output eigenvalue
+// 	slaed4(&N, &I, d.memptr(), z.memptr(), delta.memptr(), &rho, &lambda, &info);
+// 	py::print("Info: ", info, "updated ev: ", lambda);
+// }
 
 // slaed9(int* K, int* KSTART, int* KSTOP, int* N, float* D, float* Q, int* LDQ, float* rho, float* dlambda, float* W, float* S, int& lds, int& info); 	
-auto dpr1_ev(py::array_t< float > Q, py::array_t< float > D, float rho, py::array_t< float > Z) -> py::dict {
-	arma::fmat q = carma::arr_to_mat(Q, true); // eigenvectors
-	arma::fvec d = carma::arr_to_col(D, true); // diagonal entries / poles 
-	arma::fvec z = carma::arr_to_col(Z, true); // perturbation vector
-	int K = d.size(), N = q.n_rows, info = 0;
-	int KSTART = 1, KEND = K;
-	arma::fvec lambda(K); 
-	arma::fmat S(q.n_rows, q.n_cols);
-	slaed9(&K, &KSTART, &KEND, &N, lambda.memptr(), q.memptr(), &N, &rho, d.memptr(), z.memptr(), S.memptr(), &N, &info); 	
-	// py::print("Info: ", info);
-	py::dict output; 
-	output["info"] = info;
-	output["eval"] = carma::col_to_arr(lambda, true);
-	output["evec"] = carma::mat_to_arr(S, true);
-	return(output);
-}
+// auto dpr1_ev(py::array_t< float > Q, py::array_t< float > D, float rho, py::array_t< float > Z) -> py::dict {
+// 	arma::fmat q = carma::arr_to_mat(Q, true); // eigenvectors
+// 	arma::fvec d = carma::arr_to_col(D, true); // diagonal entries / poles 
+// 	arma::fvec z = carma::arr_to_col(Z, true); // perturbation vector
+// 	int K = d.size(), N = q.n_rows, info = 0;
+// 	int KSTART = 1, KEND = K;
+// 	arma::fvec lambda(K); 
+// 	arma::fmat S(q.n_rows, q.n_cols);
+// 	slaed9(&K, &KSTART, &KEND, &N, lambda.memptr(), q.memptr(), &N, &rho, d.memptr(), z.memptr(), S.memptr(), &N, &info); 	
+// 	// py::print("Info: ", info);
+// 	py::dict output; 
+// 	output["info"] = info;
+// 	output["eval"] = carma::col_to_arr(lambda, true);
+// 	output["evec"] = carma::mat_to_arr(S, true);
+// 	return(output);
+// }
 
 // T = Q(in) ( D(in) + RHO * Z*Z**T ) Q**T(in) = Q(out) * D(out) * Q**T(out)
 
 
 PYBIND11_MODULE(fast_svd, m) {
 	m.def("fast_svd", &fast_svd, "Yields the svd of a matrix of low dimension");
-	m.def("lapack_svd", &lapack_svd, "Yields the svd of a matrix of low dimension");
+	//m.def("lapack_svd", &lapack_svd, "Yields the svd of a matrix of low dimension");
 	//m.def("test_sparse", &test_sparse, "Test conversion to sparse matrix");
-	m.def("dpr1", &dpr1, "Diagonal + rank-1 matrix eigenvalue update");
-	m.def("dpr1_ev", &dpr1_ev, "Diagonal + rank-1 matrix eigenvalue update");
+	//m.def("dpr1", &dpr1, "Diagonal + rank-1 matrix eigenvalue update");
+	//m.def("dpr1_ev", &dpr1_ev, "Diagonal + rank-1 matrix eigenvalue update");
 	py::class_<StiefelLoss>(m, "StiefelLoss")
 		.def(py::init< int, int, int >())
 		.def_readonly("d", &StiefelLoss::d)

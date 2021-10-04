@@ -401,6 +401,12 @@ from scipy.optimize import golden
 ##  5. a set of arbitrary geometries within a metric space (user-supplied)
 
 
+def validate_cover(m, cover):
+	membership = np.zeros(m, dtype=bool)
+	for ind in cover.values(): 
+		membership[ind] = True
+	return(np.all(membership == True))
+
 
 def dist_to_balls(a: ArrayLike, B: ArrayLike, R: ArrayLike, metric: str = "euclidean"):
 	a, B = np.asanyarray(a), np.asanyarray(B)
@@ -515,3 +521,16 @@ def partition_of_unity(B: npt.ArrayLike, cover: CoverLike, similarity: Union[str
 		# else: 
 		# 	raise ValueError("Invalid partition of unity supplied. Must be either a string or a csc_matrix")
 
+		# 	## In this case, cover must have a set_distance(...) function!
+		# 	## This is where the coordinates of B are needed!
+		# 	 = 
+		# elif issparse(pou): 
+		# 	if pou.shape[1] != len(self.cover):
+		# 		raise ValueError("Partition of unity must have one column per element of the cover")
+		# 	for j, index in enumerate(self.cover.keys()):
+		# 		pou_nonzero = np.where(pou[:,j].todense() > 0)[0]
+		# 		is_invalid_pou = np.any(find_where(pou_nonzero, self.cover[index]) is None)
+		# 		if (is_invalid_pou):
+		# 			raise ValueError("The partition of unity must be supported on the closure of the cover elements.")
+		# else: 
+		# 	raise ValueError("Invalid partition of unity supplied. Must be either a string or a csc_matrix")
