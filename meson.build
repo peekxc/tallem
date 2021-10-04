@@ -1,32 +1,35 @@
 ## TALLEM needs C++17 or higher 
-project('tallem', 'cpp', default_options : ['cpp_std=c++17'])
+project('tallem', 'cpp', 'fortran',
+	version: '0.1.1',
+  default_options : ['buildtype=release', 'warning_level=3', 'cpp_std=c++17']
+)
 project_dir = meson.current_source_dir()
-message(project_dir)
 
 ## Folder variables 
 fs = import('fs')
 home_dir = fs.expanduser('~')
 
-## To remove armadillo installation warnings
-add_global_arguments('-Wnon-virtual-dtor', language : 'cpp')
-add_global_arguments('-llapack', language : 'cpp')
-add_global_arguments('-lblas', language : 'cpp')
+## Link with LAPACK
+fc = meson.get_compiler('fortran')
+lapack = dependency('lapack', cmake_module_path: 'cmake_modules', required: false)
+if not lapack.found()
+  lapack_proj = subproject('lapack')
+  lapack = lapack_proj.get_variable('lapack')
+endif
 
-## Find Python 3.9.1 or higher + PyBind11
+## Find Python 3.8+ for Protocol classes
 py = import('python')
 py_mod = py.find_installation('python3')
-py_dep = py_mod.dependency(version : '>=3.9.1', components: ['Interpreter', 'Development', 'NumPy'])
+py_dep = py_mod.dependency(version : '>=3.8.0', components: ['Interpreter', 'Development', 'NumPy'])
 py_b11 = dependency('pybind11')
 
 ## Need numpy includes explicitly
 numpy_include_dir = py_mod.get_path('purelib') / 'numpy' / 'core' / 'include'
 message('Using NumPy includes from: ' + numpy_include_dir)
 
-## Find LAPACK/BLAS via FindLAPACK and FindBLAS cmake modules 
-lapack = dependency('lapack', required: true, method: 'cmake')
-blas = dependency('blas', required: true, method: 'cmake')
-
 ## Find armadillo
+add_global_arguments('-Wno-non-virtual-dtor', language : 'cpp') # to remove installation warnings
+# add_global_arguments('-Wdelete-non-virtual-dtor', language : 'cpp') 
 arma = dependency('armadillo', version : '>=10.5.2', required : true)
 
 ## Attempt to find CARMA intelligently
@@ -36,7 +39,7 @@ carma_dirs = [
 	'usr' / 'local' / 'carma' / 'include',
 	project_dir / 'carma' / 'include',
 	home_dir / 'carma' / 'include',
-		'usr' / 'local' / 'include'
+	'usr' / 'local' / 'include'
 ]
 carma_inc = '.'
 foreach carma_path : carma_dirs
@@ -45,7 +48,7 @@ foreach carma_path : carma_dirs
 		break
 	endif
 endforeach
-message(carma_inc)
+message('Using CARMA link target from: ' + carma_inc)
 
 ## If not found, try searching all the system libraries for it, otherwise as a last resort
 ## attempt a subproject build  
@@ -59,7 +62,7 @@ numpy_include = include_directories(numpy_include_dir)
 ## Target(s)
 py_mod.extension_module('fast_svd',
 	sources : 'src/tallem/fast_svd.cpp', 
-	dependencies : [py_dep, py_b11, arma, blas], 
+	dependencies : [py_dep, py_b11, arma, lapack], 
 	include_directories : [numpy_include, carma_inc],
 	install : true, 
 	install_dir : project_dir / 'src' / 'tallem'
@@ -67,7 +70,7 @@ py_mod.extension_module('fast_svd',
 
 py_mod.extension_module('landmark', 
 	sources : 'src/tallem/landmark.cpp', 
-	dependencies : [py_dep, py_b11, arma], 
+	dependencies : [py_dep, py_b11, arma, lapack], 
 	include_directories : [numpy_include, carma_inc], 
 	install : true, 
 	install_dir : project_dir / 'src' / 'tallem'
