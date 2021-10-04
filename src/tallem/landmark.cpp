@@ -126,7 +126,7 @@ py::tuple maxmin_pc(
 	vector< double > cover_radii{ std::numeric_limits<double>::infinity() };
 
   // Choose the initial landmark
-  vector< size_t > lm { 0 };
+  vector< size_t > lm { seed };
   lm.reserve(n != 0 ? n : size_t(n_pts*0.15));
 
   // Choose the distance function
@@ -162,7 +162,7 @@ py::tuple maxmin_dist(
 	vector< double > cover_radii{ std::numeric_limits<double>::infinity() };
 
   // Choose the initial landmark
-  vector< size_t > lm { 0 };
+  vector< size_t > lm { seed };
   lm.reserve(n != 0 ? n : size_t(n_pts*0.15));
 
   // Call the generalized procedure
@@ -171,7 +171,11 @@ py::tuple maxmin_dist(
 }
 
 // Maxmin procedure O(n^2)
-py::tuple maxmin(const py::array_t<double>& x, const double eps, const size_t n, bool pairwise_dist){
+// x := pairwise distances (not a distance matrix!) if pairwise = True, else (d x n) matrix representing a point cloud 
+// eps := radius to cover 'x' with, otherwise -1.0 to use 'n'
+// n := number of landmarks requested
+// pairwise_dist := whether input is a set of pairwise distances or a point cloud
+py::tuple maxmin(const py::array_t<double>& x, const double eps, const size_t n, bool pairwise_dist, int seed){
 	if (pairwise_dist){
 		const arma::vec dx = carma::arr_to_col< double >(x);
 		const size_t N = dx.size();
@@ -182,10 +186,10 @@ py::tuple maxmin(const py::array_t<double>& x, const double eps, const size_t n,
 		for (; n_pts <= size_t(std::ceil(lb+2)); ++n_pts){
 			if (N == ((n_pts * (n_pts - 1))/2)){ break; }
 		}
-		return(maxmin_dist(dx, n_pts, eps, n, 0, 0));
+		return(maxmin_dist(dx, n_pts, eps, n, seed, 0));
 	} else {
 		const arma::mat X = carma::arr_to_mat< double >(x);
-		return(maxmin_pc(X, eps, n, 1, 0, 0));
+		return(maxmin_pc(X, eps, n, 1, seed, 0));
 	}
 }
 

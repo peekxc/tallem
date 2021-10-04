@@ -834,3 +834,71 @@ ax = plt.figure(figsize=(8,8)).add_subplot(projection='3d')
 ax.scatter3D(*coords.T, c = B)
 
 
+
+# %% Neighborhood graph benchmarks
+import numpy as np
+from src.tallem.dimred import neighborhood_list, neighborhood_graph
+from sklearn.neighbors import kneighbors_graph
+import matplotlib.pyplot as plt
+
+X = np.random.uniform(size=(25, 2))
+
+np.all(G1.A == G2.A)
+G2.A[0,:]
+
+# %% 
+%%time 
+G1 = neighborhood_graph(X, k = 16)
+
+
+
+#%% 
+%%time
+G2 = kneighbors_graph(X, n_neighbors=15, mode="distance")
+
+
+np.max(np.abs(G1.A - G2.A))
+dist(X, as_matrix=True)[0,1]
+np.all(G1.A == G2.A)
+np.max(np.abs(G1.A[0,:] - G2.A[0,:]))
+
+# %% 
+%%time 
+index = NNDescent(X, n_neighbors=15, compressed=False)
+index.prepare()
+G = index.neighbor_graph
+
+
+
+#%% 
+from fastdist import fastdist
+from src.tallem.distance import dist
+
+# %% 
+%%time
+wut = fastdist.matrix_pairwise_distance(X, fastdist.euclidean, "euclidean", return_matrix=False)
+
+# %% 
+%%time
+wut = dist(X)
+
+# from pynndescent import NNDescent, PyNNDescentTransformer
+
+# import numpy as np
+
+# X = np.random.uniform(size=(1000,10))
+
+# transformer = PyNNDescentTransformer(n_neighbors=10)
+# transformer.prepare()
+
+# Check if package exists: 
+# import importlib
+# spam_spec = importlib.util.find_spec("spam") is not None
+
+import numpy as np
+X = np.random.uniform(size=(100,2))
+
+from src.tallem.samplers import landmarks
+# landmarks(X, k = 15)
+
+

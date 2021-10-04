@@ -65,3 +65,26 @@ def cartesian_product(arrays):
 			arr[..., i] = a
 	return arr.reshape(-1, la)
 
+import math
+def inverse_choose(x: int, k: int):
+	assert k >= 1, "k must be >= 1" 
+	if k == 1: return(x)
+	if k == 2:
+		rng = np.array(list(range(int(np.floor(np.sqrt(2*x))), int(np.ceil(np.sqrt(2*x)+2) + 1))))
+		final_n = rng[np.nonzero(np.array([math.comb(n, 2) for n in rng]) == x)[0].item()]
+	else:
+		# From: https://math.stackexchange.com/questions/103377/how-to-reverse-the-n-choose-k-formula
+		if x < 10**7:
+			lb = (math.factorial(k)*x)**(1/k)
+			potential_n = np.array(list(range(int(np.floor(lb)), int(np.ceil(lb+k)+1))))
+			idx = np.nonzero(np.array([math.comb(n, k) for n in potential_n]) == x)[0].item()
+			final_n = potential_n[idx]
+		else:
+			lb = np.floor((4**k)/(2*k + 1))
+			C, n = math.factorial(k)*x, 1
+			while n**k < C: n = n*2
+			m = (np.nonzero( np.array(list(range(1, n+1)))**k >= C )[0])[0].item()
+			potential_n = np.array(list(range(int(np.max([m, 2*k])), int(m+k+1))))
+			ind = np.nonzero(np.array([math.comb(n, k) for n in potential_n]) == x)[0].item()
+			final_n = potential_n[ind]
+	return(final_n)

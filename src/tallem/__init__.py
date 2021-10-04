@@ -16,7 +16,11 @@ from scipy.sparse import issparse, csc_matrix
 # 	'function_2'
 # ]
 
-## tallem-specific relative imports
+## Ensure the py modules are exposed on initialization!
+from . import fast_svd
+from . import landmark
+
+## Relative imports ( tallem-specific )
 from .utility import find_where
 from .sc import delta0D
 from .distance import dist

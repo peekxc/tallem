@@ -7,6 +7,7 @@ from .sc import delta0D
 from .cover import CoverLike
 
 # %% Alignment definitions
+# This was taken from: https://gitlab.msu.edu/mikejosh/tallm/-/tree/master/PyTALLEM
 def global_translations(cover: CoverLike, alignments: Dict):
 	## Get optimal translation vectors 
 	index_pairs = list(alignments.keys())

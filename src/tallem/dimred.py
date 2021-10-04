@@ -235,7 +235,7 @@ def nmds(a: npt.ArrayLike, d: int = 2, **kwargs):
 # 		result[index] = f(X[np.array(subset),:])
 # 	return(result)
 
-def fit_local_models(f, X, cover, n_cores=os.cpu_count()):
+def fit_local_models(f, X, cover, n_cores=1): #os.cpu_count()
 	if n_cores == 1:
 		models = { index : f(X[np.array(subset),:]) for index, subset in cover.items() }
 	else:

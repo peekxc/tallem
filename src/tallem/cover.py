@@ -13,7 +13,7 @@ from scipy.sparse.csgraph import minimum_spanning_tree,connected_components
 from .distance import dist 
 from .utility import find_where, cartesian_product
 from .dimred import neighborhood_graph, neighborhood_list
-from .samplers import landmarks, landmarks_dist
+from .samplers import landmarks
 
 ## Type tools 
 from typing import *
@@ -182,40 +182,33 @@ class BallCover(Cover):
 		dx = dist(a, self.centers[[index], :], metric=self.metric)
 		return(dx / self.radius(index))
 
-## This is just a specialized ball cover
+## This is just a specialized ball cover w/ a fixed radius
 class LandmarkCover(BallCover):
-	def __init__(self, space: npt.ArrayLike, k: int, metric = "euclidean", **kwargs): # TODO: allow distance matrix
+	def __init__(self, space: npt.ArrayLike, k: int, metric = "euclidean", **kwargs): 
 		''' 
 		k := the number of landmark points to use
-		space := the space the balls are meant to cover. Must be an (n x d) matrix representing a point set in R^d.
+		space := the space the balls are meant to cover. Either be an (n x d) matrix representing a point set in R^d, a set of pairwise distances, or a distance matrix.
 		metric := string or Callable indicating the type of metric distance to use in defining the landmarks. 
 		... := additional keyword arguments are passed to the landmarks(...) function. 
 		'''
 		assert k >= 2, "Number of landmarks must be at least 2."
+		L = landmarks(space, k, **kwargs)
 		space = np.asanyarray(space)
+		r, centers = np.min(L['radii']), space[np.array(L['indices']),:]
 		self.dimension = space.shape[1]
 		self.k = k
-		L = landmarks_dist(space, k, **kwargs)
-		r, centers = np.min(L['radii']), space[np.array(L['indices']),:]
 		super().__init__(centers, r, metric)
-	
-	# landmarks(space, 12, metric=lambda x,y: np.linalg.norm(x-y))
-	## What is the purpose of construct(...) for all covers?
-	def construct(self, a: npt.ArrayLike):
-		super().construct(a)
-		return(self)
+		super().construct(a) ## Postcondition: the cover must be constructed!
 
-## maybe: identify = [i_0, ..., i_d] where i_k \in [-1, 0, +1], where -1 indicates reverse orientation, 0 no identification, and +1 regular orientation
 class IntervalCover(Cover):
 	'''
-	A Cover *is* an iterable
+	A Cover is *CoverLike*
 	Cover -> divides data into subsets, satisfying covering property, retains underlying neighbor structures + metric (if any) 
-	parameters: 
+	Parameters: 
 		space := the type of space to construct a cover on. Can be a point set, a set of intervals (per column) indicating the domain of the cover, 
 						 or a string indicating a common configuration space. 
 		n_sets := number of cover elements to use to create the cover 
 		overlap := proportion of overlap between adjacent sets per dimension, as a number in [0,1). It is recommended, but not required, to keep this parameter below 0.5. 
-		gluing := optional, whether to identify the sides of the cover as aligned in the same direction (1), in inverted directions (-1), or no identification (0) (default). 
 		implicit := optional, whether to store all the subsets in a precomputed dictionary, or construct them on-demand. Defaults to the former.
 	'''
 	def __init__(self, a: ArrayLike, n_sets: List[int], overlap: List[float], metric: str = "euclidean", implicit: bool = False, space: Optional[Union[npt.ArrayLike, str]] = None, **kwargs):
