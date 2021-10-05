@@ -33,6 +33,34 @@ m_dist = lambda x,y: np.minimum(abs(x - y), (2*np.pi) - abs(x - y))
 cover = IntervalCover(B, n_sets = 10, overlap = 0.20, space = [0, 2*np.pi], metric = m_dist)
 embedding = TALLEM(cover, local_map="pca2", n_components=3).fit_transform(X, B)
 
+## Plot 
+import matplotlib.pyplot as plt
+fig = plt.figure()
+ax = fig.add_subplot(projection='3d')
+ax.scatter3D(*embedding.T, c=B)
+
+# %% Landmark cover 
+## Run TALLEM on landmark cover
+from src.tallem.distance import dist
+from scipy.sparse import csc_matrix
+cover = LandmarkCover(dist(B, metric=m_dist), k=15, scale=1.5)
+
+## Need to compute POU ourselves
+Q = cover._neighbors.tocoo()
+Q.data = 1.0 - (Q.data/cover.cover_radius) ## apply triangular pou
+Q = Q / np.sum(Q, axis = 1)
+P = csc_matrix(Q)
+
+## Note: must pass in a PoU! 
+embedding = TALLEM(cover, local_map="cmds2", n_components=3, pou=P).fit_transform(X, B)
+
+## Plot 
+import matplotlib.pyplot as plt
+fig = plt.figure()
+ax = fig.add_subplot(projection='3d')
+ax.view_init(52.0, 75.5)
+ax.scatter3D(*embedding.T, c=B)
+
 # %% Multivariate normal code + code to generate a pixel
 ### TODO: simplify these with just numpy functions to use autograd with them!
 def mvn_density(locations, mu, Sigma):

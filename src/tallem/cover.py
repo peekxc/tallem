@@ -184,7 +184,7 @@ class BallCover(Cover):
 
 ## This is just a specialized ball cover w/ a fixed radius
 class LandmarkCover(BallCover):
-	def __init__(self, space: npt.ArrayLike, k: int, metric = "euclidean", **kwargs): 
+	def __init__(self, space: npt.ArrayLike, k: int, scale: float = 1.0, metric = "euclidean", **kwargs): 
 		''' 
 		k := the number of landmark points to use
 		space := the space the balls are meant to cover. Either be an (n x d) matrix representing a point set in R^d, a set of pairwise distances, or a distance matrix.
@@ -192,8 +192,9 @@ class LandmarkCover(BallCover):
 		... := additional keyword arguments are passed to the landmarks(...) function. 
 		'''
 		assert k >= 2, "Number of landmarks must be at least 2."
+		assert scale >= 1.0, "Scale must be >= 1"
 		L, R  = landmarks(space, k, metric=metric, **kwargs)
-		self.cover_radius = np.min(R)
+		self.cover_radius = np.min(R)*scale
 		self.landmarks = L
 
 		## construct self._neighbors = neighborhood_list(centers=self.centers, a=a, radius=self.radii, metric=self.metric).tocsc()
@@ -201,12 +202,17 @@ class LandmarkCover(BallCover):
 			n, J = inverse_choose(len(space), 2), len(L)
 			x, ri, ci = [], [], []
 			for i in range(n):
-				for j, index in enumerate(L):
-					d_ij = space[rank_comb2(i,index,n)]
-					if d_ij <= self.cover_radius:
-						x.append(d_ij)
+				for j, index in enumerate(self.landmarks):
+					if i == index:
+						x.append(10*np.finfo(float).eps)
 						ri.append(i)
 						ci.append(j)
+					else:
+						d_ij = space[rank_comb2(i,index,n)]
+						if d_ij <= self.cover_radius:
+							x.append(d_ij)
+							ri.append(i)
+							ci.append(j)
 			self._neighbors = csc_matrix((x, (ri,ci)), shape=(n, J))
 		elif is_distance_matrix(space):
 			D = space[np.triu_indices(space.shape[0], 1)]
@@ -214,11 +220,16 @@ class LandmarkCover(BallCover):
 			x, ri, ci = [], [], []
 			for i in range(n):
 				for j, index in enumerate(self.landmarks):
-					d_ij = D[rank_comb2(i,index,n)]
-					if d_ij <= self.cover_radius:
-						x.append(d_ij)
+					if i == index:
+						x.append(10*np.finfo(float).eps)
 						ri.append(i)
 						ci.append(j)
+					else:
+						d_ij = D[rank_comb2(i,index,n)]
+						if d_ij <= self.cover_radius:
+							x.append(d_ij)
+							ri.append(i)
+							ci.append(j)
 			self._neighbors = csc_matrix((x, (ri,ci)), shape=(n, J))
 		elif is_point_cloud(space):
 			space = np.asanyarray(space)
