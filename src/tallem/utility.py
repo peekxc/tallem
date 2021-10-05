@@ -88,3 +88,16 @@ def inverse_choose(x: int, k: int):
 			ind = np.nonzero(np.array([math.comb(n, k) for n in potential_n]) == x)[0].item()
 			final_n = potential_n[ind]
 	return(final_n)
+
+# from itertools import combinations
+# x = np.array([rank_comb2(i,j,10) for i,j in combinations(range(10), 2)])
+# np.c_[[unrank_comb2(xi, 10) for xi in x]]
+
+def rank_comb2(i, j, n):
+	i, j = (j, i) if j < i else (i, j)
+	return(int(n*i - i*(i+1)/2 + j - i - 1))
+
+def unrank_comb2(x, n):
+	i = (n - 2 - np.floor(np.sqrt(-8*x + 4*n*(n-1)-7)/2.0 - 0.5))
+	j = x + i + 1 - n*(n-1)/2 + (n-i)*((n-i)-1)/2
+	return(int(i), int(j))

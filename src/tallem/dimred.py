@@ -127,7 +127,7 @@ def neighborhood_graph(a: npt.ArrayLike, k: Optional[int] = 15, radius: Optional
 	# D = csc_matrix((d, (r, c)), dtype=np.float32, shape=(n,n))
 	return(D)
 
-
+## Note: neighborhood list doesn't work with distance matrices!
 def neighborhood_list(centers: npt.ArrayLike, a: npt.ArrayLike, k: Optional[int] = 15, radius: Optional[float] = None, metric = "euclidean", **kwargs):
 	''' 
 	Computes the neighborhood adjacency list of a point cloud 'centers' using points in 'a'. 

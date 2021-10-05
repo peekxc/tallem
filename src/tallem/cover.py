@@ -10,8 +10,8 @@ from numpy.typing import ArrayLike
 from sklearn.neighbors import BallTree
 from scipy.sparse import csc_matrix, diags
 from scipy.sparse.csgraph import minimum_spanning_tree,connected_components 
-from .distance import dist 
-from .utility import find_where, cartesian_product
+from .distance import dist, is_distance_matrix, is_pairwise_distances, is_point_cloud
+from .utility import find_where, cartesian_product, inverse_choose, rank_comb2, unrank_comb2
 from .dimred import neighborhood_graph, neighborhood_list
 from .samplers import landmarks
 
@@ -192,13 +192,46 @@ class LandmarkCover(BallCover):
 		... := additional keyword arguments are passed to the landmarks(...) function. 
 		'''
 		assert k >= 2, "Number of landmarks must be at least 2."
-		L = landmarks(space, k, **kwargs)
-		space = np.asanyarray(space)
-		r, centers = np.min(L['radii']), space[np.array(L['indices']),:]
-		self.dimension = space.shape[1]
-		self.k = k
-		super().__init__(centers, r, metric)
-		super().construct(a) ## Postcondition: the cover must be constructed!
+		L, R  = landmarks(space, k, metric=metric, **kwargs)
+		self.cover_radius = np.min(R)
+		self.landmarks = L
+
+		## construct self._neighbors = neighborhood_list(centers=self.centers, a=a, radius=self.radii, metric=self.metric).tocsc()
+		if is_pairwise_distances(space):
+			n, J = inverse_choose(len(space), 2), len(L)
+			x, ri, ci = [], [], []
+			for i in range(n):
+				for j, index in enumerate(L):
+					d_ij = space[rank_comb2(i,index,n)]
+					if d_ij <= self.cover_radius:
+						x.append(d_ij)
+						ri.append(i)
+						ci.append(j)
+			self._neighbors = csc_matrix((x, (ri,ci)), shape=(n, J))
+		elif is_distance_matrix(space):
+			D = space[np.triu_indices(space.shape[0], 1)]
+			n, J = inverse_choose(len(D), 2), len(self.landmarks)
+			x, ri, ci = [], [], []
+			for i in range(n):
+				for j, index in enumerate(self.landmarks):
+					d_ij = D[rank_comb2(i,index,n)]
+					if d_ij <= self.cover_radius:
+						x.append(d_ij)
+						ri.append(i)
+						ci.append(j)
+			self._neighbors = csc_matrix((x, (ri,ci)), shape=(n, J))
+		elif is_point_cloud(space):
+			space = np.asanyarray(space)
+			centers = space[np.array(self.landmarks),:]
+			self.dimension, self.k = space.shape[1], k
+			super().__init__(centers, self.cover_radius, metric)
+			super().construct(space) ## Postcondition: the cover must be constructed!
+		else: 
+			raise ValueError("Unknown input to 'space' supplied; expecting a point cloud matrix, distance matrix, or set of pairwise distances")
+		## Minimally, one must implement keys(), __getitem__(), and set_distance()
+		
+	def __len__(self) -> int:
+		return(len(self.landmarks))
 
 class IntervalCover(Cover):
 	'''

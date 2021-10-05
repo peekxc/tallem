@@ -1,24 +1,29 @@
 # %% Distance imports
 import numpy as np
 import numpy.typing as npt 
+from numpy.typing import ArrayLike
 from typing import Callable, Optional, Union
 from scipy.spatial.distance import pdist, cdist
 from scipy.sparse import issparse
 from .utility import inverse_choose
 
 # %% Distance definitions
-def is_distance_matrix(x: npt.ArrayLike) -> bool:
+def is_distance_matrix(x: ArrayLike) -> bool:
 	''' Checks whether 'x' is a distance matrix, i.e. is square, symmetric, and that the diagonal is all 0. '''
 	x = np.array(x, copy=False)
 	is_square = x.ndim == 2	and (x.shape[0] == x.shape[1])
 	return(False if not(is_square) else np.all(np.diag(x) == 0))
 
-def is_pairwise_distances(x: npt.ArrayLike) -> bool:
+def is_pairwise_distances(x: ArrayLike) -> bool:
 	''' Checks whether 'x' is a 1-d array of pairwise distances '''
 	x = np.array(x, copy=False) # don't use asanyarray here
 	if x.ndim > 1: return(False)
 	n = inverse_choose(len(x), 2)
 	return(x.ndim == 1 and n == int(n))
+
+def is_point_cloud(x: ArrayLike) -> bool: 
+	''' Checks whether 'x' is a 2-d array of points '''
+	return(isinstance(x, np.ndarray) and x.ndim == 2)
 
 def dist(x: npt.ArrayLike, y: Optional[npt.ArrayLike] = None, pairwise = False, as_matrix = False, metric : Union[str, Callable] = 'euclidean', **kwargs):
 	''' 

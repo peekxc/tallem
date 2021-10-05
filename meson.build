@@ -60,12 +60,15 @@ endif
 numpy_include = include_directories(numpy_include_dir)
 
 ## Target(s)
+add_global_arguments(['-llapack', '-lblas'], language : 'cpp')
+
 py_mod.extension_module('fast_svd',
 	sources : 'src/tallem/fast_svd.cpp', 
 	dependencies : [py_dep, py_b11, arma, lapack], 
 	include_directories : [numpy_include, carma_inc],
 	install : true, 
-	install_dir : project_dir / 'src' / 'tallem'
+	install_dir : project_dir / 'src' / 'tallem',
+	link_args : '-llapack'
 )
 
 py_mod.extension_module('landmark', 
