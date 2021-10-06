@@ -17,39 +17,98 @@ def flywing():
 
 ## need closure to encase denom + sigma
 import autograd.numpy as auto_np
-def gaussian_pixel2(d, n_pixels):
-	from scipy.stats import norm
-	sigma = d/3.0
-	Sigma = auto_np.diag([sigma, sigma])
-	sigma_inv = auto_np.linalg.inv(Sigma)[0,0]
-	denom = np.sqrt(((2*np.pi)**2) * auto_np.linalg.det(Sigma))
-	normal_constant = norm.pdf(0, loc=0, scale=sigma)
-	def blob(mu): # generates blob at location mu 
-		# mu = mu.reshape((2, 1))
-		# np.exp(-0.5 * ((x - mu).T @ SigmaI @ (x - mu))).flatten()
-		#x, y = auto_np.meshgrid(auto_np.arange(n_pixels), auto_np.arange(n_pixels))
-		loc = auto_np.linspace(0, 1, n_pixels, False) + (1/(2*n_pixels))
+
+def gaussian_blob(n_pixels: int, r: float):
+	'''
+	Generates a closure which, given a 2D location *mu=(x,y)*, generates a white blob 
+	with [normalized] radius 0 < r <= 1 in a (n_pixels x n_pixels) image. 
+
+	If *mu* is in [0,1] x [0,1], the center of the white blob should be visible
+	If *mu* has as both of its coordinates outside of [0,1]x[0,1], the blob may be partially visible
+	If *mu* has both of its coordinates outside of [-r, 1+r]x[-r, 1+r], then image should be essentially black
+
+	The returned closure completely autograd's numpy wrapper to do the image generation. Thus, the resulting 
+	function can be differentiated (w.r.t *mu*) using the reverse-mode differentiation process that *autograd* provides.
+
+	This function also returns the global normalizing constant needed normalize the pixel intensities in [0,1],
+	for plotting or other purposes.
+
+	Return: (blob, c) where
+	 - blob := differentiable closure which, given a vector (x,y), generates the blob image a flat vector.
+	 - c := maximum value of the intensity of any given pixel for any choice of *mu*.
+	'''
+	sd = r/3.090232
+	sigma = sd**2
+	sigma_inv = 1.0/sigma
+	denom = np.sqrt(((2*auto_np.pi)**2) * (sigma**2))
+	def blob(mu): # mu can be anywhere; center of image is [0.5, 0.5]
+		loc = auto_np.linspace(0, 1, n_pixels, False) + 1/(2*n_pixels)
 		x,y = auto_np.meshgrid(loc, loc)
 		grid = auto_np.exp(-0.5*(sigma_inv * ((x-mu[0])**2 + (y-mu[1])**2)))/denom
-		#grid = auto_np.exp(-0.5*((x - mu[0])**2 + (y - mu[1])**2))/denom
-		#return(auto_np.ravel(grid).flatten())
-		return(grid/normal_constant)
-	return(blob)
+		return(auto_np.ravel(grid).flatten())
+	return(blob, auto_np.exp(0)/denom)
+
+# def _gaussian_pixel(d, n_pixels):
+# 	from scipy.stats import norm
+# 	sigma = d/3.0
+# 	Sigma = auto_np.diag([sigma, sigma])
+# 	sigma_inv = auto_np.linalg.inv(Sigma)[0,0]
+# 	denom = np.sqrt(((2*np.pi)**2) * auto_np.linalg.det(Sigma))
+# 	normal_constant = norm.pdf(0, loc=0, scale=sigma)
+# 	def blob(mu): # generates blob at location mu 
+# 		# mu = mu.reshape((2, 1))
+# 		# np.exp(-0.5 * ((x - mu).T @ SigmaI @ (x - mu))).flatten()
+# 		#x, y = auto_np.meshgrid(auto_np.arange(n_pixels), auto_np.arange(n_pixels))
+# 		loc = auto_np.linspace(0, 1, n_pixels, False) + (1/(2*n_pixels))
+# 		x,y = auto_np.meshgrid(loc, loc)
+# 		grid = auto_np.exp(-0.5*(sigma_inv * ((x-mu[0])**2 + (y-mu[1])**2)))/denom
+# 		#grid = auto_np.exp(-0.5*((x - mu[0])**2 + (y - mu[1])**2))/denom
+# 		#return(auto_np.ravel(grid).flatten())
+# 		return(grid/normal_constant)
+# 	return(blob)
 # plot_image(gaussian_pixel2(1/32, 11)([-0.5, 0.5]))
 
 
-def white_blob(d: float, n_pixel: int, n: Optional[int], mu: Optional[ArrayLike]):
+def white_dot(n_pixels: int, r: float, n: Optional[int], method: Optional[str] = "grid", mu: Optional[ArrayLike] = None):
 	''' 
-	Generates a grayscale image data set where white blobs are placed on a (n_pixel x n_pixel) grid
+	Generates a grayscale image data set where white blobs are placed on a (n_pixels x n_pixels) grid
 	using a multivariate normal density whose standard deviation sigma (in both directions) is sigma=d/3.
 	If 'n' is specified, then 'n' samples are generated from a larger space s([-d, 1+d]^2) where s(*)
-	denotes the scaling of the interval [-d,1+d] by 'n_pixel'. 
+	denotes the scaling of the interval [-d,1+d] by 'n_pixels'. 
 	'''
-	assert d > 0 and d <= 0.5, "d must be in the range 0 < d <= 0.5"
-	sigma = d/3 # because 3*sigma \approx 99% of normal distribution 
-	X, Y = np.random.uniform(low=-d,high=1+d,size=n), np.random.uniform(low=-d,high=1+d,size=n)
-	[gaussian_pixel2(auto_np.array([x,y])) for x,y in zip(X, Y)]
+	assert r > 0 and r <= 1.0, "r must be in the range 0 < r <= 1.0"
 
+	## First generate the closure to make the images
+	blob, c = gaussian_blob(n_pixels, r)
+
+	if not(mu is None):
+		output = np.vstack([blob(auto_np.array([x,y])) for x,y in mu])
+	elif method == "random":
+		## Generate uniformly random locations (in domain)
+		assert n is not None, "'n' must be supplied if 'mu' is not."
+		X, Y = np.random.uniform(low=-r,high=1+r,size=n), np.random.uniform(low=-d,high=1+d,size=n)
+		output = np.vstack([blob(auto_np.array([x,y])) for x,y in zip(X, Y)])
+		params = np.c_[X, Y]
+	elif method == "grid":
+		assert n is not None, "'n' must be supplied if 'mu' is not."
+		n1, n2 = (n, n) if isinstance(n, int) else (n[0], n[1])
+		samples, params = [], []
+		for x in np.linspace(0.0-r,1.0+r,n1):
+			for y in np.linspace(0.0-r,1.0+r,n1):
+				samples.append(blob(auto_np.array([x, y])))
+				params.append([x, y, 1.0])
+		
+		## Generate the pole
+		NP = blob(auto_np.array([0.5, 0.5]))
+		for t in np.linspace(0, 1, n2):
+			samples.append(t*NP)
+			params.append([0.5, 0.5, 1-t])
+
+		## Vertically stack 
+		samples, params = np.vstack(samples), np.vstack(params)
+
+	## Return the data 
+	return(samples, params, blob, c)
 
 def mobius_band(n_polar=66, n_wide=9, scale_band=0.25, embed=3, plot=False):
 
