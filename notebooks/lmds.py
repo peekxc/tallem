@@ -10,26 +10,27 @@ sys.path.append(os.path.normpath(os.path.expanduser("~/tallem/src/tallem")))
 import numpy as np
 n = 15
 grid_x, grid_y = np.meshgrid(range(n), range(n))
-X = np.c_[grid_x.flatten(), grid_y.flatten()]
+X = np.array(np.c_[grid_x.flatten(), grid_y.flatten()], dtype=float)
+
+X += np.random.uniform(size=X.shape, low=-0.05*n, high=0.05*n)
 
 from src.tallem.distance import dist, subset_dist
 from src.tallem.dimred import landmark_mds, cmds
 from src.tallem.samplers import landmarks
 from sklearn.manifold import MDS
 
-
-
 import matplotlib.pyplot as plt 
+plt.scatter(*X.T)
 plt.scatter(*cmds(X).T)
 plt.scatter(*cmds(dist(X, as_matrix=True)**2).T)
 plt.scatter(*MDS(n_components=2, metric=True).fit_transform(X).T)
 
-
-
-#%% 
 ind, radii = landmarks(X, 3)
 Z = landmark_mds(dist(X, as_matrix=True)**2, ind, d = 2, normalize=False)
 plt.scatter(*Z.T)
+
+#%% 
+
 
 # X[ind,:] == subset_dist(X, ind) 
 # dist(subset_dist(X, ind)) == subset_dist(dist(X), ind)
