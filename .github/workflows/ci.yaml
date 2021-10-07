@@ -14,6 +14,11 @@ jobs:
     steps:
       - name: Checkout source
         uses: actions/checkout@v2
+    
+      - name: Install gfortran, LAPACK, and LAPACKE 
+        run: |
+          sudo apt update -yq
+          sudo apt install -yq --no-install-recommends ninja-build gfortran liblapack-dev liblapacke-dev
 
       - name: Setup python 
         uses: actions/setup-python@v2
@@ -52,7 +57,10 @@ jobs:
       #   uses: actions/cache@v2.1.6
 
       - name: Build extension modules 
-        run: meson build
+        run: |
+          meson setup build
+          meson compile -vC build
+          meson install -C build
 
       - name: Build package 
         run: python -m build --wheel --outdir .

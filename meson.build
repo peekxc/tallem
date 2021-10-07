@@ -7,7 +7,6 @@ project_dir = meson.current_source_dir()
 
 add_global_arguments('-Wno-non-virtual-dtor', language : 'cpp') # to remove installation warnings
 add_project_arguments('-DCARMA_DONT_REQUIRE_F_CONTIGUOUS=OFF', language : 'cpp')
-add_global_arguments(['-llapack', '-lblas'], language : 'cpp')
 
 ## Folder variables 
 fs = import('fs')
@@ -17,9 +16,16 @@ home_dir = fs.expanduser('~')
 fc = meson.get_compiler('fortran')
 lapack = dependency('lapack', cmake_module_path: 'cmake_modules', required: false)
 if not lapack.found()
+	message('LAPACK not found. Attempting to build from subproject.')
   lapack_proj = subproject('lapack')
   lapack = lapack_proj.get_variable('lapack')
 endif
+ 
+## Query the variables to see what we're working with
+lapack_lib = lapack.get_variable(cmake: 'LAPACK_LIBRARIES')
+lapack_linker_flags = lapack.get_variable(cmake: 'LAPACK_LINKER_FLAGS', default_value : ['-llapack', '-lblas'])
+message('LAPACK libraries found: ', lapack_lib)
+message('LAPACK linker flags: ', lapack_linker_flags)
 
 ## Find Python 3.8+ for Protocol classes
 py = import('python')
@@ -39,7 +45,7 @@ if not arma.found()
 	arma = arma_proj.dependency('armadillo')
 endif
 
-## Attempt to find CARMA intelligently in the system library locations...
+## Attempt to find CARMA intelligently in the probable system library locations...
 carma_dirs = [ 
 	'/usr' / 'local' / 'include' / 'carma',
 	'/usr' / 'local' / 'carma' / 'include',
@@ -72,14 +78,14 @@ py_mod.extension_module('fast_svd',
 	dependencies : [py_dep, py_b11, arma, lapack], 
 	include_directories : [numpy_include, carma_inc],
 	install : true, 
-	install_dir : 'src' / 'tallem',
-	link_args : '-llapack'
+	install_dir : project_dir / 'src' / 'tallem',
+	link_args : lapack_linker_flags
 )
 
 py_mod.extension_module('landmark', 
-	sources : 'src' / 'tallem' / 'landmark.cpp', 
+	sources :  'src' / 'tallem' / 'landmark.cpp', 
 	dependencies : [py_dep, py_b11, arma, lapack], 
 	include_directories : [numpy_include, carma_inc], 
 	install : true, 
-	install_dir : 'src' / 'tallem'
+	install_dir : project_dir / 'src' / 'tallem'
 )
