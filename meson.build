@@ -5,6 +5,10 @@ project('tallem', 'cpp', 'fortran',
 )
 project_dir = meson.current_source_dir()
 
+add_global_arguments('-Wno-non-virtual-dtor', language : 'cpp') # to remove installation warnings
+add_project_arguments('-DCARMA_DONT_REQUIRE_F_CONTIGUOUS=OFF', language : 'cpp')
+add_global_arguments(['-llapack', '-lblas'], language : 'cpp')
+
 ## Folder variables 
 fs = import('fs')
 home_dir = fs.expanduser('~')
@@ -27,13 +31,15 @@ py_b11 = dependency('pybind11')
 numpy_include_dir = py_mod.get_path('purelib') / 'numpy' / 'core' / 'include'
 message('Using NumPy includes from: ' + numpy_include_dir)
 
-## Find armadillo
-add_global_arguments('-Wno-non-virtual-dtor', language : 'cpp') # to remove installation warnings
-# add_global_arguments('-Wdelete-non-virtual-dtor', language : 'cpp') 
-arma = dependency('armadillo', version : '>=10.5.2', required : true)
+## Find armadillo, and if not found install it via subproject wrap
+arma = dependency('armadillo', version: '>=10.5.2', required: false)
+if arma.found()
+	cmake = import('cmake')
+	arma_proj = cmake.subproject('arma')
+	arma = arma_proj.dependency('armadillo')
+endif
 
 ## Attempt to find CARMA intelligently
-add_project_arguments('-DCARMA_DONT_REQUIRE_F_CONTIGUOUS=OFF', language : 'cpp')
 carma_dirs = [ 
 	'usr' / 'local' / 'include' / 'carma',
 	'usr' / 'local' / 'carma' / 'include',
@@ -60,7 +66,6 @@ endif
 numpy_include = include_directories(numpy_include_dir)
 
 ## Target(s)
-add_global_arguments(['-llapack', '-lblas'], language : 'cpp')
 
 py_mod.extension_module('fast_svd',
 	sources : 'src/tallem/fast_svd.cpp', 

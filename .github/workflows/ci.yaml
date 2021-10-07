@@ -33,8 +33,8 @@ jobs:
       - name: Install PythonExtensions 
         run: pip install PythonExtensions
 
-      - name: Install meson + ninja 
-        run: pip install meson ninja  
+      - name: Install meson + ninja + cmake 
+        run: pip install meson ninja cmake
 
       - name: Install numpy
         run: pip install numpy 
