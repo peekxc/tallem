@@ -53,7 +53,7 @@ carma_dirs = [
 ]
 
 ## ...otherwise rely on the default git submodule 
-carma_inc = project_dir / 'extern' / 'carma' / 'include'
+carma_inc = '.' / 'extern' / 'carma' / 'include'
 foreach carma_path : carma_dirs
 	if fs.is_dir(carma_path) and fs.is_file(carma_path / 'carma')
 		carma_inc = carma_path
