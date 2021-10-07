@@ -47,7 +47,7 @@ carma_dirs = [
 ]
 
 ## ...otherwise rely on the default git submodule 
-carma_inc = project_dir / 'extern' / 'carma' / 'include'
+carma_inc = 'extern' / 'carma' / 'include'
 foreach carma_path : carma_dirs
 	if fs.is_dir(carma_path)
 		carma_inc = carma_path
@@ -68,18 +68,18 @@ numpy_include = include_directories(numpy_include_dir)
 
 ## Target(s)
 py_mod.extension_module('fast_svd',
-	sources : 'src/tallem/fast_svd.cpp', 
+	sources : 'src' / 'tallem' / 'fast_svd.cpp', 
 	dependencies : [py_dep, py_b11, arma, lapack], 
 	include_directories : [numpy_include, carma_inc],
 	install : true, 
-	install_dir : project_dir / 'src' / 'tallem',
+	install_dir : 'src' / 'tallem',
 	link_args : '-llapack'
 )
 
 py_mod.extension_module('landmark', 
-	sources : 'src/tallem/landmark.cpp', 
+	sources : 'src' / 'tallem' / 'landmark.cpp', 
 	dependencies : [py_dep, py_b11, arma, lapack], 
 	include_directories : [numpy_include, carma_inc], 
 	install : true, 
-	install_dir : project_dir / 'src' / 'tallem'
+	install_dir : 'src' / 'tallem'
 )
