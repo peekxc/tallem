@@ -59,6 +59,11 @@ jobs:
       - name: Pull git submodules 
         run: git submodule update --init --recursive
 
+      - name: List directory structure 
+        run: |
+          sudo apt-get install tree
+          tree 
+
       - name: Build extension modules 
         run: |
           meson setup build
