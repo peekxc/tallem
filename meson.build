@@ -39,15 +39,15 @@ if not arma.found()
 	arma = arma_proj.dependency('armadillo')
 endif
 
-## Attempt to find CARMA intelligently
+## Attempt to find CARMA intelligently in the system library locations...
 carma_dirs = [ 
-	'usr' / 'local' / 'include' / 'carma',
-	'usr' / 'local' / 'carma' / 'include',
-	project_dir / 'carma' / 'include',
-	home_dir / 'carma' / 'include',
+	'/usr' / 'local' / 'include' / 'carma',
+	'/usr' / 'local' / 'carma' / 'include',
 	'usr' / 'local' / 'include'
 ]
-carma_inc = '.'
+
+## ...otherwise rely on the default git submodule 
+carma_inc = project_dir / 'extern' / 'carma' / 'include'
 foreach carma_path : carma_dirs
 	if fs.is_dir(carma_path)
 		carma_inc = carma_path
@@ -56,17 +56,17 @@ foreach carma_path : carma_dirs
 endforeach
 message('Using CARMA link target from: ' + carma_inc)
 
-## If not found, try searching all the system libraries for it, otherwise as a last resort
-## attempt a subproject build  
-if carma_inc == '.'
-	carma = dependency('carma', required : true) # search for it via Cmake module 
+## Finally, if not found, attempt a subproject git pull and build  
+if not fs.is_dir(carma_inc)
+	cmake = import('cmake')
+	carma_proj = cmake.subproject('carma')
+	carma = carma_proj.dependency('carma')
 endif 
 
 ## Include NumPy headers
 numpy_include = include_directories(numpy_include_dir)
 
 ## Target(s)
-
 py_mod.extension_module('fast_svd',
 	sources : 'src/tallem/fast_svd.cpp', 
 	dependencies : [py_dep, py_b11, arma, lapack], 

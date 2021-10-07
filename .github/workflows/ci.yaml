@@ -3,7 +3,7 @@ name: Build distribution
 on: [pull_request, push, workflow_dispatch]
 
 jobs:
-  test:
+  Build-and-Test:
     runs-on: "ubuntu-latest" # ${{ matrix.os }}
     # strategy:
     #   fail-fast: true
