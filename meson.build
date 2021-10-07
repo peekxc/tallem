@@ -46,22 +46,22 @@ if not arma.found()
 endif
 
 ## Attempt to find CARMA intelligently in the probable system library locations...
-carma_dirs = [ 
-	'/usr' / 'local' / 'include' / 'carma',
-	'/usr' / 'local' / 'carma' / 'include',
-	'/usr' / 'local' / 'include'
-]
+# carma_dirs = [ 
+# 	'/usr' / 'local' / 'include' / 'carma',
+# 	'/usr' / 'local' / 'carma' / 'include',
+# 	'/usr' / 'local' / 'include'
+# ]
 
-## ...otherwise rely on the default git submodule 
-carma_inc = '.' / 'extern' / 'carma' / 'include'
-foreach carma_path : carma_dirs
-	if fs.is_dir(carma_path) and fs.is_file(carma_path / 'carma')
-		carma_inc = carma_path
-		break
-	endif
-endforeach
-message('Using CARMA link target from: ' + carma_inc)
-carma_includes = include_directories(carma_inc)
+# ## ...otherwise rely on the default git submodule 
+# carma_inc = '.' / 'extern' / 'carma' / 'include'
+# foreach carma_path : carma_dirs
+# 	if fs.is_dir(carma_path) and fs.is_file(carma_path / 'carma')
+# 		carma_inc = carma_path
+# 		break
+# 	endif
+# endforeach
+# message('Using CARMA link target from: ' + carma_inc)
+carma_includes = include_directories(project_dir / 'extern' / 'carma' / 'include')
 
 ## Finally, if not found, attempt a subproject git pull and build  
 # if not fs.is_dir(carma_inc)
