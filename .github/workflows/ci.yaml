@@ -24,12 +24,12 @@ jobs:
       - name: Install dependencies
         run: python -m pip install --upgrade pip
 
-      - name: Install Setuptools + wheels
-        run: pip install setuptools wheel
+      - name: Install Setuptools, build, and wheel
+        run: pip install setuptools build wheel
 
       - name: Install Pillow 
         run: pip install Pillow
-        
+
       - name: Install PythonExtensions 
         run: pip install PythonExtensions
 
@@ -45,8 +45,17 @@ jobs:
       - name: Install SciPy
         run: pip install scipy
 
+      - name: Install pytest
+        run: pip install pytest 
+
       # - name: Cache dependencies
       #   uses: actions/cache@v2.1.6
+
+      - name: Build extension modules 
+        run: meson build
+
+      - name: Build package 
+        run: python -m build --wheel --outdir .
 
       - name: Install Package
         run: pip install -e .
