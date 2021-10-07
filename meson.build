@@ -61,7 +61,7 @@ endif
 # 	endif
 # endforeach
 # message('Using CARMA link target from: ' + carma_inc)
-carma_includes = include_directories(project_dir / 'extern' / 'carma' / 'include')
+carma_includes = include_directories('extern' / 'carma' / 'include')
 
 ## Finally, if not found, attempt a subproject git pull and build  
 # if not fs.is_dir(carma_inc)
