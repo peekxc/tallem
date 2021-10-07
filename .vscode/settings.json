@@ -105,5 +105,8 @@
 		"cinttypes": "cpp",
 		"queue": "cpp",
 		"shared_mutex": "cpp"
-	}
+	},
+	"github-actions.workflows.pinned.workflows": [
+		".github/workflows/ci.yaml"
+	]
 }

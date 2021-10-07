@@ -24,6 +24,24 @@ jobs:
       - name: Install dependencies
         run: python -m pip install --upgrade pip
 
+      - name: Install Setuptools + wheels
+        run: pip install setuptools wheel
+
+      - name: Install PythonExtensions 
+        run: pip install PythonExtensions
+
+      - name: Install meson + ninja 
+        run: pip install meson ninja  
+
+      - name: Install numpy
+        run: pip install numpy 
+
+      - name: Install Pybind 11
+        run: pip install pybind11
+
+      - name: Install SciPy
+        run: pip install scipy
+
       # - name: Cache dependencies
       #   uses: actions/cache@v2.1.6
 
