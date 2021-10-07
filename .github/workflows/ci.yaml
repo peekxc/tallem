@@ -27,6 +27,9 @@ jobs:
       - name: Install Setuptools + wheels
         run: pip install setuptools wheel
 
+      - name: Install Pillow 
+        run: pip install Pillow
+        
       - name: Install PythonExtensions 
         run: pip install PythonExtensions
 
