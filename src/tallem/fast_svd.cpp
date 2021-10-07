@@ -47,7 +47,6 @@ struct StiefelLoss {
 	arma::sp_mat frames_sparse; 
 
 	arma::sp_mat pou; // (J x n) partition of unity
-
 	np_array_t output; // preallocated output for (A^T x Phi) => (D x dn)
 
 

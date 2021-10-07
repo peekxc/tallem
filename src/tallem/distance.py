@@ -5,7 +5,7 @@ from numpy.typing import ArrayLike
 from typing import Callable, Optional, Union
 from scipy.spatial.distance import pdist, cdist
 from scipy.sparse import issparse
-from .utility import inverse_choose
+from .utility import inverse_choose, rank_comb2, unrank_comb2
 
 # %% Distance definitions
 def is_distance_matrix(x: ArrayLike) -> bool:
@@ -24,6 +24,33 @@ def is_pairwise_distances(x: ArrayLike) -> bool:
 def is_point_cloud(x: ArrayLike) -> bool: 
 	''' Checks whether 'x' is a 2-d array of points '''
 	return(isinstance(x, np.ndarray) and x.ndim == 2)
+
+def as_dist_matrix(x: ArrayLike, metric="euclidean") -> ArrayLike:
+	if is_pairwise_distances(x):
+		n = inverse_choose(len(x), 2)
+		assert n == int(n)
+		D = np.zeros(shape=(n, n))
+		D[np.triu_indices(n, k=1)] = x
+		D = D.T + D
+		return(D)
+	elif is_distance_matrix(x):
+		return(x)
+	else:
+		return(dist(x, as_matrix=True, metric=metric))
+
+def subset_dist(x: ArrayLike, I: ArrayLike):
+	from itertools import combinations
+	# assert is unique
+	if is_distance_matrix(x):
+		subset = x[np.ix_(I, I)]
+	elif is_pairwise_distances(x):
+		n = inverse_choose(len(x), 2)
+		subset = np.array([x[rank_comb2(i,j,n)] for i,j in combinations(I, 2)])
+	else: 
+		raise ValueError("'x' must be a distance matrix or a set of pairwise distances")
+	return(subset)
+			
+
 
 def dist(x: npt.ArrayLike, y: Optional[npt.ArrayLike] = None, pairwise = False, as_matrix = False, metric : Union[str, Callable] = 'euclidean', **kwargs):
 	''' 

@@ -2,16 +2,16 @@
 import os
 import numpy as np
 import numpy.typing as npt
+from numpy.typing import ArrayLike
 import concurrent.futures
 from typing import Optional, Dict, List, Union
-from .distance import dist, is_distance_matrix
-from .utility import as_np_array
+from .distance import *
+from .utility import *
 from scipy.sparse.linalg import eigs as truncated_eig
-from scipy.linalg import eig as dense_eig
+from scipy.linalg import eigh, eig as dense_eig
 from scipy.spatial import KDTree
 from scipy.sparse import csc_matrix, csr_matrix
 from scipy.sparse.csgraph import minimum_spanning_tree, connected_components
-
 
 # %%  Dimensionality reduction definitions
 def pca(x: npt.ArrayLike, d: int = 2, center: bool = True) -> npt.ArrayLike:
@@ -73,24 +73,82 @@ def sammon(data, d: int = 2, max_iterations: int = 250, max_halves: int = 10):
 	E = E * scale
 	return (y, E)
 
+# def centering_matrix(n) -> ArrayLike:
+# 	H = -np.ones((n, n))/n
+# 	np.fill_diagonal(H,1-1/n)
+# 	return(H)
+
 ## Classical MDS 
 def cmds(a: npt.ArrayLike, d: int = 2, coords: bool = True):
-	''' Computes classical MDS (cmds) w/ a being a distance matrix '''
-	a = dist(a, as_matrix=True) if not(is_distance_matrix(a)) else np.asanyarray(a)
-	n, m = a.shape
-	if n <= 1: return(np.repeat(0.0, m))
-	C = np.eye(n) - (1.0/n)*np.ones(shape=(n,n))
-	B = (-1/2)*(C @ a @ C)
-	if d >= (n-1):
-		E = dense_eig(B)
-		if d == (n - 1):
-			max_idx = np.argsort(-E[0])[:(n-1)]
-			E = ([E[0][max_idx], E[1][:,max_idx]]) 
+	''' Computes classical MDS (cmds) '''
+	if is_pairwise_distances(a):
+		D = as_dist_matrix(a)
+	elif not(is_distance_matrix(a)) and is_point_cloud(a):
+		D = dist(a, as_matrix=True, metric="euclidean")**2
+	else:
+		D = a
+	assert(is_distance_matrix(D))
+	n = D.shape[0]
+	H = np.eye(n) - (1.0/n)*np.ones(shape=(n,n)) # centering matrix
+	B = -0.5 * H @ D @ H
+	evals, evecs = eigh(B, subset_by_index=list(range(n-d, n)))
+	
+	# Compute the coordinates using positive-eigenvalued components only     
+	if coords:               
+		w = np.where(evals > 0)[0]
+		Y = np.zeros(shape=(n, d))
+		Y[:,w] = evecs[:,w] @ np.diag(np.sqrt(evals[w]))
+		return(Y)
 	else: 
-		E = truncated_eig(B, k = d)
-	## Eigenvalues should be real since matrix was symmetric 
-	E = (np.real(E[0]), np.real(E[1]))
-	return(E[0] * E[1] if coords else E)
+		w = np.where(evals > 0)[0]
+		ni = np.setdiff1d(np.arange(d), w)
+		evecs[:,ni] = 1.0
+		evals[ni] = 0.0
+		return(evals, evecs)
+
+def landmark_mds(X: ArrayLike, subset: ArrayLike, d: int = 2, normalize=False):
+	''' 
+	Landmark Multi-dimensional Scaling 
+	
+	Parameters: 
+		X := distance matrix, set of pairwise distances, or a point cloud
+		subset := indices of landmarks to use
+		d := target dimension for the coordinatization
+		
+	'''
+	## Apply classical MDS to landmark points
+	from itertools import combinations
+	J = len(subset) 
+	if is_pairwise_distances(X):
+		D, n = as_dist_matrix(subset_dist(X, subset)), inverse_choose(len(X), 2)
+		S = np.zeros(shape=(J,n))
+		for j, index in enumerate(subset):
+			for i in range(n):
+				S[j,i] = 0.0 if i == index else X[rank_comb2(i,index,n)]
+	elif is_distance_matrix(X):
+		D, n = subset_dist(X, subset), X.shape[0]
+		S = X[np.ix_(subset, range(n))]
+	else:
+		D, n = dist(X[subset,:], as_matrix=True, metric="euclidean")**2, X.shape[0]
+		S = dist(X[subset,:], X, metric="euclidean")**2
+	
+	## At this point, D == distance matrix of landmarks points, S == (J x n) distances to landmarks
+	evals, evecs = cmds(D, d=d, coords=False)
+
+	## Interpolate the lower-dimension points using the landmarks
+	mean_landmark = np.mean(D, axis = 1).reshape((D.shape[0],1))
+	w = np.where(evals > 0)[0]
+	L_pseudo = evecs/np.sqrt(evals[w])
+	Y = np.zeros(shape=(n, d))
+	Y[:,w] = (-0.5*(L_pseudo.T @ (S.T - mean_landmark.T).T)).T 
+
+	## Normalize using PCA, if requested
+	if (normalize):
+		m = Y.shape[0]
+		Y_hat = Y.T @ (np.eye(m) - (1.0/m)*np.ones(shape=(m,m)))
+		_, U = np.linalg.eigh(Y_hat @ Y_hat.T) # Note: Y * Y.T == (k x k) matrix
+		Y = (U.T @ Y_hat).T
+	return(Y)
 
 def neighborhood_graph(a: npt.ArrayLike, k: Optional[int] = 15, radius: Optional[float] = None, **kwargs):
 	''' 
