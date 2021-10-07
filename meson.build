@@ -79,7 +79,7 @@ py_mod.extension_module('fast_svd',
 	dependencies : [py_dep, py_b11, arma, lapack], 
 	include_directories : [numpy_include, carma_includes],
 	install : true, 
-	install_dir : project_dir / 'src' / 'tallem',
+	install_dir : '.' / 'src' / 'tallem',
 	link_args : lapack_linker_flags
 )
 
@@ -88,5 +88,5 @@ py_mod.extension_module('landmark',
 	dependencies : [py_dep, py_b11, arma, lapack], 
 	include_directories : [numpy_include, carma_includes], 
 	install : true, 
-	install_dir : project_dir / 'src' / 'tallem'
+	install_dir : '.' / s'src' / 'tallem'
 )
