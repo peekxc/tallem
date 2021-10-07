@@ -43,7 +43,7 @@ endif
 carma_dirs = [ 
 	'/usr' / 'local' / 'include' / 'carma',
 	'/usr' / 'local' / 'carma' / 'include',
-	'usr' / 'local' / 'include'
+	'/usr' / 'local' / 'include'
 ]
 
 ## ...otherwise rely on the default git submodule 
@@ -57,11 +57,11 @@ endforeach
 message('Using CARMA link target from: ' + carma_inc)
 
 ## Finally, if not found, attempt a subproject git pull and build  
-if not fs.is_dir(carma_inc)
-	cmake = import('cmake')
-	carma_proj = cmake.subproject('carma')
-	carma = carma_proj.dependency('carma')
-endif 
+# if not fs.is_dir(carma_inc)
+# 	cmake = import('cmake')
+# 	carma_proj = cmake.subproject('carma')
+# 	carma = carma_proj.dependency('carma')
+# endif 
 
 ## Include NumPy headers
 numpy_include = include_directories(numpy_include_dir)
