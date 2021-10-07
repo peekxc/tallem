@@ -22,7 +22,7 @@ if not lapack.found()
 endif
  
 ## Query the variables to see what we're working with
-lapack_lib = lapack.get_variable(cmake: 'LAPACK_LIBRARIES')
+lapack_lib = lapack.get_variable(cmake: 'LAPACK_LIBRARIES', default_value: '')
 lapack_linker_flags = lapack.get_variable(cmake: 'LAPACK_LINKER_FLAGS', default_value : ['-llapack', '-lblas'])
 message('LAPACK libraries found: ', lapack_lib)
 message('LAPACK linker flags: ', lapack_linker_flags)
