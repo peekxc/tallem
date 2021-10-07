@@ -61,6 +61,7 @@ foreach carma_path : carma_dirs
 	endif
 endforeach
 message('Using CARMA link target from: ' + carma_inc)
+carma_includes = include_directories(carma_inc)
 
 ## Finally, if not found, attempt a subproject git pull and build  
 # if not fs.is_dir(carma_inc)
@@ -76,7 +77,7 @@ numpy_include = include_directories(numpy_include_dir)
 py_mod.extension_module('fast_svd',
 	sources : 'src' / 'tallem' / 'fast_svd.cpp', 
 	dependencies : [py_dep, py_b11, arma, lapack], 
-	include_directories : [numpy_include, carma_inc],
+	include_directories : [numpy_include, carma_includes],
 	install : true, 
 	install_dir : project_dir / 'src' / 'tallem',
 	link_args : lapack_linker_flags
@@ -85,7 +86,7 @@ py_mod.extension_module('fast_svd',
 py_mod.extension_module('landmark', 
 	sources :  'src' / 'tallem' / 'landmark.cpp', 
 	dependencies : [py_dep, py_b11, arma, lapack], 
-	include_directories : [numpy_include, carma_inc], 
+	include_directories : [numpy_include, carma_includes], 
 	install : true, 
 	install_dir : project_dir / 'src' / 'tallem'
 )
