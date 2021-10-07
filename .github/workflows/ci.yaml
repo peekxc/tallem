@@ -56,6 +56,9 @@ jobs:
       # - name: Cache dependencies
       #   uses: actions/cache@v2.1.6
 
+      - name: Pull git submodules 
+        run: git submodule update
+        
       - name: Build extension modules 
         run: |
           meson setup build
