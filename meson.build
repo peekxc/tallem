@@ -88,5 +88,5 @@ py_mod.extension_module('landmark',
 	dependencies : [py_dep, py_b11, arma, lapack], 
 	include_directories : [numpy_include, carma_includes], 
 	install : true, 
-	install_dir : '.' / s'src' / 'tallem'
+	install_dir : '.' / 'src' / 'tallem'
 )
