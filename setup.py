@@ -14,14 +14,14 @@ setup(
 	## Possible space optimization, but only relevent for eggs, not wheels. 
 	zip_safe=False,
 	## minimum python version
-	python_requires='>=3.5",
+	python_requires=">=3.5",
 	## package dependencies needed at run-time (but not at install-time)
 	setup_requires=["numpy>=1.7.0", "scipy"], 
 	## Package source modules---tell setuptools that nothing outside src/* should be added to global namespace 
 	packages=find_packages(where='src'), package_dir={'':'src'}, 
 	## Optional packages, grouped by [arbitrary] identifiers
 	extras_require={
-		"PDF": ["sklearn", "RXP"],
+		"extras": ["scikit-learn", "autograd", "pymanopt"],
 	}
 )
 
