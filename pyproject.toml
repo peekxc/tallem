@@ -1,7 +1,7 @@
 ## TALLEM project requirements doc
 [metadata]
 name = "tallem"
-version = "0.1.1"
+version = "0.1.2"
 description = "Topological Assembly of Locally Euclidean Models"
 authors = "Matt Piekenbrock <matt.piekenbrock@gmail.com>"
 classifiers = [

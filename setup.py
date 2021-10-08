@@ -4,6 +4,9 @@ import sys
 from setuptools import setup, find_packages
 
 print("\n===== Running setuptools =====\n")
+## NOTE: 
+## "pip install ." setup.py will NOT create the python shared extension modules from src/tallem/pbm
+## "python -m build" followed by "pip install dist/tallem-0.1.1*.whl --force-reinstall" will also not ensure modules are loaded
 setup(
 	## Use minimum amount of meta-data setuptools needs to not issue warnings
 	name="tallem",
@@ -22,8 +25,13 @@ setup(
 	## Optional packages, grouped by [arbitrary] identifiers
 	extras_require={
 		"extras": ["scikit-learn", "autograd", "pymanopt"],
-	}
+	}, 
+	ext_modules=[
+		"src/tallem/pbm/fast_svd.cpython-39-darwin.so", 
+		"src/tallem/pbm/landmark.cpython-39-darwin.so"
+	]
 )
+
 
 # name="tallem",
 # version="0.1.1",
