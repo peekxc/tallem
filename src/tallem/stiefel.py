@@ -20,17 +20,17 @@ def _initial_frame(D, phi, n):
 	return(Evec[:,np.argsort(-Eval)[:D]])
 
 ## Huber loss function to optimize
-def huber_loss(embed_map: Callable, subsetter: Callable[[], Iterable[int]], epsilon: auto_np.float32 = 1.0, update_eps = lambda eps: eps):
-	def cost_function(A):
-		nonlocal epsilon 
-		nuclear_norm = 0.0
-		for j in subsetter():
-			M = auto_np.array(A.T @ embed_map(j)) #  A.T @ phi(j), dtype='float')
-			svals = auto_np.linalg.svd(M, full_matrices=False, compute_uv=False)
-			nuclear_norm += auto_np.sum([t if t >= epsilon else (t**2)/epsilon for t in auto_np.abs(svals)])
-		epsilon = update_eps(epsilon)
-		return(-nuclear_norm)
-	return(cost_function)
+# def huber_loss(embed_map: Callable, subsetter: Callable[[], Iterable[int]], epsilon: auto_np.float32 = 1.0, update_eps = lambda eps: eps):
+# 	def cost_function(A):
+# 		nonlocal epsilon 
+# 		nuclear_norm = 0.0
+# 		for j in subsetter():
+# 			M = auto_np.array(A.T @ embed_map(j)) #  A.T @ phi(j), dtype='float')
+# 			svals = auto_np.linalg.svd(M, full_matrices=False, compute_uv=False)
+# 			nuclear_norm += auto_np.sum([t if t >= epsilon else (t**2)/epsilon for t in auto_np.abs(svals)])
+# 		epsilon = update_eps(epsilon)
+# 		return(-nuclear_norm)
+# 	return(cost_function)
 
 
 ## --- Optimization to find the best A matrix --- 

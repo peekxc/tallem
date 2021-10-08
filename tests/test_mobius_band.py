@@ -9,7 +9,7 @@ from tallem.cover import IntervalCover
 
 
 def test_mobius_data_set():
-	M = mobius_band(plot=False, embed=6)
+	M = mobius_band()
 	X, B = M['points'], M['parameters'][:,[1]]
 	assert isinstance(X, np.ndarray)
 	assert isinstance(B, np.ndarray)

@@ -46,11 +46,11 @@ from .stiefel import frame_reduction
 from .assembly import assemble_frames, assembly_fast
 
 ## To eventually remove or make optional to install
-import autograd.scipy.linalg as auto_scipy 
-import autograd.numpy as auto_np
-from pymanopt.manifolds import Stiefel
-from pymanopt import Problem
-from pymanopt.solvers import SteepestDescent
+# import autograd.scipy.linalg as auto_scipy 
+# import autograd.numpy as auto_np
+# from pymanopt.manifolds import Stiefel
+# from pymanopt import Problem
+# from pymanopt.solvers import SteepestDescent
 
 class TALLEM():
 	'''
