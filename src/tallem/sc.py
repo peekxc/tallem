@@ -1,6 +1,4 @@
 import numpy as np
-from tqdm import tqdm
-import ipdb
 
 # simplex sort ([<] [=] or [>])
 def simp_comp(simp1,simp2):
