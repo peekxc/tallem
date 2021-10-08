@@ -8,8 +8,10 @@ from .sc import delta0D
 from .distance import dist
 from .cover import partition_of_unity
 from .samplers import uniform_sampler
-from . import fast_svd
+# from . import fast_svd
 
+## Import the specific pybind11 module we need
+from tallem.pbm import fast_svd
 
 import autograd.scipy.linalg as auto_scipy 
 import autograd.numpy as auto_np

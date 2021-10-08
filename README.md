@@ -86,7 +86,10 @@ ax.scatter(*emb.T, marker='o', c=B_polar)
 
 **FAQ**
 
+
+
 _The dependencies listed require Python 3.5+, but I'm using an older version of Python. Will`tallem` still run on my machine, and if not, how can I make `tallem` compatible?_
 
-`tallem` requires Python version 3.5 or higher and will not run on older versions of Python. If your version of Python is older than this, consider installing `tallem` in a [virtual environment] that supports Python 3.5+. Alternatively, you're free to make the appropriate changes to `tallem` to make the library compatible with an older version yourself and then issue a PR. 
+`tallem` requires Python version 3.5 or higher and will not run on older versions of Python. If your version of Python is older than this, consider installing `tallem` in a [virtual environment] that supports Python 3.5+. 
+Alternatively, you're free to make the appropriate changes to `tallem` to make the library compatible with an older version yourself and then issue a PR. 
 

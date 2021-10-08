@@ -16,9 +16,23 @@ from scipy.sparse import issparse, csc_matrix
 # 	'function_2'
 # ]
 
+import sys
+print(sys.path)
+
 ## Ensure the py modules are exposed on initialization!
-from . import fast_svd
-from . import landmark
+# from . import fast_svd
+# from . import landmark
+# from . import pbm
+
+# from . import pbm
+# from pbm.landmark import landmark
+# from pbm import landmark
+
+## Import the pybind modules (pbm) subpackage
+import tallem.pbm
+# from tallem.pbm import landmark
+# from tallem.pbm import fast_svd
+
 
 ## Relative imports ( tallem-specific )
 from .utility import find_where

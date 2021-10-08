@@ -12,13 +12,13 @@ python_requires = ">=3.8.1" ## needed by Pybind11
 requires = ["meson>=0.59.0", "ninja", "numpy>=1.7.0", "pybind11", "PythonExtensions", "scipy", "setuptools>=42", "wheel"] #"autograd",  "tqdm", "sklearn", "pymanopt"
 build-backend = "setuptools.build_meta"
 
-[tool.tox]
-legacy_tox_ini = '''
-[tox]
-isolated_build = True
-envlist = py39
+# [tool.tox]
+# legacy_tox_ini = '''
+# [tox]
+# isolated_build = True
+# envlist = py39
 
-[testenv]
-deps = pytest
-commands =  pytest
-'''
+# [testenv]
+# deps = pytest
+# commands =  pytest
+# '''

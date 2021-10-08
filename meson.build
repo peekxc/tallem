@@ -75,18 +75,18 @@ numpy_include = include_directories(numpy_include_dir)
 
 ## Target(s)
 py_mod.extension_module('fast_svd',
-	sources : 'src' / 'tallem' / 'fast_svd.cpp', 
+	sources : project_dir / 'src' / 'tallem' / 'pbm' / 'fast_svd.cpp', 
 	dependencies : [py_dep, py_b11, arma, lapack], 
 	include_directories : [numpy_include, carma_includes],
 	install : true, 
-	install_dir : '.' / 'src' / 'tallem',
+	install_dir : project_dir / 'src' / 'tallem' / 'pbm',
 	link_args : lapack_linker_flags
 )
 
 py_mod.extension_module('landmark', 
-	sources :  'src' / 'tallem' / 'landmark.cpp', 
+	sources :  project_dir / 'src' / 'tallem' / 'pbm' / 'landmark.cpp', 
 	dependencies : [py_dep, py_b11, arma, lapack], 
 	include_directories : [numpy_include, carma_includes], 
 	install : true, 
-	install_dir : '.' / 'src' / 'tallem'
+	install_dir : project_dir / 'src' / 'tallem' / 'pbm'
 )

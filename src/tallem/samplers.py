@@ -4,12 +4,11 @@ import numpy as np
 import itertools as it
 from numpy.typing import ArrayLike
 from typing import Optional
-# from greedypermutation import clarksongreedy
-# from greedypermutation.point import Point
 from .distance import dist, is_distance_matrix, is_pairwise_distances
 from .utility import find_points
-from . import landmark
 
+## Import the specific pybind11 module we need
+from tallem.pbm import landmark
 
 # %% Definitions
 def landmarks(a: ArrayLike, k: Optional[int] = 15, eps: Optional[float] = -1.0, seed: int = 0, diameter: bool = False, metric = "euclidean"):

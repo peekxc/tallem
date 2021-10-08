@@ -279,7 +279,7 @@ class IntervalCover(Cover):
 		else: 
 			nsets = 1 if isinstance(n_sets, int) else len(n_sets)
 			nover = 1 if isinstance(overlap, float) else len(overlap)
-			self.dimension = np.max([nsets, nover])
+			self.dimension = np.max([nsets, nover, a.shape[1]])
 			self.bbox = np.vstack((np.amin(a, axis=0), np.amax(a, axis=0)))
 			# self.bbox = np.repeat([0,1], self.dimension, axis=0).reshape((2, self.dimension))
 			self._data = a
@@ -419,10 +419,11 @@ class IntervalCover(Cover):
 
 	def construct(self, a: npt.ArrayLike, index: Optional[npt.ArrayLike] = None):
 		if index is not None:
-			# centroid = self.bbox[0:1,:] + (np.array(index) * self.base_width) + self.base_width/2.0
-			#diff = self.set_distance(a, centroid)
-			#return(np.ravel(np.where(np.bitwise_and.reduce(diff <= self.set_width/2.0, axis = 1))))
-			return(np.nonzero(self.set_distance(a, index) <= 1.0)[0])
+			centroid = self.bbox[0:1,:] + (np.array(index) * self.base_width) + self.base_width/2.0
+			# diff = self.set_distance(a, centroid)
+			diff = np.abs(a - centroid)
+			return(np.ravel(np.where(np.bitwise_and.reduce(diff <= self.set_width/2.0, axis = 1))))
+			# return(np.nonzero(self.set_distance(a, index) <= 1.0)[0])
 		else:
 			cover_sets = { index : self.construct(a, index) for index in self.keys() }
 			return(cover_sets)
