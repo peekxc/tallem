@@ -1,8 +1,18 @@
+
+import math
+import importlib
 import numpy as np 
 import numpy.typing as npt
-from bisect import bisect_left
+from bisect import bisect_left # this is standardized
 from scipy.sparse import issparse
 
+def package_exists(package: str) -> bool: 
+	pkg_spec = importlib.util.find_spec(package)
+	return(pkg_spec is not None)
+
+def ask_package_install(package: str):
+	if not(package_exists(package)):
+		raise RuntimeError(f"Module {package} not installed. To use this function, please install {package}.")
 
 def find_points(query: npt.ArrayLike, reference: npt.ArrayLike):
 	'''
@@ -65,7 +75,6 @@ def cartesian_product(arrays):
 			arr[..., i] = a
 	return arr.reshape(-1, la)
 
-import math
 def inverse_choose(x: int, k: int):
 	assert k >= 1, "k must be >= 1" 
 	if k == 1: return(x)

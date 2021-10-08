@@ -73,9 +73,15 @@ jobs:
 
       - name: Build package wheel
         run: python -m build --wheel --outdir .
-
-      - name: Install Package
-        run: pip install -e .
+      
+      - name: Install wheel to site-packages
+        run: pip install tallem-*.whl
 
       - name: Run tests
         run: pytest
+      
+  Single-Build: 
+    runs-on: "ubuntu-latest"
+    steps:
+      - name: Install Package
+        run: pip install -e .

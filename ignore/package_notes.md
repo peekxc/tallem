@@ -6,20 +6,22 @@ I'm following the package structure layed out:
 - https://www.benjack.io/2018/02/02/python-cpp-revisited.html
 
 Loosely, the benefits of this layout are as follows: 
-- Packages used in testing scripts are de-coupled from the main package. This is desirable for dependency minimization; not all
-	packages imported in test scripts necessarily should be required to import the package itself.
+- Packages used in testing scripts are de-coupled from the main package. This is desirable for dependency minimization; not all packages imported in test scripts necessarily should be required to import the package itself.
 
 
 ## Why is meson used to build the extension modules instead of cmake?
 
-I've used CMake for years, and though apparently modern cmake syntax is ok, the DSL is just too clunky to me. 
-It's simply not very transparent. The documentation is also quite poor.
+After using CMake for years, I've finally decided that it is just not a build system I want to continue using. The official documentation is awful, what's considered "best practice" is effectively folklore, and the DSL is ugly. It is simply not a very transparent build system to me. I would place CMakes DSL quite high on the list of offenders of the [principle of least astonishment](https://en.wikipedia.org/wiki/Principle_of_least_astonishment).  
 
-Meson is admittedly arguably at a higher-level of abstraction than CMake since it actually can (unofficially)
-build CMakeLists based subprojects. That being said, the syntax is just so much more readable and concise. Additionally, 
-the documentation of meson is quite good, and the default configurations for many typical target types 'just work.' 
-Indeed, in configuring meson.build, I've often find that the final solution ends up being the simplest one--this has
-never been the case for me with CMake. 
+That being said, CMake is popular and nowadays [almost] the de-facto standard for cross-platform C++ build systems. Supposedly modern cmake syntax is actually quite o.k. if you take the time to learn it, and there are mature (unofficial) documentation sites that have accumulated some notion how to write "good CMake." This is a heavily disputed area though. 
+
+In contrast, [Mesons]() DSL is just beautiful. Admittedly, Meson places more complexity on the build pipeline _if_ your project includes subprojects that are themselves CMake projects (see [their philosophy on mixing build systems](https://mesonbuild.com/Mixing-build-systems.html)). That being said, the syntax is very easy to follow, the documentation is quite good, and the default configurations for many typical target types *just work*. Indeed, in configuring a meson.build, I've often find that the final solution that works across the CI platforms ends up being the simplest one; . So learning how to write a "good meson.build configuration" seems to me to be a learning process that converges on simplicity. This has *never* been the case for me with CMake. 
+
+For these reasons and more, `tallem`'s extension modules are built outside of setuptools with Meson. 
+
+### Is `tallem` a python application? 
+
+No, `tallem` is a python _library_. The distinction is important, see: https://caremad.io/posts/2013/07/setup-vs-requirement/. Thus, `tallem` does not have a `requirements.txt` for use with, e.g. `Pipenv`.
 
 
 

@@ -16,8 +16,8 @@ from scipy.sparse import issparse, csc_matrix
 # 	'function_2'
 # ]
 
-import sys
-print(sys.path)
+# import sys
+# print(sys.path)
 
 ## Ensure the py modules are exposed on initialization!
 # from . import fast_svd

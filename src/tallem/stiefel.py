@@ -1,6 +1,6 @@
 import numpy as np
 import numpy.typing as npt
-from typing import Callable, Iterable, List, Set, Dict, Optional, Tuple, Any, Union, Sequence
+from typing import *
 from itertools import combinations
 from scipy.sparse import csc_matrix, issparse
 
@@ -8,17 +8,10 @@ from .sc import delta0D
 from .distance import dist
 from .cover import partition_of_unity
 from .samplers import uniform_sampler
-# from . import fast_svd
+from .utility import * 
 
 ## Import the specific pybind11 module we need
 from tallem.pbm import fast_svd
-
-import autograd.scipy.linalg as auto_scipy 
-import autograd.numpy as auto_np
-from pymanopt.manifolds import Stiefel
-from pymanopt import Problem
-from pymanopt.solvers import SteepestDescent
-
 
 def _initial_frame(D, phi, n):
 	Fb = np.vstack([phi(j).T for j in range(n)])
@@ -76,20 +69,30 @@ def frame_reduction(alignments: Dict, pou: csc_matrix, D: int, optimize=False, f
 
 	## Compute the initial guess, return it as optimal if not optimizing further
 	ew, A0 = stf.initial_guess(D, True)
-	if (not(optimize)): return(A0, A0, stf)
+	if (not(optimize)): 
+		return(A0, A0, stf)
+	else:
+		ask_package_install("autograd")
+		ask_package_install("pymanopt")
+		import autograd.scipy.linalg as auto_scipy 
+		import autograd.numpy as auto_np
+		from pymanopt.manifolds import Stiefel
+		from pymanopt import Problem
+		from pymanopt.solvers import SteepestDescent
+		
+		## Setup optimization using Pymanopt
+		manifold = Stiefel(d*J, D)
 
-	## Setup optimization using Pymanopt
-	manifold = Stiefel(d*J, D)
-	solver = SteepestDescent(mingradnorm=1e-12, maxiter=100, minstepsize=1e-14)
-	if (fast_gradient):
-		stiefel_cost = lambda A: -stf.gradient(A.T, True)[0]
-		stiefel_gradient = lambda A: -stf.gradient(A.T, True)[1]
-		problem = Problem(manifold=manifold, cost=stiefel_cost, egrad=stiefel_gradient)
-	else: 
-		sampler = uniform_sampler(n)
-		problem = Problem(manifold=manifold, cost=huber_loss(lambda i: stf.get_frame(i), lambda: sampler(n), 0.30))
-		Xopt = solver.solve(problem, x=A0)
-	return(A0, Xopt, stf)
+		solver = SteepestDescent(mingradnorm=1e-12, maxiter=100, minstepsize=1e-14)
+		if (fast_gradient):
+			stiefel_cost = lambda A: -stf.gradient(A.T, True)[0]
+			stiefel_gradient = lambda A: -stf.gradient(A.T, True)[1]
+			problem = Problem(manifold=manifold, cost=stiefel_cost, egrad=stiefel_gradient)
+		else: 
+			sampler = uniform_sampler(n)
+			problem = Problem(manifold=manifold, cost=huber_loss(lambda i: stf.get_frame(i), lambda: sampler(n), 0.30))
+			Xopt = solver.solve(problem, x=A0)
+		return(A0, Xopt, stf)
 	
 	# Need Stiefel(n=d*J,p=D) as Stiefel(n,p) := space of (n x p) orthonormal matrices
 

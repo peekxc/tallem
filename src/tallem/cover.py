@@ -7,7 +7,6 @@
 import numpy as np
 import numpy.typing as npt
 from numpy.typing import ArrayLike
-from sklearn.neighbors import BallTree
 from scipy.sparse import csc_matrix, diags
 from scipy.sparse.csgraph import minimum_spanning_tree,connected_components 
 from .distance import dist, is_distance_matrix, is_pairwise_distances, is_point_cloud

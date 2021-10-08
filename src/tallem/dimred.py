@@ -3,8 +3,7 @@ import os
 import numpy as np
 import numpy.typing as npt
 from numpy.typing import ArrayLike
-import concurrent.futures
-from typing import Optional, Dict, List, Union
+from typing import *
 from .distance import *
 from .utility import *
 from scipy.sparse.linalg import eigs as truncated_eig
@@ -256,10 +255,11 @@ def geodesic_dist(a: npt.ArrayLike):
 	d = dist(a, as_matrix=True) if not(is_distance_matrix(a)) else np.asanyarray(a)
 	return(floyd_warshall(d))
 
-from sklearn.manifold import Isomap
 def isomap(a: npt.ArrayLike, d: int = 2, **kwargs) -> npt.ArrayLike:
 	''' Returns the isomap embedding of a given point cloud or distance matrix. '''
 	if "k" in kwargs.keys():
+		ask_package_install("sklearn")
+		from sklearn.manifold import Isomap
 		metric = "euclidean" if not("metric" in kwargs.keys()) else kwargs["metric"]
 		E = Isomap(n_neighbors=kwargs["k"], n_components=d, metric=metric)
 		return(E.fit_transform(a))
@@ -268,16 +268,17 @@ def isomap(a: npt.ArrayLike, d: int = 2, **kwargs) -> npt.ArrayLike:
 		assert connected_components(G, directed = False)[0] == 1, "Error: graph not connected. Can only run isomap on a fully connected neighborhood graph."
 		return(cmds(geodesic_dist(G.todense()), d))
 
-
-# TODO: remove sklearn eventually
-from sklearn.manifold import MDS
 def mmds(a: npt.ArrayLike, d: int = 2, **kwargs):
 	''' Thin wrapper around sklearn's metric MDS '''
+	ask_package_install("sklearn")
+	from sklearn.manifold import MDS
 	emb = MDS(n_components=d, metric=True,  dissimilarity='precomputed', random_state=0, **kwargs) if is_distance_matrix(a) else MDS(n_components=d, metric=True, random_state=0, **kwargs) 
 	return(emb.fit_transform(a))
 
 def nmds(a: npt.ArrayLike, d: int = 2, **kwargs):
 	''' Thin wrapper around sklearn's non-metric MDS '''
+	ask_package_install("sklearn")
+	from sklearn.manifold import MDS
 	embedding = MDS(n_components=d, metric=False, random_state=0, **kwargs)
 	return(embedding.fit_transform(a))
 
@@ -294,13 +295,14 @@ def nmds(a: npt.ArrayLike, d: int = 2, **kwargs):
 # 	return(result)
 
 def fit_local_models(f, X, cover, n_cores=1): #os.cpu_count()
-	if n_cores == 1:
-		models = { index : f(X[np.array(subset),:]) for index, subset in cover.items() }
-	else:
-		models = {}
-		do_euclidean_model = lambda ce: (ce[0], f(X[np.array(ce[1]),:])) 
-		with concurrent.futures.ThreadPoolExecutor(max_workers=n_cores) as executor:
-			future = executor.map(do_euclidean_model, cover.items())
-			for index, model in future:
-				models[index] = model
+	models = { index : f(X[np.array(subset),:]) for index, subset in cover.items() }
+	# if n_cores == 1:
+	# 	
+	# else:
+	# 	models = {}
+	# 	do_euclidean_model = lambda ce: (ce[0], f(X[np.array(ce[1]),:])) 
+	# 	with concurrent.futures.ThreadPoolExecutor(max_workers=n_cores) as executor:
+	# 		future = executor.map(do_euclidean_model, cover.items())
+	# 		for index, model in future:
+	# 			models[index] = model
 	return(models)

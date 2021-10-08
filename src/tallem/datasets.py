@@ -1,6 +1,4 @@
 import numpy as np
-from matplotlib.tri import Triangulation
-import matplotlib.pyplot as pyplot
 from typing import *
 from numpy.typing import ArrayLike
 
@@ -9,14 +7,6 @@ def flywing():
 	arr1 = np.array([[588.0, 443.0], [178.0, 443.0], [56.0, 436.0], [50.0, 376.0], [129.0, 360.0], [15.0, 342.0], [92.0, 293.0], [79.0, 269.0], [276.0, 295.0], [281.0, 331.0], [785.0, 260.0], [754.0, 174.0], [405.0, 233.0], [386.0, 167.0], [466.0, 59.0]])
 	arr2 = np.array([[477.0, 557.0], [130.129, 374.307], [52.0, 334.0], [67.662, 306.953], [111.916, 323.0], [55.119, 275.854], [107.935, 277.723], [101.899, 259.73], [175.0, 329.0], [171.0, 345.0], [589.0, 527.0], [591.0, 468.0], [299.0, 363.0], [306.0, 317.0], [406.0, 288.0]])
 	return([arr1, arr2])
-
-
-# import autograd.numpy as auto_np
-# from autograd import jacobian
-# scale, image_sz, s = 1, (17, 17), 1
-
-## need closure to encase denom + sigma
-import autograd.numpy as auto_np
 
 def gaussian_blob(n_pixels: int, r: float):
 	'''
@@ -37,6 +27,7 @@ def gaussian_blob(n_pixels: int, r: float):
 	 - blob := differentiable closure which, given a vector (x,y), generates the blob image a flat vector.
 	 - c := maximum value of the intensity of any given pixel for any choice of *mu*.
 	'''
+	import autograd.numpy as auto_np
 	sd = r/3.090232
 	sigma = sd**2
 	sigma_inv = 1.0/sigma
@@ -110,71 +101,54 @@ def white_dot(n_pixels: int, r: float, n: Optional[int], method: Optional[str] =
 	## Return the data 
 	return(samples, params, blob, c)
 
-def mobius_band(n_polar=66, n_wide=9, scale_band=0.25, embed=3, plot=False):
+def mobius_band(n_polar=66, n_wide=9, scale_band=0.25):
+	''' Generates samples on a Mobius band embedded in R^3 '''
 
-	## Make deterministic	
-	np.random.seed(0)
-	
-	# %% Generate small data set on Mobius Band 
+	## Generate random (deterministic) polar coordinates around Mobius Band
+	np.random.seed(0) 
 	s = np.linspace(-scale_band, scale_band, 2*n_wide)	# width/radius
-	t = np.linspace(0, 2*np.pi, n_polar)   # circular coordinate 
+	t = np.linspace(0, 2*np.pi, n_polar)   							# circular coordinate 
 	s, t = np.meshgrid(s, t)
 
-	# radius in x-y plane
-	phi = 0.5 * t
-	r = 1 + s * np.cos(phi)
-	x = np.ravel(r * np.cos(t))
-	y = np.ravel(r * np.sin(t))
-	z = np.ravel(s * np.sin(phi))
-	tri = Triangulation(np.ravel(s), np.ravel(t))
+	## Triangulate to allow stratification
+	M = np.c_[np.ravel(s), np.ravel(t)]
+	V = M[Delaunay(M).simplices]
 
-	# %% Stratify sample from triangulation using barycentric coordinates 
-	mobius_sample = []
-	polar_sample = []
-	S, T = np.ravel(s), np.ravel(t)
-	for i in range(tri.triangles.shape[0]):
-		weights = np.random.uniform(size=3)
-		weights /= np.sum(weights)
-		pts = np.ravel([(t[0], t[1], t[2]) for t in [tri.triangles[i]]])
-		xyz = [np.sum(weights*x[pts]), np.sum(weights*y[pts]), np.sum(weights*z[pts])]
-		mobius_sample.append(xyz)
-		polar_sample.append([np.sum(weights*S[pts]), np.sum(weights*T[pts])])
-	mobius_sample = np.array(mobius_sample)
-	polar_sample = np.array(polar_sample)
+	## Sample within each strata via random barycentric coordinates 
+	normalize = lambda x: x / np.sum(x) 
+	Y = np.array([np.sum(v * normalize(np.random.uniform(size=(3,1))), axis = 0) for v in V])
 
-	# Plot mobius band sample 
-	if plot:
-		ax = pyplot.axes(projection='3d')
-		ax.plot_trisurf(x, y, z, triangles=tri.triangles, cmap='viridis', linewidths=0.2, alpha=0.20)
-		ax.set_xlim(-1, 1); ax.set_ylim(-1, 1); ax.set_zlim(-1, 1);
-		ax.scatter3D(mobius_sample[:,0], mobius_sample[:,1], mobius_sample[:,2], c="red",s=0.20)
+	## Convert to 3d
+	S, T = Y[:,0], Y[:,1]
+	phi = 0.5 * T
+	r = 1 + S * np.cos(phi)
+	MB = np.c_[r * np.cos(T), r * np.sin(T), S * np.sin(phi)]
 
-	# Embed in higher dimensions
-	if embed > 3:
-		D = embed
-		def givens(i,j,theta,n=2):
-			G = np.eye(n)
-			G[i,i] = np.cos(theta)
-			G[j,j] = np.cos(theta)
-			G[i,j] = -np.sin(theta)
-			G[j,i] = np.sin(theta)
-			return(G)
+	## Return both 3D embedding + original parameters
+	return({ "points" : MB, "parameters": Y })
 
-		## Append zero columns up to dimension d
-		M = np.hstack((mobius_sample, np.zeros((mobius_sample.shape[0], D - mobius_sample.shape[1]))))
 
-		## Rotate into D-dimensions
-		from itertools import combinations
-		for (i,j) in combinations(range(6), 2):
-			theta = np.random.uniform(0, 2*np.pi)
-			G = givens(i,j,theta,n=D)
-			M = M @ G
-	else: 
-		M = mobius_sample
-		
-	# Return sample points + their polar/width parameters
-	return({ "points" : M, "parameters": polar_sample })
+def embed(a: ArrayLike, D: int, method="givens"):
+	''' Embeds a point cloud into D dimensions using random orthogonal rotations '''
+	def givens(i,j,theta,n=2):
+		G = np.eye(n)
+		G[i,i] = np.cos(theta)
+		G[j,j] = np.cos(theta)
+		G[i,j] = -np.sin(theta)
+		G[j,i] = np.sin(theta)
+		return(G)
 
+	## Append zero columns up to dimension d
+	d = a.shape[1]
+	a = np.hstack((a, np.zeros((mobius_sample.shape[0], D - d))))
+
+	## Rotate into D-dimensions
+	from itertools import combinations
+	for (i,j) in combinations(range(D), 2):
+		theta = np.random.uniform(0, 2*np.pi)
+		G = givens(i,j,theta,n=D)
+		a = a @ G
+	return(a)
 
 # # %% Visualize isomap 
 # from tallem.isomap import isomap

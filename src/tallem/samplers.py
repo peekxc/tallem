@@ -1,9 +1,8 @@
 # %% Sampler imports
-import types
 import numpy as np
 import itertools as it
 from numpy.typing import ArrayLike
-from typing import Optional
+from typing import *
 from .distance import dist, is_distance_matrix, is_pairwise_distances
 from .utility import find_points
 
