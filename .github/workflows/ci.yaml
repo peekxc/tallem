@@ -130,7 +130,7 @@ jobs:
       
       - name: Install extension modules  
         run: |
-          meson install -C build
+          cp build/*.so src/tallem/pbm/
 
       - name: Build the wheel with poetry 
         run: poetry build -vvv
