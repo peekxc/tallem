@@ -101,7 +101,9 @@ jobs:
         run: python -m pip install --upgrade pip
       
       - name: Install meson python 
-        run: python -m pip install --user meson 
+        run: |
+          python -m pip install --user meson 
+          meson --version
 
       - name: Install Poetry Action
         uses: snok/install-poetry@v1.2.1
