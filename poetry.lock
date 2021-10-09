@@ -363,7 +363,7 @@ name = "scipy"
 version = "1.6.1"
 description = "SciPy: Scientific Library for Python"
 category = "main"
-optional = true
+optional = false
 python-versions = ">=3.7"
 
 [package.dependencies]
@@ -425,7 +425,7 @@ sklearn = []
 [metadata]
 lock-version = "1.1"
 python-versions = "^3.8"
-content-hash = "b1361958d911281b02f46cd16601fb240ffbfa0d4dc11b7a7c5b12642d0a80b6"
+content-hash = "330fef9027e0a07e0ee0c9bc3556752aacf1cd94ef4d251df0ab91bf87bf62c3"
 
 [metadata.files]
 atomicwrites = [
