@@ -115,11 +115,14 @@ jobs:
       - name: Install Poetry Action
         uses: snok/install-poetry@v1.2.1
       
+      - name: Install PIL globally 
+        run: sudo apt-get install -y Pillow 
+
       - name: Install gfortran, LAPACK, and LAPACKE 
         run: |
           sudo apt update -yq
           sudo apt install -yq --no-install-recommends ninja-build gfortran liblapack-dev liblapacke-dev
-
+      
       - name: Install dependencies with poetry 
         run: poetry install -vvv
       
