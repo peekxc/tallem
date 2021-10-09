@@ -103,6 +103,9 @@ jobs:
       - name: Install meson python 
         run: |
           python -m pip install --user meson 
+
+      - name: Check meson is installed 
+        run: 
           meson --version
       
       - name: Install pybind globally 
