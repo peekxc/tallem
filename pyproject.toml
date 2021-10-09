@@ -33,7 +33,6 @@ include = [
 python = "^3.8"
 build = "^0.7.0"
 wheel = "^0.37.0"
-PythonExtensions = "^1.6.1"
 meson = "^0.59"
 ninja = "^1.10.2"
 Pillow = "^8.3.2"
