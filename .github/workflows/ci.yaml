@@ -101,6 +101,9 @@ jobs:
       
       - name: Install Poetry Action
         uses: snok/install-poetry@v1.2.1
+      
+      - name: Meson Build
+        uses: BSFishy/meson-build@v1.0.3
 
       # - name: Install poetry
       #   uses: abatilo/actions-poetry@v2.0.0
