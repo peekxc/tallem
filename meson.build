@@ -39,7 +39,7 @@ message('Using NumPy includes from: ' + numpy_include_dir)
 
 ## Find armadillo, and if not found install it via subproject wrap
 arma = dependency('armadillo', version: '>=10.5.2', required: false)
-if arma.found() #not
+if not(arma.found()) #not
 	cmake = import('cmake')
 	opt_var = cmake.subproject_options()
 	opt_var.add_cmake_defines({'BUILD_SHARED_LIBS': false}) # Call CMake with `-DVAR=VALUE`
