@@ -137,7 +137,7 @@ jobs:
 
       - name: Install armadillo again 
         run: |
-          sudo apt-get install armadillo
+          sudo apt-get install libarmadillo-dev
           
 
       - name: Install extension modules  
