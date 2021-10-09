@@ -115,8 +115,11 @@ jobs:
       - name: Install Poetry Action
         uses: snok/install-poetry@v1.2.1
       
-      # - name: Meson Build
-      #   uses: BSFishy/meson-build@v1.0.3
+      - name: Build extension modules 
+        run: |
+          meson setup build
+          meson compile -vC build
+          meson install -C build
 
       - name: Install poetry
         uses: abatilo/actions-poetry@v2.0.0
