@@ -2,8 +2,10 @@ import os
 import mesonbuild
 
 def build(setup_kwargs):
+	print("\n==== Printing compiler version ====\n")
 	os.system("c++ --version")
-	os.system("python -m mesonbuild.mesonmain build")
-	os.system("sudo meson compile -vC build")
-	os.system("sudo meson install -C build")
+	print("\n==== Starting meson build ====\n")
+	os.system("meson build")
+	os.system("meson compile -vC build")
+	os.system("meson install -C build")
 	print("\n==== Finished meson build ====\n")
