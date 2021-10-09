@@ -4,8 +4,8 @@ project('tallem', 'cpp', 'fortran',
   default_options : ['buildtype=release', 'warning_level=3', 'cpp_std=c++17']
 )
 project_dir = meson.current_source_dir()
-
-add_global_arguments('-Wno-non-virtual-dtor', language : 'cpp') # to remove installation warnings
+add_project_arguments('-Db_pie=true -Db_staticpic=true', language : 'cpp')
+add_project_arguments('-Wno-non-virtual-dtor', language : 'cpp') # to remove installation warnings
 add_project_arguments('-DCARMA_DONT_REQUIRE_F_CONTIGUOUS=OFF', language : 'cpp')
 
 ## Folder variables 

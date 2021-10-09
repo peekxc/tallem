@@ -16,7 +16,6 @@ Makefile
 CMakeFiles/
 **/CMakeFiles/
 _skbuild/
-**/*.cmake
 CMakeCache.txt
 install_manifest.txt
 _deps/
