@@ -115,15 +115,6 @@ jobs:
       - name: Install Poetry Action
         uses: snok/install-poetry@v1.2.1
       
-      - name: Build extension modules 
-        run: |
-          meson setup build
-          meson compile -vC build
-          meson install -C build
-
-      - name: Install poetry
-        uses: abatilo/actions-poetry@v2.0.0
-      
       - name: Install gfortran, LAPACK, and LAPACKE 
         run: |
           sudo apt update -yq
@@ -131,6 +122,12 @@ jobs:
 
       - name: Install dependencies with poetry 
         run: poetry install -vvv
+      
+      - name: Build extension modules 
+        run: |
+          meson setup build
+          meson compile -vC build
+          meson install -C build
 
       - name: Build the wheel with poetry 
         run: poetry build -vvv
