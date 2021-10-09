@@ -122,7 +122,7 @@ jobs:
         run: |
           sudo apt update -yq
           sudo apt install -yq --no-install-recommends ninja-build gfortran liblapack-dev liblapacke-dev
-      
+
       - name: Install dependencies with poetry 
         run: poetry install -vvv
       
@@ -131,6 +131,15 @@ jobs:
           meson setup build
           meson compile -vC build
       
+      - name: Run ldconfig 
+        run: |
+          ldconfig
+
+      - name: Install armadillo again 
+        run: |
+          sudo apt-get install armadillo
+          
+
       - name: Install extension modules  
         run: |
           cp build/*.so src/tallem/pbm/
