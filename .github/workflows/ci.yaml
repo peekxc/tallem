@@ -133,7 +133,7 @@ jobs:
       
       - name: Run ldconfig 
         run: |
-          ldconfig
+          sudo ldconfig
 
       - name: Install armadillo again 
         run: |
