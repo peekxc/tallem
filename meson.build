@@ -4,7 +4,7 @@ project('tallem', 'cpp', 'fortran',
   default_options : ['buildtype=release', 'warning_level=3', 'cpp_std=c++17']
 )
 project_dir = meson.current_source_dir()
-add_project_arguments('-Db_pie=true -Db_staticpic=true', language : 'cpp')
+# add_project_arguments('-Db_pie=true -Db_staticpic=true', language : 'cpp')
 add_project_arguments('-Wno-non-virtual-dtor', language : 'cpp') # to remove installation warnings
 add_project_arguments('-DCARMA_DONT_REQUIRE_F_CONTIGUOUS=OFF', language : 'cpp')
 
@@ -41,9 +41,10 @@ message('Using NumPy includes from: ' + numpy_include_dir)
 arma = dependency('armadillo', version: '>=10.5.2', required: false)
 if not(arma.found()) #not
 	cmake = import('cmake')
-	opt_var = cmake.subproject_options()
-	opt_var.add_cmake_defines({'BUILD_SHARED_LIBS': false}) # Call CMake with `-DVAR=VALUE`
-	arma_proj = cmake.subproject('arma', options: opt_var)
+	#opt_var = cmake.subproject_options()
+	#opt_var.add_cmake_defines({'BUILD_SHARED_LIBS': false}) # Call CMake with `-DVAR=VALUE`
+	#arma_proj = cmake.subproject('arma', options: opt_var)
+	arma_proj = cmake.subproject('arma')
 	arma = arma_proj.dependency('armadillo')
 endif
 
