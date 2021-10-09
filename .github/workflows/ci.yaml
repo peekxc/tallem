@@ -127,6 +127,9 @@ jobs:
         run: |
           meson setup build
           meson compile -vC build
+      
+      - name: Install extension modules  
+        run: |
           meson install -C build
 
       - name: Build the wheel with poetry 
