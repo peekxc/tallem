@@ -99,12 +99,9 @@ jobs:
           python-version: 3.9 # ${{ matrix.python-version }}
           architecture: x64
       
-      - name: Install poetry 
-        run: curl -sSL https://raw.githubusercontent.com/python-poetry/poetry/master/get-poetry.py | python -
+      - name: Install poetry
+        uses: abatilo/actions-poetry@v2.0.0
 
-      - name: Start poetry shell
-        run: source $HOME/.poetry/env
-        
       - name: Install dependencies
         run: python -m pip install --upgrade pip
 
