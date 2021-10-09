@@ -99,6 +99,12 @@ jobs:
           python-version: 3.9 # ${{ matrix.python-version }}
           architecture: x64
       
+      - name: Setup meson dependencies
+        run: sudo apt-get install python3 python3-pip python3-setuptools python3-wheel ninja-build
+
+      - name: Install meson 
+        run: pip3 install --user meson
+        
       - name: Install Poetry Action
         uses: snok/install-poetry@v1.2.1
       
