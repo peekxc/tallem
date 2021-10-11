@@ -10,15 +10,19 @@ from src.tallem import TALLEM
 from src.tallem.cover import IntervalCover
 from src.tallem.datasets import mobius_band
 
+
+
+
+
 #%% 
 ## Generate mobius band + polar coordinate 
-M = mobius_band(n_polar=120, n_wide=15, scale_band = 0.25, plot=False, embed=6)
-X, B = M['points'], M['parameters'][:,[1]]
+X, B = mobius_band(n_polar=120, n_wide=15, scale_band = 0.25)
+polar_coordinate = B[:,[1]]
 
 #%% 
 ## Assemble the embedding with TALLEM
 m_dist = lambda x,y: np.sum(np.minimum(abs(x - y), (2*np.pi) - abs(x - y)))
-cover = IntervalCover(B, n_sets = 20, overlap = 0.40, space = [0, 2*np.pi], metric = m_dist)
+cover = IntervalCover(polar_coordinate, n_sets = 20, overlap = 0.40, space = [0, 2*np.pi], metric = m_dist)
 
 # from src.tallem.dimred import isomap
 # local_map = lambda x: isomap(x, d=3, k=15)

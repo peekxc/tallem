@@ -126,7 +126,7 @@ def mobius_band(n_polar=66, n_wide=9, scale_band=0.25):
 	MB = np.c_[r * np.cos(T), r * np.sin(T), S * np.sin(phi)]
 
 	## Return both 3D embedding + original parameters
-	return({ "points" : MB, "parameters": Y })
+	return(MB, Y)
 
 
 def embed(a: ArrayLike, D: int, method="givens"):

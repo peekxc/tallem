@@ -35,6 +35,8 @@ py_b11 = dependency('pybind11')
 
 ## Need numpy includes explicitly
 numpy_include_dir = py_mod.get_path('purelib') / 'numpy' / 'core' / 'include'
+# np = import('numpy')
+# py_mod.get_path('numpy')
 message('Using NumPy includes from: ' + numpy_include_dir)
 
 ## Find armadillo, and if not found install it via subproject wrap

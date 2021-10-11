@@ -280,7 +280,7 @@ struct StiefelLoss {
 	void populate_frames_sparse(py::array_t< arma::uword >& iota){
 		if (pou.n_cols != n){ throw std::invalid_argument("Invalid input. Must have one weight for each cover element."); }
 		const size_t J = pou.n_rows;
-		arma::uvec I = carma::arr_to_col(iota);
+		arma::uvec I = carma::arr_to_col(iota, true);
 
 		// Prepare the vectors needed to construct the sparse matrix using COO-input 
 		vector< arma::uword > RC; 
@@ -513,7 +513,7 @@ struct StiefelLoss {
 
 	// Uses the fast_assembly2() function. 
 	// All inputs as passed as-is to fast_assembly2; do not transpose anything here
-	auto assemble_frames2(const py::array_t< double >& A, py::object& pou, py::list& cover_subsets, const py::list& local_models, const py::array_t< double >& T ) -> py::array_t< double > {
+	auto assemble_frames2(const py::array_t< double >& A, const py::object& pou, const py::list& cover_subsets, const py::list& local_models, const py::array_t< double >& T ) -> py::array_t< double > {
 		arma::mat A_ = carma::arr_to_mat(A);
 		
 		// Partition of unity
@@ -528,7 +528,7 @@ struct StiefelLoss {
 		auto models = vector< arma::mat >();
 		for (auto pts: local_models){
 			py::array_t< double > pts_ = pts.cast< py::array_t< double > >();
-			models.push_back(carma::arr_to_mat(pts_));
+			models.push_back(carma::arr_to_mat(pts_, true));
 		}
 
 		// Copy/move the translations

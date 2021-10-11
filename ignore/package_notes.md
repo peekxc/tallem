@@ -19,9 +19,13 @@ In contrast, [Mesons]() DSL is just beautiful. Admittedly, Meson places more com
 
 For these reasons and more, `tallem`'s extension modules are built outside of setuptools with Meson. 
 
+Is the use of Meson--a very clearly C++ oriented build system---for Python package management an unwise choice? With the dawning of PEP 514/515 and the move towards a more diversified build system for Python packaging, I would argue not so. And I am not alone. Indeed, SciPy appears to be [moving towards a Meson build configuration](https://labs.quansight.org/blog/2021/07/moving-scipy-to-meson/). 
+
 ### Is `tallem` a python application? 
 
 No, `tallem` is a python _library_. The distinction is important, see: https://caremad.io/posts/2013/07/setup-vs-requirement/. Thus, `tallem` does not have a `requirements.txt` for use with, e.g. `Pipenv`.
+
+
 
 
 
