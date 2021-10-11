@@ -62,7 +62,7 @@ struct StiefelLoss {
 		output = carma::mat_to_arr< double >(A_star * frames);
 		
 		// Calculate all the SVDs
-		const size_t J = frames.n_rows / d;
+		// const size_t J = frames.n_rows / d;
 		auto nuclear_norm = (float) 0.0;
 		auto G = arma::mat(D, d*n);
 		auto i = size_t(0);
@@ -91,84 +91,6 @@ struct StiefelLoss {
 		return(out);
 	}
 
-	// auto gradient(const py::array_t< double >& At) -> std::list< np_array_t >{
-	// 	arma::Mat< double > A_star { carma::arr_to_mat< double >(At) };
-	// 	output = carma::mat_to_arr< double >(A_star * frames);
-	// 	return(gradient());
-	// }
-
-	// Assuming output contains the result of (A^* x Phi)
-	auto benchmark_gradient(const np_array_t& frames) -> std::list< np_array_t > {
-		if (frames.shape()[0] % d != 0 || frames.shape()[1] != d*n){
-			throw std::invalid_argument(
-				"Frames must be a ( dJ x dn ) matrix. (received a " + std::to_string(frames.shape()[0]) +
-				" x " + std::to_string(frames.shape()[1]) + " matrix)"
-			);
-		}
-		const size_t J = frames.shape()[0] / d;
-		auto nuclear_norm = (float) 0.0;
-		auto G = arma::Mat< float >(D, d*n);
-		auto i = size_t(0);
-
-		auto start1 = high_resolution_clock::now();
-		fast_svd_stream(output, d, [this, &i, &G, &nuclear_norm](np_array_t& u, np_array_t& s, np_array_t& vt){
-		// 	py::buffer_info info = u.request();
-    // 	float* data = carma::details::steal_copy_array<float>(u.ptr());
-		// 	arma::Mat< float > U { carma::details::arr_to_mat(info, data, true, false) };
-    // // return ;
-		// 	// auto u_copy = py::array_t< float >(u);
-		// 	auto v_copy = py::array_t< float >(vt);
-		// 	auto s_copy = py::array_t< float >(s);
-		// 	// arma::Mat< float > U { carma::arr_to_mat< float >(u, false) };
-		// 	arma::Mat< float > S { arma::diagmat(carma::arr_to_col< float >(s_copy)) };
-		// 	arma::Mat< float > V { carma::arr_to_mat< float >(v_copy) };
-		// 	G(arma::span::all, arma::span(i, i+d-1)) = U * S * V;
-		// 	nuclear_norm -= arma::trace(S);
-			i += d;
-		});
-		auto stop1 = high_resolution_clock::now();
-		auto duration1 = duration_cast< milliseconds >(stop1 - start1);
-		py::print("SVD1 ms: ", duration1.count());
-
-		i = 0; 
-		auto start = high_resolution_clock::now();
-		fast_svd_stream(output, d, [this, &i, &G, &nuclear_norm](np_array_t& u, np_array_t& s, np_array_t& vt){
-			py::buffer_info info = u.request();
-    	float* data = carma::details::steal_copy_array<float>(u.ptr());
-			arma::Mat< float > U { carma::details::arr_to_mat(info, data, true, false) };
-    // return ;
-			// auto u_copy = py::array_t< float >(u);
-			auto v_copy = py::array_t< float >(vt);
-			auto s_copy = py::array_t< float >(s);
-			// arma::Mat< float > U { carma::arr_to_mat< float >(u, false) };
-			arma::Mat< float > S { arma::diagmat(carma::arr_to_col< float >(s_copy, true)) };
-			arma::Mat< float > V { carma::arr_to_mat< float >(v_copy, true) };
-			G(arma::span::all, arma::span(i, i+d-1)) = U * S * V;
-			nuclear_norm -= arma::trace(S);
-			i += d;
-		});
-		auto stop = high_resolution_clock::now();
-		
-		auto duration = duration_cast< milliseconds >(stop - start);
-		py::print("SVD ms: ", duration.count());
-
-		// Multiply all the frames by the adjusted subgradients 
-		start = high_resolution_clock::now();
-		const arma::Mat< float > Phi = carma::arr_to_mat< float >(frames);
-		arma::Mat< float > GF = -(Phi * G.t()); // (dJ x dn)*(dn x D) => (dJ x D)
-		stop = high_resolution_clock::now();
-		duration = duration_cast< milliseconds >(stop - start);
-		py::print("Gradient ms: ", duration.count());
-
-		// arma::Mat< float > GF = arma::zeros(d*J, D);
-		auto out = std::list< np_array_t >();
-		out.push_back(carma::mat_to_arr(arma::Mat< float >(&nuclear_norm, 1, 1)));
-		out.push_back(carma::mat_to_arr(GF));
-		return(out);
-	}
-	
-	// const size_t jb = J*(J-1)/2;
-	
 	// Populate the O(J^2)-sized hashmap mapping index pairs i,j \in J -> rotation matrices
 	// omega_ is expected to contain the vertically-stacked d-d rotation matrices corresponding to each (i,j) pair
 	void init_rotations(py::list I_ind, py::list J_ind, py::array_t< double > omega_, const size_t J){
@@ -392,7 +314,7 @@ struct StiefelLoss {
 	// Note the transpose! 
 	// TODO: change this to construct the sparse matrix *not* using block assignments
 	void populate_frames(const py::array_t< size_t >& iota, py::object& pou, bool sparse = false){
-		if (iota.size() != n){
+		if (iota.size() != size_t(n)){
 			throw std::invalid_argument("Invalid input. Must have one weight for each cover element.");
 		}
 
@@ -568,7 +490,7 @@ struct StiefelLoss {
 			coords.zeros();
 
 			// Fill phi weight vector 
-			auto ci = pou.begin_col(i);
+			arma::sp_mat::const_col_iterator ci = pou.begin_col(i);
 			for (; ci != pou.end_col(i); ++ci){ phi_i[ci.row()] = *ci; }
 
 			// Compute the weighted average of the Fj's using the partition of unity
@@ -576,7 +498,7 @@ struct StiefelLoss {
 			for (; ci != pou.end_col(i); ++ci){
 				size_t j = ci.row(); 
 				generate_frame_(j, phi_i, d_frame); 			// populates the (dJ x d) frame in d_frame
-				svd_econ(U, s, V, A * (A.t() * d_frame)); // compute SVD of A A^T phi_j (U := dj x r, V := r x d, r <=	 d)
+				svd_econ(U, s, V, A * (A.t() * d_frame)); // compute SVD of A A^T phi_j (U := dj x r, V := r x d, r <= d)
 				
 				// In cover set U_j, find the index of the local coordinate for point x_i, add the translation vector
 				size_t jj = find_index(cover_subsets[j].begin(), cover_subsets[j].end(), i); // todo: remove this
@@ -637,7 +559,7 @@ struct StiefelLoss {
 			coords.zeros();
 
 			// Fill phi weight vector 
-			auto ri = pou.begin_row(i);
+			arma::sp_mat::const_row_iterator ri = pou.begin_row(i);
 			for (; ri != pou.end_row(i); ++ri){ phi_i[ri.col()] = *ri; }
 
 			// Compute the weighted average of the Fj's using the partition of unity

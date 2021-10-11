@@ -1,3 +1,6 @@
+#include <carma>
+#include <armadillo>
+
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h>
 #include <pybind11/numpy.h>
@@ -195,93 +198,123 @@ array_t np_matrix(size_t width, size_t height, float* data_ptr  = nullptr){
 	);
 }
 
-
-extern "C" {
-	extern int sgesvd	(
-		char* jobu, char* jobvt, int* m, int* n, float* a, int* lda, float* s, float* u, int* ldu, 
-		float* vt, int* ldvt, float* work, int* lwork, int* info
-	);	
-	extern void slaed1(int* N, float* D, float* Q, int* LDQ, int* INDXQ, float* RHO, int* CUTPNT, float* WORK, int* IWORK, int* INFO);	
-	extern void slaed4(int* N, int* I, float* D, float* Z, float* DELTA, float* RHO, float* DLAM, int* INFO);
-	extern void slaed9(int* K, int* KSTART, int* KSTOP, int* N, float* D, float* Q, int* LDQ, float* rho, float* dlambda, float* W, float* S, int* lds, int* info); 	
-}
+// TODO: Get fortran working
+// extern "C" {
+// 	extern int sgesvd	(
+// 		char* jobu, char* jobvt, int* m, int* n, float* a, int* lda, float* s, float* u, int* ldu, 
+// 		float* vt, int* ldvt, float* work, int* lwork, int* info
+// 	);	
+// 	extern void slaed1(int* N, float* D, float* Q, int* LDQ, int* INDXQ, float* RHO, int* CUTPNT, float* WORK, int* IWORK, int* INFO);	
+// 	extern void slaed4(int* N, int* I, float* D, float* Z, float* DELTA, float* RHO, float* DLAM, int* INFO);
+// 	extern void slaed9(int* K, int* KSTART, int* KSTOP, int* N, float* D, float* Q, int* LDQ, float* rho, float* dlambda, float* W, float* S, int* lds, int* info); 	
+// }
 
 //using np_carray_t = pybind11::array_t< float, pybind11::array::c_style | pybind11::array::forcecast >;
 
-// Computes a stream of thin SVD's on every (r x n) submatrix of x
+// Computes a stream of thin SVD's on every (r x n) submatrix of x (arma only)
 template< bool compute_uv, typename Lambda >
 void svdn_stream(np_array_t& x, int n, Lambda f){
 	if (x.ndim() != 2){ throw std::runtime_error("Input should be 2-D NumPy array"); }
 	if (x.shape()[1] % n != 0){ throw std::runtime_error("Input column size should divide by 3."); }
-	
-	// Input matrix
-	int m  =  x.shape()[0];
-	int min_dim = std::min(m, n);
-	int lda = m, ldu = m, ldvt = min_dim;
 	float* A = x.mutable_data();
-	
-	// Singular values to report
-	np_array_t Sm(min_dim);
-	float* S = Sm.mutable_data();
 
-	size_t c = 0; // current column 
+	// Input matrix
+	int m = x.shape()[0]; 
 	const size_t n_svds = x.shape()[1] / n;
-		
-	// Prepare singular vectors
-	np_array_t Um({ ldu, min_dim });
-	np_array_t Vm({ ldvt, n });
-	float* U = Um.mutable_data();
-	float* VT = Vm.mutable_data();
-	int LWORK = std::max(3*min_dim+std::max(m,n),5*min_dim);
-	std::vector< float > WORK(LWORK); 
-	
-	// option 'S' => the first min(m,n) columns of U (the left singular vectors) are returned in the array U;
-	// option 'O' => the first min(m,n) columns of U (the left singular vectors) are overwritten on the array A
-	auto write_str = std::string("S"); 
-	char* overwrite = (char*) write_str.c_str();
+	arma::fmat U, V;
+	arma::fvec s;
+	arma::fmat X(m, n, arma::fill::zeros);
 
 	// Execute all the SVD computations
-	int status = 0; 
+	int c = 0; 
+	using np_array_t = py::array_t< float, py::array::f_style | py::array::forcecast >;
+
 	for (size_t i = 0; i < n_svds; ++i, c += n){
-		sgesvd(overwrite, overwrite, &m, &n, A+(c*m), &lda, S, U, &ldu, VT, &ldvt, WORK.data(), &LWORK, &status);
+		// sgesvd(overwrite, overwrite, &m, &n, A+(c*m), &lda, S, U, &ldu, VT, &ldvt, WORK.data(), &LWORK, &status);
+		arma::fmat(A+(c*m), m, n, false, false); // don't copy memory
+		arma::svd(U, s, V, X);
+		np_array_t Um = carma::mat_to_arr(U);
+		np_array_t Sm = carma::col_to_arr(s);
+		np_array_t Vm = carma::mat_to_arr(V);
 		if constexpr (compute_uv){ f(Um, Sm, Vm); } else { f(Sm); }
 	}
 }
 
-std::list< np_array_t > lapack_svd(np_array_t& x){
-	int m = x.shape()[0], n = x.shape()[1];
-	int min_dim = std::min(m, n);
-	int lda = m, ldu = m, ldvt = min_dim;
-	
-	// Create the output arrays 
-	np_array_t sm = np_array_t(min_dim);
-	np_array_t um = np_matrix(ldu, min_dim);
-	np_array_t vt = np_matrix(ldvt, n);
 
-	// Extract the pointers 
-	float* A = x.mutable_data();
-	float* U = um.mutable_data();
-	float* S = sm.mutable_data();
-	float* VT = vt.mutable_data();
-	int LWORK = std::max(3*min_dim+std::max(m,n),5*min_dim);
-	std::vector< float > WORK(LWORK); 
-	int status = 0; 
+// Computes a stream of thin SVD's on every (r x n) submatrix of x
+// template< bool compute_uv, typename Lambda >
+// void svdn_stream(np_array_t& x, int n, Lambda f){
+// 	if (x.ndim() != 2){ throw std::runtime_error("Input should be 2-D NumPy array"); }
+// 	if (x.shape()[1] % n != 0){ throw std::runtime_error("Input column size should divide by 3."); }
 	
-	// option 'O' => the first min(m,n) columns of U (the left singular vectors) are overwritten on the array A
-	auto write_str = std::string("S"); 
-	char* overwrite = (char*) write_str.c_str();
+// 	// Input matrix
+// 	int m  =  x.shape()[0];
+// 	int min_dim = std::min(m, n);
+// 	int lda = m, ldu = m, ldvt = min_dim;
+// 	float* A = x.mutable_data();
 	
-	// Call the LAPACK svd
-	sgesvd(overwrite, overwrite, &m, &n, A, &lda, S, U, &ldu, VT, &ldvt, WORK.data(), &LWORK, &status);
-	// py::print("status: ", status);
+// 	// Singular values to report
+// 	np_array_t Sm(min_dim);
+// 	float* S = Sm.mutable_data();
 
-	// Record the outputs
-	std::list< np_array_t > out; 
-	out.push_back(um);
-	out.push_back(sm);
-	out.push_back(vt);
-	return(out);
-}
+// 	size_t c = 0; // current column 
+// 	const size_t n_svds = x.shape()[1] / n;
+		
+// 	// Prepare singular vectors
+// 	np_array_t Um({ ldu, min_dim });
+// 	np_array_t Vm({ ldvt, n });
+// 	float* U = Um.mutable_data();
+// 	float* VT = Vm.mutable_data();
+// 	int LWORK = std::max(3*min_dim+std::max(m,n),5*min_dim);
+// 	std::vector< float > WORK(LWORK); 
+	
+// 	// option 'S' => the first min(m,n) columns of U (the left singular vectors) are returned in the array U;
+// 	// option 'O' => the first min(m,n) columns of U (the left singular vectors) are overwritten on the array A
+// 	auto write_str = std::string("S"); 
+// 	char* overwrite = (char*) write_str.c_str();
+
+// 	// Execute all the SVD computations
+// 	int status = 0; 
+// 	for (size_t i = 0; i < n_svds; ++i, c += n){
+// 		sgesvd(overwrite, overwrite, &m, &n, A+(c*m), &lda, S, U, &ldu, VT, &ldvt, WORK.data(), &LWORK, &status);
+// 		if constexpr (compute_uv){ f(Um, Sm, Vm); } else { f(Sm); }
+// 	}
+// }
+
+// std::list< np_array_t > lapack_svd(np_array_t& x){
+// 	int m = x.shape()[0], n = x.shape()[1];
+// 	int min_dim = std::min(m, n);
+// 	int lda = m, ldu = m, ldvt = min_dim;
+	
+// 	// Create the output arrays 
+// 	np_array_t sm = np_array_t(min_dim);
+// 	np_array_t um = np_matrix(ldu, min_dim);
+// 	np_array_t vt = np_matrix(ldvt, n);
+
+// 	// Extract the pointers 
+// 	float* A = x.mutable_data();
+// 	float* U = um.mutable_data();
+// 	float* S = sm.mutable_data();
+// 	float* VT = vt.mutable_data();
+// 	int LWORK = std::max(3*min_dim+std::max(m,n),5*min_dim);
+// 	std::vector< float > WORK(LWORK); 
+// 	int status = 0; 
+	
+// 	// option 'O' => the first min(m,n) columns of U (the left singular vectors) are overwritten on the array A
+// 	auto write_str = std::string("S"); 
+// 	char* overwrite = (char*) write_str.c_str();
+	
+// 	// Call the LAPACK svd
+// 	sgesvd(overwrite, overwrite, &m, &n, A, &lda, S, U, &ldu, VT, &ldvt, WORK.data(), &LWORK, &status);
+// 	// py::print("status: ", status);
+
+// 	// Record the outputs
+// 	std::list< np_array_t > out; 
+// 	out.push_back(um);
+// 	out.push_back(sm);
+// 	out.push_back(vt);
+// 	return(out);
+// }
 
 
 // Fast SVD streaming 
