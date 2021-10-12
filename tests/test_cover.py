@@ -48,7 +48,22 @@ def test_landmark_cover():
 	# geodesic_dist(x, radius = 15)
 
 
-def test_():
-	np.all(knn_graph(x, k = 15).A == knn_graph(x, k = 15).A.T)
+def check_neighborhood_graphs():
+	import numpy as np
+	import tallem.dimred 
+	x = np.random.uniform(size=(100,2), low = 0.0, high = 1.0)
+
+	from sklearn.neighbors import kneighbors_graph
+	g1 = kneighbors_graph(x, n_neighbors=15, mode='distance').tocsc()
+	g2 = knn_graph(x, k = 15).tocsc()
+	max_diff = np.max(abs(g1.A - g2.A))
+
+	from sklearn.neighbors import radius_neighbors_graph
+	g1 = radius_neighbors_graph(x, radius=0.15, mode='distance').tocsc()
+	g2 = rnn_graph(x, r=0.15).tocsc()
+	max_diff = np.max(abs(g1.A - g2.A))
+
+
+
 
 

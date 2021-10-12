@@ -55,25 +55,28 @@ jobs:
       - name: Install dependencies with poetry 
         run: poetry install -vvv
       
-      - name: Build extension modules 
-        run: |
-          meson setup build
-          meson compile -vC build
+      - name: Build package with poetry 
+        run: poetry build -vvv
+      
+      # - name: Build extension modules 
+      #   run: |
+      #     meson setup build
+      #     meson compile -vC build
       
       - name: Run ldconfig 
         run: |
           sudo ldconfig
 
-      - name: Install armadillo again 
-        run: |
-          sudo apt-get install libarmadillo-dev
+      # - name: Install armadillo again 
+      #   run: |
+      #     sudo apt-get install libarmadillo-dev
           
-      - name: Install extension modules  
-        run: |
-          cp build/*.so src/tallem/pbm/
+      # - name: Install extension modules  
+      #   run: |
+      #     cp build/*.so src/tallem/pbm/
 
-      - name: Build the wheel with poetry 
-        run: poetry build -vvv
+      # - name: Build the wheel with poetry 
+      #   run: poetry build -vvv
       
       # - name: Build requirements.txt 
       #   run: poetry export -f requirements.txt --output requirements.txt --without-hashes
