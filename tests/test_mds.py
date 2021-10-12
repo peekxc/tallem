@@ -38,7 +38,6 @@ def test_classical_mds_cpp():
 
 # def test_dist_matrix():
 # 	np.all(landmark.dist_matrix(X) == dist(X, as_matrix=True))
-
 # def test_classical_mds_parallel():
 # 	import numpy as np
 # 	from tallem.distance import dist
@@ -59,27 +58,21 @@ def test_classical_mds_cpp():
 # 	# mds_par = landmark.parallel_cmds(X, subsets, 2, 12)
 # 	# mds_seq = [cmds(X[s,:], 2) for s in subsets]
 # 	# np.max(np.array([max(abs(dist(p) - dist(q))) for p,q in zip(mds_par, mds_seq)]))
-
 # 	# import time
 # 	# tic = time.perf_counter()
 # 	# landmark.parallel_cmds(X, subsets, 2, 12)
 # 	# toc = time.perf_counter()
 # 	# print(f"{toc - tic:0.4f} seconds")
-
 # 	# tic = time.perf_counter()
 # 	# mds_py = [cmds(X[s,:], 2) for s in subsets]
 # 	# toc = time.perf_counter()
 # 	# print(f"{toc - tic:0.4f} seconds")
 # 	# # landmark.dist_matrix(X) == dist(X, as_matrix=True)**2
-	
 # 	# # %% 
 # 	# import matplotlib.pyplot as plt
 # 	# plt.scatter(*wut[0].T)
 # 	# plt.scatter(*mds_py[0].T)
 # 	# np.max(abs(dist(wut[0]) - dist(mds_py[0])))
-
-		
-
 # def test_isomap():
 # 	import numpy as np
 # 	from tallem.distance import dist
@@ -87,18 +80,28 @@ def test_classical_mds_cpp():
 # 	iso1 = isomap(X)
 # 	Y = cmds(floyd_warshall(neighborhood_graph(X, k = 15).A))
 # 	assert isinstance(Y, np.ndarray)
-
-def check_parallel_mds():
-	# from numba import jit
-	# import numpy as np
-	# from tallem.dimred import cmds
-	# n = 150
-	# grid_x, grid_y = np.meshgrid(range(n), range(n))
-	# X = np.array(np.c_[grid_x.flatten(), grid_y.flatten()], dtype=float)	
-	# subsets = [np.array(list(range(i*n, ((i+1)*n))), dtype=int) for i in range(n)]
+# def check_parallel_mds():
+# 	from numba import jit, prange
+# 	import numpy as np
+# 	from tallem.dimred import cmds
+# 	n = 150
+# 	grid_x, grid_y = np.meshgrid(range(n), range(n))
+# 	X = np.array(np.c_[grid_x.flatten(), grid_y.flatten()], dtype=float)	
+# 	subsets = [np.array(list(range(i*n, ((i+1)*n))), dtype=int) for i in range(n)]
 	
-	# @jit(nopython=False, parallel=True)
-	# def parallel_mds(X, subsets):
-	# 	[cmds(X[s,:]) for s in prange(subsets)]
-			
+# 	@jit(nopython=False, parallel=True, forceobj=True)
+# 	def parallel_mds(X, subsets):
+# 		return([cmds(X[subsets[i],:]) for i in prange(len(subsets))])
 
+# 	## %% 
+# 	import time
+# 	tic = time.perf_counter()
+# 	s1 = [cmds(X[s,:]) for s in subsets]		
+# 	toc = time.perf_counter()
+# 	print(f"{toc - tic:0.4f} seconds")
+	
+# 	import time
+# 	tic = time.perf_counter()
+# 	s2  = parallel_mds(X, subsets)
+# 	toc = time.perf_counter()
+# 	print(f"{toc - tic:0.4f} seconds")
