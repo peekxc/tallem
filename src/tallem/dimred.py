@@ -255,18 +255,36 @@ def geodesic_dist(a: npt.ArrayLike):
 	d = dist(a, as_matrix=True) if not(is_distance_matrix(a)) else np.asanyarray(a)
 	return(floyd_warshall(d))
 
+def rnn_graph(a: npt.ArrayLike, r: Optional[float] = None):
+	# from sklearn.neighbors import radius_neighbors_graph
+	D = dist(a, as_matrix=True) if not(is_distance_matrix(a)) else np.asanyarray(a)
+	if r is None:
+		cr, er = connected_radius(D), enclosing_radius(D)
+		r = cr + 0.15*(er-cr)
+	return(neighborhood_graph(np.asanyarray(a), radius=r))
+	# radius_neighbors_graph(x, radius = )
+
+def knn_graph(a: npt.ArrayLike, k: Optional[int] = 15):
+	D = dist(a, as_matrix=True) if not(is_distance_matrix(a)) else np.asanyarray(a)
+	if k is None: 
+		k = 15
+	return(neighborhood_graph(np.asanyarray(a), k = k))
+
 def isomap(a: npt.ArrayLike, d: int = 2, **kwargs) -> npt.ArrayLike:
 	''' Returns the isomap embedding of a given point cloud or distance matrix. '''
-	if "k" in kwargs.keys():
-		ask_package_install("sklearn")
-		from sklearn.manifold import Isomap
-		metric = "euclidean" if not("metric" in kwargs.keys()) else kwargs["metric"]
-		E = Isomap(n_neighbors=kwargs["k"], n_components=d, metric=metric)
-		return(E.fit_transform(a))
+	if "radius" in kwargs.keys():
+		G = neighborhood_graph(np.asanyarray(a), **kwargs)
+		assert connected_components(G, directed = False)[0] == 1, "Error: graph not connected. Can only run isomap on a fully connected neighborhood graph."
+		return(cmds(geodesic_dist(G.A), d))
+		# ask_package_install("sklearn")
+		# from sklearn.manifold import Isomap
+		# metric = "euclidean" if not("metric" in kwargs.keys()) else kwargs["metric"]
+		# E = Isomap(n_neighbors=kwargs["k"], n_components=d, metric=metric)
+		# return(E.fit_transform(a))
 	else: 
 		G = neighborhood_graph(np.asanyarray(a), **kwargs)
 		assert connected_components(G, directed = False)[0] == 1, "Error: graph not connected. Can only run isomap on a fully connected neighborhood graph."
-		return(cmds(geodesic_dist(G.todense()), d))
+		return(cmds(geodesic_dist(G.A), d))
 
 def mmds(a: npt.ArrayLike, d: int = 2, **kwargs):
 	''' Thin wrapper around sklearn's metric MDS '''

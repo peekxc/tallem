@@ -1,32 +1,54 @@
 # test_cover.py 
 import unittest
 import sys 
+from pytest import approx
 
 print(sys.path)
 
-# from tallem.pbm import landmark
-
-from pytest import approx
-import numpy as np	
-
-
 ## Test landmarks
-from tallem.samplers import landmarks
 def test_landmarks():
+	import numpy as np
+	from tallem.samplers import landmarks
 	x = np.random.uniform(size=(100,2))
 	ind, radii = landmarks(x, k = 15)
 	assert len(ind) == 15
 	assert len(radii) == 15
 	assert np.all(np.argsort(radii) == np.array(range(15))[::-1])
 
-from tallem.cover import validate_cover
-from tallem.cover import IntervalCover
 def test_interval_cover_1d():	
+	import numpy as np
+	from tallem.cover import validate_cover
+	from tallem.cover import IntervalCover
 	x = np.random.uniform(size=(100,1), low = 0.0, high = 1.0)
 	cover = IntervalCover(x, n_sets = 10, overlap = 0.20)
 	assert validate_cover(x.shape[0], cover)
 
-def test_interval_cover_2d():	
+# def test_interval_cover_2d():	
+# 	x = np.random.uniform(size=(100,2), low = 0.0, high = 1.0)
+# 	cover = IntervalCover(x, n_sets = 10, overlap = 0.20)
+# 	assert validate_cover(x.shape[0], cover)
+
+
+def test_landmark_cover():
+	import numpy as np
+	from tallem.cover import LandmarkCover, validate_cover
 	x = np.random.uniform(size=(100,2), low = 0.0, high = 1.0)
-	cover = IntervalCover(x, n_sets = 10, overlap = 0.20)
+	cover = LandmarkCover(x, k = 15)
 	assert validate_cover(x.shape[0], cover)
+
+	from tallem.distance import dist
+	cover2 = LandmarkCover(dist(x), k = 15)
+	assert validate_cover(x.shape[0], cover2)
+
+	cover3 = LandmarkCover(dist(x, as_matrix=False), k = 15)
+	assert validate_cover(x.shape[0], cover3)
+
+	# from tallem.dimred import neighborhood_graph, floyd_warshall
+
+	# geodesic_dist(x, radius = 15)
+
+
+def test_():
+	np.all(knn_graph(x, k = 15).A == knn_graph(x, k = 15).A.T)
+
+
