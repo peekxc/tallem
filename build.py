@@ -27,7 +27,9 @@ def build(setup_kwargs):
 	print("\n==== Starting meson build ====\n")
 	os.system("meson setup build")
 	os.system("meson compile -vC build")
-	os.system("meson install -C build")
+	target_path = next(expandpath("~/tallem/src/tallem/pbm/")).resolve()
+	os.system(f"cp build/*{suffix} {target_path}")
+	# os.system("meson install -C build")
 	print("\n==== Finished meson build ====\n")
 	
 	## Check if they now exist
