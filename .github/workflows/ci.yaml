@@ -91,4 +91,10 @@ jobs:
           python -m pip install pytest 
           poetry run pytest tests/
 
+      - name: Build wheels
+        uses: pypa/cibuildwheel@v2.2.0a1
+
+      - uses: actions/upload-artifact@v2
+        with:
+          path: ./wheelhouse/*.whl
       
