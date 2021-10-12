@@ -87,10 +87,8 @@ jobs:
       - name: Run tests with pytest
         run: |
           sudo -H pip install pytest
-          pip3 install pytest
           pip install pytest
           python -m pip install pytest 
-          python -m pip3 install pytest 
           python -m pytest tests/
 
       
