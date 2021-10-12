@@ -2,6 +2,7 @@ import numpy as np
 from typing import *
 from numpy.typing import ArrayLike
 from scipy.spatial import Delaunay
+from tallem.utility import ask_package_install, package_exists
 
 def flywing():
 	''' Fly wings example (Klingenberg, 2015 | https://en.wikipedia.org/wiki/Procrustes_analysis) '''
@@ -40,6 +41,115 @@ def gaussian_blob(n_pixels: int, r: float):
 		return(auto_np.ravel(grid).flatten())
 	return(blob, auto_np.exp(0)/denom)
 
+def plot_image(P, figsize=(8,8), max_val = "default"):
+	if max_val == "default": max_val = np.max(P)
+	import matplotlib.pyplot as plt
+	fig = plt.figure(figsize=figsize)
+	plt.imshow(P, cmap='gray', vmin=0, vmax=max_val)
+	fig.gca().axes.get_xaxis().set_visible(False)
+	fig.gca().axes.get_yaxis().set_visible(False)
+
+def plot_images(P, shape, max_val = "default", figsize=(8,8), layout = None):
+	import matplotlib.pyplot as plt
+	if max_val == "default": 
+		max_val = np.max(P)
+	if P.ndim == 1:
+		fig = plt.figure(figsize=figsize)
+		plt.imshow(P.reshape(shape), cmap='gray', vmin=0, vmax=max_val)
+		fig.gca().axes.get_xaxis().set_visible(False)
+		fig.gca().axes.get_yaxis().set_visible(False)
+	else:
+		assert layout is not None, "missing layout"
+		fig = plt.figure(figsize=figsize)
+		for i, p in enumerate(P):
+			fig.add_subplot(layout[0], layout[1], i+1)
+			plt.imshow(P[i,:].reshape(shape), cmap='gray', vmin=0, vmax=max_val)
+			fig.gca().axes.get_xaxis().set_visible(False)
+			fig.gca().axes.get_yaxis().set_visible(False)
+			plt.subplots_adjust(left=None, bottom=None, right=None, top=None, wspace=None, hspace=None)
+
+def scatter2D(P, layout = None, figsize=(8,8), **kwargs):
+	import matplotlib.pyplot as plt
+	if isinstance(P, np.ndarray):
+		fig = plt.figure(figsize=figsize)
+		ax = fig.add_subplot()
+		ax.scatter(*P.T, **kwargs)
+	elif isinstance(P, Iterable):
+		assert layout is not None, "missing layout"
+		assert len(P) == np.prod(layout)
+		fig = plt.figure(figsize=figsize)
+		for i, p in enumerate(P):
+			ax = fig.add_subplot(layout[0], layout[1], i+1)
+			ax.scatter(*p.T, **kwargs) 
+
+def scatter3D(P, angles = None, layout = None, figsize=(8,8), **kwargs):
+	import matplotlib.pyplot as plt
+	if isinstance(P, np.ndarray):
+		if angles is not None:
+			assert len(angles) == np.prod(layout)
+			fig = plt.figure(figsize=figsize)
+			for i, theta in enumerate(angles):
+				ax = fig.add_subplot(layout[0], layout[1], i+1, projection='3d')
+				ax.scatter3D(*P.T, **kwargs) 
+				ax.view_init(30, theta)
+		else: 
+			fig = plt.figure(figsize=figsize)
+			ax = fig.add_subplot(projection='3d')
+			ax.scatter3D(*P.T, **kwargs)
+	elif isinstance(P, Iterable):
+		assert layout is not None, "missing layout"
+		if angles is None:
+			angles = np.repeat(60, len(P))
+		assert len(angles) == np.prod(layout)
+		fig = plt.figure(figsize=figsize)
+		for i, p in enumerate(P):
+			ax = fig.add_subplot(layout[0], layout[1], i+1, projection='3d')
+			ax.scatter3D(*p.T, **kwargs) 
+			ax.view_init(30, angles[i])
+
+def rotating_disk(n_pixels: int, r: float, sigma: float = 1.0):
+	from scipy.ndimage import gaussian_filter
+	import numpy as np
+	I = np.zeros(shape=(n_pixels, n_pixels))
+	p = np.linspace(0, 1, n_pixels, False) + 1/(2*n_pixels) # center locations of pixels, in normalized space
+	z = np.array([r, 0.0]).reshape((2,1))
+	d = np.array([0.5, 0.5]).reshape((2,1))
+	x,y = np.meshgrid(p, p)
+	def disk_image(theta: float):
+		R = np.array([[np.cos(theta), -np.sin(theta)], [np.sin(theta), np.cos(theta)]])
+		c = (R @ z) + d # center of disk in [0,1]^2
+		D = np.flipud(np.sqrt((x - c[0])**2 + (y - c[1])**2))
+		D[D <= r] = -1.0
+		D[D > r] = 0.0
+		D[D == -1.0] = 1.0
+		return(np.ravel(gaussian_filter(D, sigma=1.0)).flatten())
+	return(disk_image, 1.0)
+
+def mobius_bars(n_pixels: int, r: float, sigma: float = 1.0):
+	''' 
+	White bands on a mobius band 
+		n_pixels := number of pixels to make square image
+		r := constant between [0,1] indicating how wide to make the bar 
+		sigma := kernel parameter for gaussian blur
+	'''
+	from scipy.ndimage import gaussian_filter
+	import numpy as np
+	w = r*np.sqrt(2)
+	p = np.linspace(0, 1, n_pixels, False) + 1/(2*n_pixels) # center locations of pixels, in normalized space
+	x,y = np.meshgrid(p,p)
+	def bar(y_offset: float, theta: float):
+		z = np.array([0.5, y_offset]) # intercept
+		dist_to_line = np.cos(theta)*(z[1] - y) - np.sin(theta)*(z[0]-x)
+		# dist_to_line = ((y - y_offset)/np.tan(theta))*np.sin(theta)
+		I = np.flipud(abs(dist_to_line))
+		I = np.sqrt(2)*(I/np.max(I))
+		I[I <= w] = -1.0
+		I[I > w] = 0.0
+		I[I == -1.0] = 1.0
+		return(gaussian_filter(I, sigma=sigma))
+	c = np.max(bar(0.50, 0.0))
+	return(bar, c)
+
 # def _gaussian_pixel(d, n_pixels):
 # 	from scipy.stats import norm
 # 	sigma = d/3.0
@@ -61,6 +171,8 @@ def gaussian_blob(n_pixels: int, r: float):
 # plot_image(gaussian_pixel2(1/32, 11)([-0.5, 0.5]))
 
 
+
+
 def white_dot(n_pixels: int, r: float, n: Optional[int], method: Optional[str] = "grid", mu: Optional[ArrayLike] = None):
 	''' 
 	Generates a grayscale image data set where white blobs are placed on a (n_pixels x n_pixels) grid
@@ -69,24 +181,46 @@ def white_dot(n_pixels: int, r: float, n: Optional[int], method: Optional[str] =
 	denotes the scaling of the interval [-d,1+d] by 'n_pixels'. 
 	'''
 	assert r > 0 and r <= 1.0, "r must be in the range 0 < r <= 1.0"
+	assert isinstance(n, int) or isinstance(n, tuple), "n must be integer of tuple of integers"
+	ask_package_install("autograd")
+	import numpy as np
+	import autograd.numpy as auto_np
 
 	## First generate the closure to make the images
 	blob, c = gaussian_blob(n_pixels, r)
 
 	if not(mu is None):
-		output = np.vstack([blob(auto_np.array([x,y])) for x,y in mu])
+		samples = np.vstack([blob(auto_np.array([x,y])) for x,y in mu])
+		params = mu 
 	elif method == "random":
 		## Generate uniformly random locations (in domain)
 		assert n is not None, "'n' must be supplied if 'mu' is not."
-		X, Y = np.random.uniform(low=-r,high=1+r,size=n), np.random.uniform(low=-d,high=1+d,size=n)
-		output = np.vstack([blob(auto_np.array([x,y])) for x,y in zip(X, Y)])
-		params = np.c_[X, Y]
+		n1, n2 = (n, n) if isinstance(n, int) else (n[0], n[1])
+		
+		samples, params = [], []
+		X, Y = np.random.uniform(size=n1,low=-r,high=1+r), np.random.uniform(size=n1,low=-r,high=1+r)
+		for x,y in zip(X, Y):
+			samples.append(blob(auto_np.array([x,y])))
+			params.append([x, y, 1.0])
+		
+		NP = blob(auto_np.array([0.5, 0.5]))
+		for t in np.random.uniform(size=n2, low=0.0, high=1.0):
+			samples.append(t*NP)
+			params.append([0.5, 0.5, 1-t])
+		
+		## Vertically stack 
+		samples, params = np.vstack(samples), np.vstack(params)
+
 	elif method == "grid":
 		assert n is not None, "'n' must be supplied if 'mu' is not."
-		n1, n2 = (n, n) if isinstance(n, int) else (n[0], n[1])
+		if isinstance(n, int):
+			n1, n2 = (n, n) 
+		else:
+			n1, n2 = (n[0], n[1])
+		ng = int(np.floor(np.sqrt(n1)))
 		samples, params = [], []
-		for x in np.linspace(0.0-r,1.0+r,n1):
-			for y in np.linspace(0.0-r,1.0+r,n1):
+		for x in np.linspace(0.0-r,1.0+r,ng):
+			for y in np.linspace(0.0-r,1.0+r,ng):
 				samples.append(blob(auto_np.array([x, y])))
 				params.append([x, y, 1.0])
 		

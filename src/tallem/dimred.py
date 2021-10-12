@@ -78,7 +78,7 @@ def sammon(data, d: int = 2, max_iterations: int = 250, max_halves: int = 10):
 # 	return(H)
 
 ## Classical MDS 
-def cmds(a: npt.ArrayLike, d: int = 2, coords: bool = True):
+def cmds(a: npt.ArrayLike, d: int = 2, coords: bool = True, method="scipy"):
 	''' Computes classical MDS (cmds) '''
 	if is_pairwise_distances(a):
 		D = as_dist_matrix(a)
@@ -90,7 +90,12 @@ def cmds(a: npt.ArrayLike, d: int = 2, coords: bool = True):
 	n = D.shape[0]
 	H = np.eye(n) - (1.0/n)*np.ones(shape=(n,n)) # centering matrix
 	B = -0.5 * H @ D @ H
-	evals, evecs = eigh(B, subset_by_index=list(range(n-d, n)))
+	if method == "scipy":
+		evals, evecs = eigh(B, subset_by_index=(n-d, n-1))
+	else: 
+		evals, evecs = np.linalg.eigh(B)
+		evals, evecs = np.flip(evals), np.fliplr(evecs)
+		evals, evecs = evals[range(d)], evecs[:,range(d)]
 	
 	# Compute the coordinates using positive-eigenvalued components only     
 	if coords:               
@@ -255,12 +260,12 @@ def geodesic_dist(a: npt.ArrayLike):
 	d = dist(a, as_matrix=True) if not(is_distance_matrix(a)) else np.asanyarray(a)
 	return(floyd_warshall(d))
 
-def rnn_graph(a: npt.ArrayLike, r: Optional[float] = None):
+def rnn_graph(a: npt.ArrayLike, r: Optional[float] = None, p = 0.15):
 	# from sklearn.neighbors import radius_neighbors_graph
 	D = dist(a, as_matrix=True) if not(is_distance_matrix(a)) else np.asanyarray(a)
 	if r is None:
 		cr, er = connected_radius(D), enclosing_radius(D)
-		r = cr + 0.15*(er-cr)
+		r = cr + p*(er-cr)
 	return(neighborhood_graph(np.asanyarray(a), radius=r))
 	# radius_neighbors_graph(x, radius = )
 
@@ -271,18 +276,30 @@ def knn_graph(a: npt.ArrayLike, k: Optional[int] = 15):
 	return(neighborhood_graph(np.asanyarray(a), k = k))
 
 def isomap(a: npt.ArrayLike, d: int = 2, **kwargs) -> npt.ArrayLike:
-	''' Returns the isomap embedding of a given point cloud or distance matrix. '''
+	''' 
+	Returns the isomap embedding of a given point cloud or distance matrix. 
+	
+	Parameters: 
+		a := point cloud matrix. 
+		d := target dimension of the embedding (default to 2).
+		k := number of nearest neighbors to connect to form the neighborhood graph
+		r := the radius of each ball centered around each point in 'a' to form the neighborhood graph
+		p := proportion between the connecting radius and the enclosing radius to use a ball radius (between [0,1])
+
+	The parameters
+	'''
 	if "radius" in kwargs.keys():
 		G = neighborhood_graph(np.asanyarray(a), **kwargs)
 		assert connected_components(G, directed = False)[0] == 1, "Error: graph not connected. Can only run isomap on a fully connected neighborhood graph."
 		return(cmds(geodesic_dist(G.A), d))
-		# ask_package_install("sklearn")
-		# from sklearn.manifold import Isomap
-		# metric = "euclidean" if not("metric" in kwargs.keys()) else kwargs["metric"]
-		# E = Isomap(n_neighbors=kwargs["k"], n_components=d, metric=metric)
-		# return(E.fit_transform(a))
+	elif "k" in kwargs.keys():
+		ask_package_install("sklearn")
+		from sklearn.manifold import Isomap
+		metric = "euclidean" if not("metric" in kwargs.keys()) else kwargs["metric"]
+		E = Isomap(n_neighbors=kwargs["k"], n_components=d, metric=metric)
+		return(E.fit_transform(a))
 	else: 
-		G = neighborhood_graph(np.asanyarray(a), **kwargs)
+		G = rnn_graph(a, **kwargs)
 		assert connected_components(G, directed = False)[0] == 1, "Error: graph not connected. Can only run isomap on a fully connected neighborhood graph."
 		return(cmds(geodesic_dist(G.A), d))
 

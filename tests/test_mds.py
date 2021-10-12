@@ -81,10 +81,12 @@ def test_classical_mds_cpp():
 # 	Y = cmds(floyd_warshall(neighborhood_graph(X, k = 15).A))
 # 	assert isinstance(Y, np.ndarray)
 # def check_parallel_mds():
+# 	import time
 # 	from numba import jit, prange
 # 	import numpy as np
 # 	from tallem.dimred import cmds
-# 	n = 150
+# 	from tallem.pbm import landmark
+# 	n = 250
 # 	grid_x, grid_y = np.meshgrid(range(n), range(n))
 # 	X = np.array(np.c_[grid_x.flatten(), grid_y.flatten()], dtype=float)	
 # 	subsets = [np.array(list(range(i*n, ((i+1)*n))), dtype=int) for i in range(n)]
@@ -93,15 +95,65 @@ def test_classical_mds_cpp():
 # 	def parallel_mds(X, subsets):
 # 		return([cmds(X[subsets[i],:]) for i in prange(len(subsets))])
 
-# 	## %% 
-# 	import time
+# 	# %% 
 # 	tic = time.perf_counter()
 # 	s1 = [cmds(X[s,:]) for s in subsets]		
 # 	toc = time.perf_counter()
 # 	print(f"{toc - tic:0.4f} seconds")
-	
-# 	import time
+
+# 	# %% 
+# 	tic = time.perf_counter()
+# 	s1 = [cmds(X[s,:], method="numpy") for s in subsets]		
+# 	toc = time.perf_counter()
+# 	print(f"{toc - tic:0.4f} seconds")
+
+# 	# %% 
 # 	tic = time.perf_counter()
 # 	s2  = parallel_mds(X, subsets)
 # 	toc = time.perf_counter()
 # 	print(f"{toc - tic:0.4f} seconds")
+
+# 	# %% 
+# 	tic = time.perf_counter()
+# 	landmark.parallel_cmds(X, subsets, 2, 1)
+# 	toc = time.perf_counter()
+# 	print(f"{toc - tic:0.4f} seconds")
+
+# 	# %% 
+# 	DM = [dist(X[subset,:], as_matrix=True) for subset in subsets]
+# 	tic = time.perf_counter()
+# 	mds_parallel_numba(DM)
+# 	toc = time.perf_counter()
+# 	print(f"{toc - tic:0.4f} seconds")
+	
+
+# #%% 
+# @jit(nopython=True, parallel=False)
+# def mds_numba(D, d: int = 2):
+# 	''' MUST ACCEPT SQUARE DISTANCE MATRIX '''
+# 	n = D.shape[0]
+# 	H = np.eye(n) - (1.0/n)*np.ones(shape=(n,n)) # centering matrix
+# 	B = -0.5 * H @ D @ H
+# 	evals, evecs = np.linalg.eigh(B)
+# 	evals, evecs = np.flip(evals), np.fliplr(evecs)
+# 	evals, evecs = evals[range(d)], evecs[:,range(d)]
+# 	w = np.where(evals > 0)[0]
+# 	Y = np.zeros(shape=(n, d))
+# 	Y[:,w] = evecs[:,w] @ np.diag(np.sqrt(evals[w]))
+# 	return(Y)
+
+# @jit(nopython=True, parallel=True)
+# def mds_parallel_numba(dm, d: int = 2):
+# 	results = [mds_numba(dm[i], d) for i in prange(len(dm))]
+# 	return(results)
+		
+
+# from tallem.distance import dist
+# n = 150
+# grid_x, grid_y = np.meshgrid(range(n), range(n))
+# X = np.array(np.c_[grid_x.flatten(), grid_y.flatten()], dtype=float)	
+# subsets = [np.array(list(range(i*n, ((i+1)*n))), dtype=int) for i in range(n)]
+
+
+# DM = [dist(X[subset,:], as_matrix=True) for subset in subsets]
+

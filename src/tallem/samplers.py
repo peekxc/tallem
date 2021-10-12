@@ -54,7 +54,8 @@ def landmarks(a: ArrayLike, k: Optional[int] = 15, eps: Optional[float] = -1.0, 
 		raise ValueError("Unknown input type detected. Must be a matrix of points, a distance matrix, or a set of pairwise distances.")
 	
 	## Check is a valid cover 
-	is_monotone = np.all(np.argsort(-np.array(radii)) == np.array(range(len(radii))))
+	#is_monotone = np.all(np.argsort(-np.array(radii)) == np.array(range(len(radii))))
+	is_monotone = np.all(np.diff(-np.array(radii)) >= 0.0)
 	assert is_monotone, "Invalid metric: non-monotonically decreasing radii found."
 
 	return(indices, radii)
