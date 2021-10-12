@@ -6,21 +6,15 @@ Given some data set *X* and a map <img class='latex-inline math' style="backgrou
 
 TODO: describe TALLEM more
 
-## Dependencies 
+## Installing + Dependencies 
 
-`tallem` requires _Python >= 3.8.0_, along with the packages listed in [pyproject.toml](https://github.com/peekxc/tallem/blob/a1e7d2cd5d0dab5816ece658a3816dc0425f2391/pyproject.toml#L12). These are automatically downloaded and installed via `pip` using the installation procedure given below.
+`tallem` requires _Python >= 3.8.0_. As a a [PEP 517](https://www.python.org/dev/peps/pep-0517/)-compliant package, the rest of the build requirements are listed in [pyproject.toml](https://github.com/peekxc/tallem/blob/main/pyproject.toml). These are automatically downloaded and installed via `pip` using the installation procedure given below.
 
-### Source dependencies 
+###Installing from cibuildwheels
 
-`tallem` relies on a few package dependencies that *may* require manual installation in order to compile correctly when built from source. These libraries include: 
+TODO
 
-* [Armadillo](http://arma.sourceforge.net/) >= 10.5.2 ([see here for installation options](http://arma.sourceforge.net/download.html))
-* [Poetry](https://python-poetry.org/) (for building the [wheels](https://packaging.python.org/glossary/#term-Wheel))
-* [Meson](https://mesonbuild.com/) and [Ninja](https://ninja-build.org/) (for building the [extension modules](https://docs.python.org/3/glossary.html#term-extension-module))
-
-Additionally, the current source files are written in [C++17](https://en.wikipedia.org/wiki/C%2B%2B17), so a [C++17 compliant compiler](https://en.cppreference.com/w/cpp/compiler_support/17) will be needed. 
-
-## Installing from source
+### Installing from source
 
 To install `tallem` from source, clone the repository and install the package via: 
 
@@ -28,7 +22,13 @@ To install `tallem` from source, clone the repository and install the package vi
 python -m pip install .
 ```
 
-`tallem` is a [PEP 517](https://www.python.org/dev/peps/pep-0517/)-compliant package---the build requirements are listed in [pyproject.toml](https://github.com/peekxc/tallem/blob/main/pyproject.toml).   `tallem` uses poetry to build the source and binary distributions, so this should also be available from the command line. If you have an installation problems or questions, feel free to [make a new issue](https://github.com/peekxc/tallem/issues).
+`tallem` relies on a few package dependencies in order to compile correctly when building from source. These libraries include: 
+
+* [Armadillo](http://arma.sourceforge.net/) >= 10.5.2 ([see here for installation options](http://arma.sourceforge.net/download.html))
+* [Poetry](https://python-poetry.org/) (for building the [source](https://packaging.python.org/glossary/#term-Source-Distribution-or-sdist) and [binary](https://packaging.python.org/glossary/#term-Wheel) distributions)
+* [Meson](https://mesonbuild.com/) and [Ninja](https://ninja-build.org/) (for building the [extension modules](https://docs.python.org/3/glossary.html#term-extension-module))
+
+An install attempt of these external dependencies is made if they are not available prior to call to `pip`, however these may require manual installation. Additionally, the current source files are written in [C++17](https://en.wikipedia.org/wiki/C%2B%2B17), so a [C++17 compliant compiler](https://en.cppreference.com/w/cpp/compiler_support/17) will be needed. If you have an installation problems or questions, feel free to [make a new issue](https://github.com/peekxc/tallem/issues).
 
 ## Usage 
 
