@@ -88,7 +88,7 @@ def test_classical_mds_cpp():
 # 	Y = cmds(floyd_warshall(neighborhood_graph(X, k = 15).A))
 # 	assert isinstance(Y, np.ndarray)
 
-
+# def check_parallel_mds():
 # 	## Python version 
 # 	# %%
 # 	%time 

@@ -55,21 +55,21 @@ jobs:
       - name: Install dependencies with poetry 
         run: poetry install -vvv
       
-      - name: Build package with poetry 
-        run: poetry build -vvv
-      
       # - name: Build extension modules 
       #   run: |
       #     meson setup build
       #     meson compile -vC build
-      
+
+      - name: Install armadillo again 
+        run: |
+          sudo apt-get install libarmadillo-dev
+
       - name: Run ldconfig 
         run: |
           sudo ldconfig
 
-      # - name: Install armadillo again 
-      #   run: |
-      #     sudo apt-get install libarmadillo-dev
+      - name: Build package with poetry 
+        run: poetry build -vvv
           
       # - name: Install extension modules  
       #   run: |
