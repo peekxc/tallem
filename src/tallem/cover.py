@@ -420,9 +420,11 @@ class IntervalCover(Cover):
 		if index is not None:
 			centroid = self.bbox[0:1,:] + (np.array(index) * self.base_width) + self.base_width/2.0
 			# diff = self.set_distance(a, centroid)
-			diff = np.abs(a - centroid)
-			return(np.ravel(np.where(np.bitwise_and.reduce(diff <= self.set_width/2.0, axis = 1))))
+			# diff = np.abs(a - centroid)
+			diff = dist(centroid, a, metric=self.metric).flatten()
+			# return(np.ravel(np.where(np.bitwise_and.reduce(diff <= self.set_width/2.0, axis = 1))))
 			# return(np.nonzero(self.set_distance(a, index) <= 1.0)[0])
+			return(np.flatnonzero(diff <= self.set_width/2.0))
 		else:
 			cover_sets = { index : self.construct(a, index) for index in self.keys() }
 			return(cover_sets)

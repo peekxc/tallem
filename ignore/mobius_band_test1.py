@@ -10,10 +10,6 @@ from src.tallem import TALLEM
 from src.tallem.cover import IntervalCover
 from src.tallem.datasets import mobius_band
 
-
-
-
-
 #%% 
 ## Generate mobius band + polar coordinate 
 X, B = mobius_band(n_polar=120, n_wide=15, scale_band = 0.25)
@@ -28,7 +24,14 @@ cover = IntervalCover(polar_coordinate, n_sets = 20, overlap = 0.40, space = [0,
 # local_map = lambda x: isomap(x, d=3, k=15)
 
 top = TALLEM(cover, local_map="pca2", n_components=3)
-emb = top.fit_transform(X=X, B=B)
+emb = top.fit_transform(X=X, B=polar_coordinate)
+
+
+## Visualize the resulting embedding
+import matplotlib.pyplot as plt
+fig = plt.figure()
+ax = fig.add_subplot(projection='3d')
+ax.scatter3D(*emb.T, c = polar_coordinate)
 
 # %% 
 top._profile(X=X, B=B)
@@ -67,7 +70,7 @@ def main():
 import matplotlib.pyplot as plt
 fig = plt.figure()
 ax = fig.add_subplot(projection='3d')
-ax.scatter3D(*emb.T, c = B)
+ax.scatter3D(*emb.T, c = polar_coordinate)
 
 
 # %% Debugging 

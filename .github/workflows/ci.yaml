@@ -3,83 +3,6 @@ name: Build distribution
 on: [pull_request, push, workflow_dispatch]
 
 jobs:
-  Build-and-Test:
-    runs-on: "ubuntu-latest" # ${{ matrix.os }}
-    # strategy:
-    #   fail-fast: true
-    #   matrix:
-    #     os: ["ubuntu-latest"] # "windows-latest", "macos-latest"
-    #     python-version: ["3.9"] #"3.7", "3.8", 
-
-    steps:
-      - name: Checkout source
-        uses: actions/checkout@v2
-        with: 
-          submodules: recursive
-    
-      - name: Install gfortran, LAPACK, and LAPACKE 
-        run: |
-          sudo apt update -yq
-          sudo apt install -yq --no-install-recommends ninja-build gfortran liblapack-dev liblapacke-dev
-
-      - name: Setup python 
-        uses: actions/setup-python@v2
-        with:
-          python-version: 3.9 # ${{ matrix.python-version }}
-          architecture: x64
-
-      - name: Install dependencies
-        run: python -m pip install --upgrade pip
-
-      - name: Install Setuptools, build, and wheel
-        run: pip install setuptools build wheel
-
-      - name: Install Pillow 
-        run: pip install Pillow
-
-      - name: Install PythonExtensions 
-        run: pip install PythonExtensions
-
-      - name: Install meson + ninja + cmake 
-        run: pip install meson ninja cmake
-
-      - name: Install numpy
-        run: pip install numpy 
-
-      - name: Install Pybind 11
-        run: pip install "pybind11[global]"
-
-      - name: Install SciPy
-        run: pip install scipy
-
-      - name: Install pytest
-        run: pip install pytest 
-
-      # - name: Cache dependencies
-      #   uses: actions/cache@v2.1.6
-
-      - name: Pull git submodules 
-        run: git submodule update --init --recursive
-
-      - name: List directory structure 
-        run: |
-          sudo apt-get install tree
-          tree 
-
-      - name: Build extension modules 
-        run: |
-          meson setup build
-          meson compile -vC build
-
-      - name: Build package wheel
-        run: python -m build --wheel --outdir .
-      
-      - name: Install wheel to site-packages
-        run: pip install tallem-*.whl
-
-      - name: Run tests
-        run: pytest
-      
   Poetry-Build: 
     runs-on: "ubuntu-latest"
     steps:
@@ -126,8 +49,8 @@ jobs:
           sudo apt update -yq
           sudo apt install -yq --no-install-recommends ninja-build gfortran liblapack-dev liblapacke-dev
 
-      - name: Install tk 
-        run: sudo apt-get install tk
+      # - name: Install tk 
+      #   run: sudo apt-get install tk
 
       - name: Install dependencies with poetry 
         run: poetry install -vvv
@@ -152,14 +75,15 @@ jobs:
       - name: Build the wheel with poetry 
         run: poetry build -vvv
       
-      - name: Build requirements.txt 
-        run: poetry export -f requirements.txt --output requirements.txt --without-hashes
+      # - name: Build requirements.txt 
+      #   run: poetry export -f requirements.txt --output requirements.txt --without-hashes
 
       - name: Install the wheel with pip
         run: pip install dist/tallem-*.whl --no-deps --use-deprecated=legacy-resolver
 
       - name: Run tests with pytest
         run: |
+          poetry shell
           python -m pytest tests/
 
       

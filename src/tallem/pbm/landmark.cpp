@@ -51,12 +51,13 @@ void maxmin_f(DistFunction dist_f, const size_t n_pts,
   // Make a function that acts as a sentinel
   enum CRITERION { NUM, EPS, NUM_OR_EPS }; // These are the only ones that make sense
   const CRITERION stopping_criterion = (eps == -1.0) ? NUM : ((n == 0) ? EPS : NUM_OR_EPS);
-  const auto is_finished = [stopping_criterion, eps, n](size_t n_landmarks, double c_eps){
+  const auto is_finished = [stopping_criterion, eps, n](size_t n_landmarks, double c_eps) -> bool {
     switch(stopping_criterion){
       case NUM: return(n_landmarks >= n);
       case EPS: return(c_eps <= eps);
       case NUM_OR_EPS: return(n_landmarks >= n || c_eps <= eps);
-    }
+			default: return(true); // should never happen, but gcc complains
+    };
   };
 
   // Indices of possible candidate landmarks
@@ -120,7 +121,7 @@ py::tuple maxmin_pc(
 	const size_t metric = 1, const size_t seed = 0, const size_t pick = 0
 ){
   const size_t n_pts = X.n_cols, d = X.n_rows;
-  if (seed < 0 || seed >= n_pts){ throw std::invalid_argument("Invalid seed point."); }
+  if (seed >= n_pts){ throw std::invalid_argument("Invalid seed point."); }
 
 	// Initial covering radius == Inf 
 	vector< double > cover_radii{ std::numeric_limits<double>::infinity() };
@@ -151,7 +152,7 @@ py::tuple maxmin_dist(
 	const arma::vec& X, const size_t n_pts,
 	const double eps, const size_t n,
 	const size_t seed = 0, const size_t pick = 0){
-  if (seed < 0 || seed >= n_pts){ throw std::invalid_argument("Invalid seed point."); }
+  if (seed >= n_pts){ throw std::invalid_argument("Invalid seed point."); }
 
   // Parameterize the distance function
   DistFunction dist = [&X, n_pts](size_t i, size_t j) -> double {
@@ -213,14 +214,139 @@ auto spawnThreads(int n) -> vector< double > {
 
 // Classical MDS 
 // D := distance matrix
-void cmds(const arma::mat& D, const size_t d, arma::vec& w, arma::mat& v){
+void cmds_eig(const arma::mat& D, const size_t d, arma::vec& w, arma::mat& v){
 	const size_t n = D.n_rows;
-	arma::mat H(n, n, arma::fill::none);
-	H.fill(-1/n);
-	H.diag().fill(1-(1/n)); 
-	arma::eig_sym(w, v, -0.5 * H * D * H);
-	// arma::eigs_sym(w, v, -0.5 * H * D * H, d);
+	arma::mat H(n, n, arma::fill::zeros);
+	double fill_value = 1.0/double(n);
+	H.fill(-fill_value);
+	H.diag().fill(1.0 - fill_value); 
+	bool success = arma::eig_sym(w, v, -0.5 * H * D * H, "std");
+	if (!success){
+		throw std::invalid_argument("Eigenvalues failed to converge.");
+	}
 }
+
+void cmds(const arma::mat& D, const size_t d, arma::mat& out){
+	arma::mat v; 
+	arma::vec w; 
+	cmds_eig(D, d, w, v);
+	out = arma::fliplr(v);
+	arma::vec eigenvalues = arma::sort(w, "descend");
+	out.resize(out.n_rows, d);
+	for (size_t j = 0; j < d; ++j){
+		if (eigenvalues[j] > 0){
+			out.col(j) *= std::sqrt(eigenvalues[j]);
+		} else {
+			out.col(j).fill(0.0);
+		}
+	}
+}
+
+constexpr auto rank_comb2(size_t i, size_t j, size_t n) noexcept -> size_t { 
+  if (j < i){ std::swap(i,j); }
+  return(size_t(n*i - i*(i+1)/2 + j - i - 1));
+}
+
+inline std::array< size_t, 2 > unrank_comb2(const size_t x, const size_t n) noexcept {
+	auto i = static_cast< size_t >( (n - 2 - floor(sqrt(-8*x + 4*n*(n-1)-7)/2.0 - 0.5)) );
+	auto j = static_cast< size_t >( x + i + 1 - n*(n-1)/2 + (n-i)*((n-i)-1)/2 );
+	return (std::array< size_t, 2 >{ i, j });
+}
+
+// Measure all pairwise distances between columns of matrix 'x'
+// template< typename OutputIt, typename Lambda >		
+// void dist(const arma::mat& x, OutputIt out){
+// 	const size_t N = x.n_rows*(x.n_rows - 1)/2;
+// 	for (size_t c = 0; c < N; ++c){
+// 		std::array< size_t, 2 > p = unrank_comb2(c, x.n_rows);
+// 		size_t i = p[0], j = p[1];
+// 		*out++ = (double) arma::dot(x.col(i) - x.col(j));
+// 	}
+// }
+
+// Measure all pairwise distances between columns of matrix 'x'
+void dist_matrix(const arma::mat& x, arma::mat& D){
+	const size_t N = x.n_cols*(x.n_cols - 1)/2;
+	// py::print("n = ", N);
+	for (size_t c = 0; c < N; ++c){
+		std::array< size_t, 2 > p = unrank_comb2(c, x.n_cols);
+		size_t i = p[0], j = p[1];
+		arma::vec diff = x.col(i) - x.col(j);
+		D(i,j) = (double) std::pow(arma::norm(diff), 2.0);
+		D(j,i) = D(i,j);
+	}
+}
+
+// Each C++11 thread should be running in their function with an infinite loop, constantly waiting for new tasks to grab and run.
+#include "threadpool.h"
+void parallel_mds_cpp(const arma::mat& X, const vector< arma::uvec >& cover_sets, const size_t d, const size_t n_threads, vector< arma::mat >& out){
+	// Allocate max number of threads
+	ctpl::thread_pool p(n_threads);
+
+	// Prepare the models 
+	const size_t n_opens = cover_sets.size();
+	auto models = vector< arma::mat >(n_opens, arma::mat());
+
+	// Launch the threads
+	std::vector<std::future<void>> results(n_opens);
+
+	for (size_t j = 0; j < n_opens; ++j) {
+		results[j] = p.push([&models, &X, &cover_sets, j, d](int thread_id){
+			// py::print(j);
+			const size_t n = cover_sets.at(j).size();
+			// models.at(j) = arma::mat(2,2);
+			// models.at(j)(0,0) = thread_id;
+			// models.at(j)(1,1) = j;
+			// models.at(j)(1,0) = n;
+			// auto it = std::max_element(cover_sets.at(j).begin(), cover_sets.at(j).end());
+			// models.at(j)(0,1) = double(*it);
+			const arma::mat X_j = X.cols(cover_sets.at(j));
+			arma::mat D = arma::mat(n, n, arma::fill::zeros);
+			dist_matrix(X_j, D);
+			cmds(D, d, models.at(j)); 
+		});
+	}
+
+	// Join them 
+	for (size_t j = 0; j < n_opens; ++j) { results[j].get(); }
+	
+	// Copy the local euclidean models (transposed)	
+	for (size_t j = 0; j < models.size(); ++j){
+		out[j] = models[j];
+	}
+};
+
+auto parallel_mds(const py::array_t< double >& x, const py::list& cover_sets, const size_t d, const size_t n_threads) -> py::list {
+
+	// Conversions
+	const arma::mat X = carma::arr_to_mat< double >(x).t();
+	auto indices = vector< arma::uvec >(cover_sets.size());
+	for (size_t j = 0; j < cover_sets.size(); ++j){ 
+		indices[j] = cover_sets[j].cast< arma::uvec >(); 
+	}
+
+	// for (size_t j = 0; j < cover_sets.size(); ++j) {
+	// 	auto it = std::max_element(indices.at(j).begin(), indices.at(j).end());
+	// 	py::print(int(*it));
+	// }
+	
+	// Do the parallel mds
+	std::cout << "The GIL state is " << PyGILState_Check() <<std::endl;
+	py::gil_scoped_release release;
+	std::cout << "The GIL state is " << PyGILState_Check() <<std::endl;
+	vector< arma::mat > results(indices.size(), arma::mat()); 
+	parallel_mds_cpp(X, indices, d, n_threads, results);
+	py::gil_scoped_acquire acquire;
+
+	// py::list output(indices.size()); 
+	vector< py::array_t< double > > output(indices.size());
+	for (size_t j = 0; j < indices.size(); ++j){
+		output[j] = carma::mat_to_arr(results[j]);
+	}
+	return(py::cast(output));
+} // parallel_mds
+
+
 
 PYBIND11_MODULE(landmark, m) {
 	m.def("maxmin", &maxmin, "finds maxmin landmarks");
@@ -231,12 +357,19 @@ PYBIND11_MODULE(landmark, m) {
 		py::gil_scoped_acquire acquire;
 		return(carma::col_to_arr(arma::vec(res)));
 	});
-	m.def("cmds", [](py::array_t< double >& X, const size_t d) -> py::tuple {
-		arma::mat v; 
-		arma::vec w; 
+	m.def("cmds", [](const py::array_t< double >& X, const size_t d) -> py::array_t< double > {
 		const arma::mat D = carma::arr_to_mat< double >(X);
-		cmds(D, d, w, v);
-		return py::make_tuple(carma::col_to_arr< double >(w), carma::mat_to_arr< double >(v));
+		arma::mat emb; 
+		cmds(D, d, emb);
+		return carma::mat_to_arr(emb);
+	});
+	// void parallel_mds(const py::array_t< double >& x, const py::list& cover_sets, const size_t d){
+	m.def("parallel_cmds", parallel_mds);
+	m.def("dist_matrix", [](const py::array_t< double >& x) -> py::array_t< double > {
+		const arma::mat X = carma::arr_to_mat(x).t();
+		arma::mat D = arma::mat(X.n_cols, X.n_cols, arma::fill::zeros);
+		dist_matrix(X, D);
+		return(carma::mat_to_arr(D));
 	});
 };
 
