@@ -28,7 +28,8 @@ def build(setup_kwargs):
 	os.system("meson setup build")
 	os.system("meson compile -vC build")
 	target_path = next(expandpath("~/tallem/src/tallem/pbm/")).resolve()
-	os.system(f"cp build/*{suffix} {target_path}")
+	print(f"Install path: {target_path}")
+	os.system(f"sudo cp build/*{suffix} {target_path}")
 	# os.system("meson install -C build")
 	print("\n==== Finished meson build ====\n")
 	
