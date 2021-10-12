@@ -86,7 +86,7 @@ jobs:
 
       - name: Run tests with pytest
         run: |
-          poetry shell
+          sudo -H pip install pytest
           python -m pytest tests/
 
       
