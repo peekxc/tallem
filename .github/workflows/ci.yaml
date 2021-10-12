@@ -89,6 +89,6 @@ jobs:
           sudo -H pip install pytest
           pip install pytest
           python -m pip install pytest 
-          python -m pytest tests/
+          poetry run pytest tests/
 
       
