@@ -8,52 +8,27 @@ TODO: describe TALLEM more
 
 ## Dependencies 
 
-`tallem` requires _Python >= 3.9.1_, along with the packages listed in [pyproject.toml](https://github.com/peekxc/tallem/blob/a1e7d2cd5d0dab5816ece658a3816dc0425f2391/pyproject.toml#L12). These are automatically downloaded and installed via `pip` using the installation procedure given below.
+`tallem` requires _Python >= 3.8.0_, along with the packages listed in [pyproject.toml](https://github.com/peekxc/tallem/blob/a1e7d2cd5d0dab5816ece658a3816dc0425f2391/pyproject.toml#L12). These are automatically downloaded and installed via `pip` using the installation procedure given below.
 
-Externally, `tallem` uses [pybind11](https://github.com/pybind/pybind11/tree/stable) to interface with a variety of software libraries using [C++17](https://en.wikipedia.org/wiki/C%2B%2B17), which themselves must be installed in order to run TALLEM. These include: 
+### Source dependencies 
 
-* [Armadillo](http://arma.sourceforge.net/) >= 10.5.2
-* [CARMA](https://github.com/RUrlus/carma) >= v0.5
+`tallem` relies on a few package dependencies that *may* require manual installation in order to compile correctly when built from source. These libraries include: 
+
+* [Armadillo](http://arma.sourceforge.net/) >= 10.5.2 ([see here for installation options](http://arma.sourceforge.net/download.html))
+* [Poetry](https://python-poetry.org/) (for building the [wheels](https://packaging.python.org/glossary/#term-Wheel))
 * [Meson](https://mesonbuild.com/) and [Ninja](https://ninja-build.org/) (for building the [extension modules](https://docs.python.org/3/glossary.html#term-extension-module))
 
-Since prebuilt wheels are not yet provided, a [C++17 compliant compiler](https://en.cppreference.com/w/cpp/compiler_support/17) may be needed to install these dependencies. 
+Additionally, the current source files are written in [C++17](https://en.wikipedia.org/wiki/C%2B%2B17), so a [C++17 compliant compiler](https://en.cppreference.com/w/cpp/compiler_support/17) will be needed. 
 
-## Installing
+## Installing from source
 
-Currently, `tallem` must be built from source--wheels will be made available on PyPI or some other host in the future. 
-
-Meson and Ninja are installeable with `pip`:
+To install `tallem` from source, clone the repository and install the package via: 
 
 ```bash
-pip install meson ninja 
+python -m pip install .
 ```
 
-Armadillo [provides a variety of installation options](http://arma.sourceforge.net/download.html).
-
-CARMA is a [header-only](https://en.wikipedia.org/wiki/Header-only), the source files only require the directory where the files are requires building from source using [CMAKE](https://cmake.org/runningcmake/). On UNIX-like terminals, this can be achieved via: 
-
-```bash
-git clone https://github.com/RUrlus/carma
-cd carma | cmake . | make | sudo make install 
-```
-
-Ensure the path to CARMA in the `meson.build` script matches where it was installed (e.g. `/usr/local/carma/include`). 
-
-`tallem` can be built using [`build`](https://pypa-build.readthedocs.io/en/stable/) package builder:
-
-```bash
-python -m mesonbuild.mesonmain build
-meson install -C build
-python -m build 
-```
-
-Assuming this succeeds, the [wheel](https://packaging.python.org/glossary/#term-Wheel) should be located in the `dist` folder, from which it can be installed the local [site-packages](https://docs.python.org/3/library/site.html#site.USER_SITE) via: 
-
-```bash
-pip install dist/tallem-*.whl
-```
-
-If you have an installation problems or questions, feel free to [make a new issue](https://github.com/peekxc/tallem/issues).
+`tallem` is a [PEP 517](https://www.python.org/dev/peps/pep-0517/)-compliant package---the build requirements are listed in [pyproject.toml](https://github.com/peekxc/tallem/blob/main/pyproject.toml).   `tallem` uses poetry to build the source and binary distributions, so this should also be available from the command line. If you have an installation problems or questions, feel free to [make a new issue](https://github.com/peekxc/tallem/issues).
 
 ## Usage 
 
@@ -65,8 +40,8 @@ from tallem.cover import IntervalCover
 from tallem.datasets import mobius_band
 
 ## Get mobius band data + its parameter space
-X, B = mobius_band(n_polar=26, n_wide=6, embed=3).values()
-B_polar, B_radius = B[:,[1]], B[:,[0]]
+X, B = mobius_band()
+B_polar = B[:,[1]]
 
 ## Construct a cover over the polar coordinate
 m_dist = lambda x,y: np.sum(np.minimum(abs(x - y), (2*np.pi) - abs(x - y)))
@@ -83,13 +58,4 @@ ax.scatter(*emb.T, marker='o', c=B_polar)
 ```
 
 ![mobius band](https://github.com/peekxc/tallem/blob/main/resources/tallem_polar.png?raw=true)
-
-**FAQ**
-
-
-
-_The dependencies listed require Python 3.5+, but I'm using an older version of Python. Will`tallem` still run on my machine, and if not, how can I make `tallem` compatible?_
-
-`tallem` requires Python version 3.5 or higher and will not run on older versions of Python. If your version of Python is older than this, consider installing `tallem` in a [virtual environment] that supports Python 3.5+. 
-Alternatively, you're free to make the appropriate changes to `tallem` to make the library compatible with an older version yourself and then issue a PR. 
 

@@ -34,9 +34,10 @@ plot_images(Disks, shape=(25,25), max_val=c, figsize=(18, 4), layout=(2,8))
 Theta = np.random.uniform(size=250, low=0.0, high=2*np.pi)
 Disks = np.vstack([disk(theta) for theta in Theta])
 
-cover = LandmarkCover(Disks, k=10)
-local_map = lambda x: isomap(x, d=2, p=0.30)
-emb = TALLEM(cover, local_map=local_map, n_components=2).fit_transform(X=Disks, B=Disks)
+cover = LandmarkCover(Disks, k=8, scale=1.8)
+local_map = lambda x: pca(x, d=2)
+top = TALLEM(cover, local_map=local_map, n_components=2)
+emb = top.fit_transform(X=Disks, B=Disks)
 P = [
 	cmds(Disks, d=2),
 	isomap(Disks, d=2, k=10), 
@@ -44,6 +45,9 @@ P = [
 	emb
 ]
 scatter2D(P, layout=(1,4), figsize=(8,3), c = Theta)
+
+# local_models = [m for m in top.models.values()]
+# scatter2D(local_models, layout=(1,len(local_models)), figsize=(8,3))
 
 # %% White dot example
 from tallem import TALLEM
@@ -57,7 +61,7 @@ ind = np.random.choice(range(samples.shape[0]), size=8, replace=False)
 plot_images(samples[ind,:], shape=(17,17), max_val=c, layout=(1,8))
 
 from tallem.samplers import landmarks
-cover = LandmarkCover(samples, k=10, scale=1.5)
+cover = LandmarkCover(samples, k=20, scale=1.8)
 assert(np.all(np.array([len(s) for s in cover.values()]) > 1))
 
 from tallem.cover import bump
@@ -68,7 +72,7 @@ Q = coo_matrix(Q / np.sum(Q, axis = 1))
 Q.data = bump(Q.data, "triangular")
 P = csc_matrix(Q)
 
-top = TALLEM(cover, local_map="cmds2", n_components=3, pou=P)
+top = TALLEM(cover, local_map="cmds3", n_components=3, pou=P)
 emb = top.fit_transform(X=samples, B=samples)
 
 ## Eccentricity for color
@@ -162,5 +166,21 @@ scatter3D(P, layout=(1,3), figsize=(12,18), c=dist_to_center)
 
 
 # %% Klein bottle example
+import scipy.io
+import pickle
+
+mat = scipy.io.loadmat('/Users/mpiekenbrock/Downloads/n50000Dct.mat')
+mat['n50000Dct']
+
+#pickle.dump(mat, open('/Users/mpiekenbrock/tallem/data/natural_images_50k_dct.pickle', 'wb'))
+import pickle
+import pkgutil
+# pkgutil.get_data(, "data/natural_image_50k_dct.pickle")
+
+nat_images = mat['n50000Dct']
+
+
+
+
 
 

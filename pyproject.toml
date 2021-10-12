@@ -1,12 +1,11 @@
-## TALLEM project requirements doc
-#[metadata]
+# pyproject.toml
 [build-system]
-requires = ["setuptools>=42", "wheel", "PythonExtensions", "poetry_core>=1.0.0", "meson>=0.59.0", "ninja"]
+requires = ["setuptools>=42", "wheel", "poetry>=1.0.10", "meson>=0.59.0", "ninja"]
 build-backend = "poetry.masonry.api"
 
 [tool.poetry]
 name = "tallem"
-version = "0.1.3"
+version = "0.1.4"
 description = "Topological Assembly of Locally Euclidean Models"
 license = "Apache-2.0"
 authors = ["Matt Piekenbrock <matt.piekenbrock@gmail.com>"]
