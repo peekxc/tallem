@@ -88,8 +88,17 @@ def test_classical_mds_cpp():
 # 	Y = cmds(floyd_warshall(neighborhood_graph(X, k = 15).A))
 # 	assert isinstance(Y, np.ndarray)
 
-# def check_parallel_mds():
-# 	## Python version 
-# 	# %%
-# 	%time 
+def check_parallel_mds():
+	# from numba import jit
+	# import numpy as np
+	# from tallem.dimred import cmds
+	# n = 150
+	# grid_x, grid_y = np.meshgrid(range(n), range(n))
+	# X = np.array(np.c_[grid_x.flatten(), grid_y.flatten()], dtype=float)	
+	# subsets = [np.array(list(range(i*n, ((i+1)*n))), dtype=int) for i in range(n)]
+	
+	# @jit(nopython=False, parallel=True)
+	# def parallel_mds(X, subsets):
+	# 	[cmds(X[s,:]) for s in prange(subsets)]
+			
 
