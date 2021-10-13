@@ -13,19 +13,19 @@ fs = import('fs')
 home_dir = fs.expanduser('~')
 
 ## Link with LAPACK
-fc = meson.get_compiler('fortran')
-lapack = dependency('lapack', cmake_module_path: 'cmake_modules', required: false)
-if not lapack.found()
-	message('LAPACK not found. Attempting to build from subproject.')
-  lapack_proj = subproject('lapack')
-  lapack = lapack_proj.get_variable('lapack')
-endif
+# fc = meson.get_compiler('fortran')
+# lapack = dependency('lapack', cmake_module_path: 'cmake_modules', required: false)
+# if not lapack.found()
+# 	message('LAPACK not found. Attempting to build from subproject.')
+#   lapack_proj = subproject('lapack')
+#   lapack = lapack_proj.get_variable('lapack')
+# endif
  
 ## Query the variables to see what we're working with
-lapack_lib = lapack.get_variable(cmake: 'LAPACK_LIBRARIES', default_value: '')
-lapack_linker_flags = lapack.get_variable(cmake: 'LAPACK_LINKER_FLAGS', default_value : ['-llapack', '-lblas'])
-message('LAPACK libraries found: ', lapack_lib)
-message('LAPACK linker flags: ', lapack_linker_flags)
+# lapack_lib = lapack.get_variable(cmake: 'LAPACK_LIBRARIES', default_value: '')
+# lapack_linker_flags = lapack.get_variable(cmake: 'LAPACK_LINKER_FLAGS', default_value : ['-llapack', '-lblas'])
+# message('LAPACK libraries found: ', lapack_lib)
+# message('LAPACK linker flags: ', lapack_linker_flags)
 
 ## Find Python 3.8+ for Protocol classes
 py = import('python')
@@ -80,16 +80,15 @@ numpy_include = include_directories(numpy_include_dir)
 ## Target(s)
 py_mod.extension_module('fast_svd',
 	sources : project_dir / 'src' / 'tallem' / 'pbm' / 'fast_svd.cpp', 
-	dependencies : [py_dep, py_b11, arma, lapack], 
+	dependencies : [py_dep, py_b11, arma], 
 	include_directories : [numpy_include, carma_includes],
 	install : true, 
-	install_dir : project_dir / 'src' / 'tallem' / 'pbm',
-	link_args : lapack_linker_flags
+	install_dir : project_dir / 'src' / 'tallem' / 'pbm'
 )
 
 py_mod.extension_module('landmark', 
 	sources :  project_dir / 'src' / 'tallem' / 'pbm' / 'landmark.cpp', 
-	dependencies : [py_dep, py_b11, arma, lapack], 
+	dependencies : [py_dep, py_b11, arma], 
 	include_directories : [numpy_include, carma_includes], 
 	install : true, 
 	install_dir : project_dir / 'src' / 'tallem' / 'pbm'

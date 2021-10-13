@@ -58,6 +58,13 @@ pymanopt = ["pymanopt"]
 sklearn = ["sklearn"]
 
 [tool.cibuildwheel]
+test-requires = "pytest"
+test-command = "pytest {project}/tests"
+build = "cp38-*" #"cp36-win32" "cp36-manylinux* cp38-macosx_x86_64"
+build-frontend = "build" # "pip"
+
+[tool.cibuildwheel.linux]
+archs = ["auto64"] # "aarch64"
 before-all = [
 	"sudo add-apt-repository universe",
 	"sudo apt-get update",
@@ -67,11 +74,4 @@ before-all = [
 	"sudo apt-get install libarmadillo-dev",
 	"sudo ldconfig"
 ]
-test-requires = "pytest"
-test-command = "pytest {project}/tests"
-build = "cp38-*" #"cp36-win32" "cp36-manylinux* cp38-macosx_x86_64"
-build-frontend = "build" # "pip"
-
-[tool.cibuildwheel.linux]
-archs = ["auto64"] # "aarch64"
 
