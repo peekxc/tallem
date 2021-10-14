@@ -5,7 +5,7 @@ from tallem.polytope import *
 from scipy.spatial import ConvexHull, Delaunay
 
 X = np.random.uniform(size=(20,2), low = 5, high = 10)
-Y = np.random.uniform(size=(50,2), low = 4, high = 11)
+Y = np.random.uniform(size=(210,2), low = 4, high = 11)
 
 fig, ax = plt.subplots(figsize=(8,8))
 plt.triplot(X[:,0], X[:,1], Delaunay(X).simplices)
@@ -14,6 +14,112 @@ ax.scatter(*Y.T, color="green")
 Z = np.array([project_hull(y, X) for y in Y])
 ax.scatter(*Z.T, color="purple")
 for y,z in zip(Y,Z): plt.plot(*np.vstack((y,z)).T, color="purple")
+
+## Level sets
+hull = ConvexHull(X)
+barycenter = np.mean(hull.points[hull.vertices], axis=0)
+ray = lambda x: (x - barycenter)/np.linalg.norm(x - barycenter)
+Z = np.array([project_ray(x, ray(x), hull) for x in X])
+
+fig, ax = plt.subplots(figsize=(8,8))
+plt.triplot(X[:,0], X[:,1], Delaunay(X).simplices)
+ax.scatter(*barycenter, color="red") 
+ax.scatter(*X.T, color="blue") 
+ax.scatter(*Y.T, color="green")
+ax.scatter(*Z.T, color="purple")
+for y,z in zip(Y,Z): plt.plot(*np.vstack((y,z)).T, color="purple")
+#sdist_to_boundary(Y, hull, method="ray")
+
+
+fig, ax = plt.subplots(figsize=(8,8))
+plt.triplot(X[:,0], X[:,1], Delaunay(X).simplices)
+ax.scatter(*barycenter, color="red") 
+ax.scatter(*X.T, color="blue") 
+ax.scatter(*Y.T, color="green")
+
+sdist_to_boundary(Y, hull, method="ray")
+
+
+#### DEBUG 
+
+u = barycenter - Y[0,:]
+u = u / np.linalg.norm(u)
+z = project_ray(Y[0,:], u, hull)
+
+def LinePlaneCollision(planeNormal, planePoint, rayDirection, rayPoint, epsilon=1e-6):
+	ndotu = planeNormal.dot(rayDirection)
+	if abs(ndotu) < epsilon:
+		# raise RuntimeError("no intersection or line is within plane")
+		return(np.repeat(np.inf, len(planePoint)))
+	w = rayPoint - planePoint
+	si = -planeNormal.dot(w) / ndotu
+	Psi = w + si * rayDirection + planePoint
+	return Psi, si
+
+
+u = Y[0,:] - barycenter
+u = u / np.linalg.norm(u)
+
+u = barycenter - Y[0,:]
+u = u / np.linalg.norm(u)
+
+Z = []
+for f in range(hull.equations.shape[0]):
+	n = hull.equations[f,:-1]
+	Q = hull.points[hull.vertices]
+	facet = hull.points[hull.simplices[f,:],:]
+	p0 = np.mean(facet, axis=0)
+	z, d = LinePlaneCollision(n, p0, u, Y[0,:])
+	if not(in_hull(z, hull)):
+		z = np.repeat(-np.inf, Y.shape[1])
+	Z.append(z)
+Z = np.array(Z)
+z = Z[np.argmin(np.linalg.norm(Y[0,:] - Z, axis = 1)),:]
+
+
+Z = []
+for y in Y:
+	u = y - barycenter
+	u = u / np.linalg.norm(u)
+	z = project_ray(y, u, hull)
+	Z.append(z)
+Z = np.array(Z)
+
+
+sdist_to_boundary(Y, hull, method="ray")
+
+
+## Show contour level sets
+X = np.random.uniform(size=(20,2), low = 5, high = 10)
+hull = ConvexHull(X)
+Q = hull.points[hull.vertices]
+
+## Countour
+min_x, min_y = np.min(hull.points, axis = 0)
+max_x, max_y = np.max(hull.points, axis = 0)
+MX, MY = np.meshgrid(np.linspace(min_x, max_x, 100), np.linspace(min_y, max_y, 100))
+XY = np.c_[np.ravel(MX), np.ravel(MY)]
+sd = sdist_to_boundary(XY, hull, method="ray")
+
+fig, ax = plt.subplots(1, 1, figsize=(8,8))
+ax.contourf(MX, MY, sd.reshape(MX.shape), levels=100)
+plt.plot(*np.vstack((Q[0:Q.shape[0],:], Q[0,:])).T, color="red")
+plt.gca().set_aspect('equal')
+
+# fig, ax = plt.subplots(figsize=(8,8))
+# plt.plot(*np.vstack((Q[0:Q.shape[0],:], Q[0,:])).T)
+# ax.scatter(*barycenter, color="red") 
+# ax.scatter(*X.T, color="blue") 
+# ax.scatter(*Y.T, color="green")
+# ax.scatter(*Z.T, color="purple")
+# for y,z in zip(Y, Z): plt.plot(*np.vstack((y,z)).T, color="purple")
+# plt.gca().set_aspect('equal')
+
+
+
+
+
+# ax.scatter(*project_ray(Y[0,:], u, hull), color="orange")
 
 ########
 
@@ -40,7 +146,18 @@ for x,z in zip(X, Z):
 	plt.plot(*np.vstack((x,z)).T, color="purple")
 plt.scatter(*alpha, color="green")
 
+from tallem.polytope import *
 
+Z_int = project_hull(X, V, method="interior")
+Z_ext = project_hull(X, V, method="complement")
+Z_bou = project_hull(X, V, method="boundary")
+
+plt.plot(*np.vstack((Q[0:Q.shape[0],:], Q[0,:])).T)
+plt.scatter(*alpha, color="green")
+plt.scatter(*Z_int.T, color="purple")
+plt.scatter(*Z_ext.T, color="orange")
+
+plt.scatter(*Z_bou.T, color="blue")
 
 
 plt.scatter(*z, color="orange")
@@ -77,29 +194,6 @@ def LinePlaneCollision(planeNormal, planePoint, rayDirection, rayPoint, epsilon=
 	# si = -planeNormal.dot(w) / ndotu
 	# Psi = w + si * rayDirection + planePoint
 	# return Psi, si
-
-def project_from_center(x, hull):
-	''' Projects a point 'x' along a ray extending from the barycenter of 'hull' onto the boundary of 'hull' '''
-	if isinstance(hull, np.ndarray):
-		hull = ConvexHull(hull)
-	assert isinstance(hull, ConvexHull)
-	n_facets = hull.equations.shape[0]
-	barycenter = np.mean(hull.points[hull.vertices], axis=0)
-	u = (x - barycenter)
-	u = u / np.linalg.norm(u)
-	p = np.repeat(np.inf, len(x))
-	for i in range(n_facets):
-		p0 = np.mean(hull.points[hull.simplices[i,:],:], axis = 0)
-		z, d = intersect_line_plane(n=hull.equations[i,:-1], p=p0, u=u, x=x)
-		# LinePlaneCollision(
-		# 	planeNormal = hull.equations[i,:-1], 
-		# 	planePoint = , 
-		# 	rayDirection = u, 
-		# 	rayPoint = x
-		# )
-		if d > 0 and (np.linalg.norm(z-x) < np.linalg.norm(p-x)):
-			p = z
-	return(p)
 
 A, B = hull.points[hull.simplices[0,:]]
 z = LinePlaneCollision(n, 0.5*(A + B) + b, u, alpha)

@@ -26,6 +26,35 @@ def intersect_line_plane(n, p, u, x, eps=1.1920929e-07):
 	d = -np.dot(n, w)/proj_ray
 	return(w + d*u + p, d)
 
+def project_ray(x: ArrayLike, ray: ArrayLike, hull: Union[ArrayLike, ConvexHull]):
+	''' Projects a point 'x' along a ray extending from the barycenter of 'hull' onto the boundary of 'hull' '''
+	if isinstance(hull, np.ndarray):
+		hull = ConvexHull(hull)
+	assert isinstance(hull, ConvexHull)
+	n_facets = hull.equations.shape[0]
+	u = ray
+	# barycenter = np.mean(hull.points[hull.vertices], axis=0)
+	# u = (x - point)
+	# u = u / np.linalg.norm(u)
+	p = np.repeat(np.inf, len(x))
+	for i in range(n_facets):
+		p0 = np.mean(hull.points[hull.simplices[i,:],:], axis = 0)
+		z, d = intersect_line_plane(n=hull.equations[i,:-1], p=p0, u=u, x=x)
+		x_in_hull = in_hull(x, hull)
+		is_shorter = (np.linalg.norm(z-x) < np.linalg.norm(p-x))
+		if is_shorter and in_hull(z, hull) and ((x_in_hull and d >= 0) or (not(x_in_hull) and d <= 0)):
+			p = z
+		# elif is_shorter and :
+		# 	p = z
+		# is_candidate = in_hull(z, hull)
+		# if is_candidate:
+		# 	if d > 0 and (np.linalg.norm(z-x) < np.linalg.norm(p-x)) and in_hull(x, hull):
+		# 		p = z
+		# 	elif d < 0 and (np.linalg.norm(z-x) < np.linalg.norm(p-x)):
+		# 		p = z
+	return(p)
+
+
 def in_hull(x: ArrayLike, hull: Union[ArrayLike, ConvexHull]):
 	''' 
 	Computes whether a point 'x' lies within the convex hull defined by 'hull'
@@ -261,40 +290,59 @@ def project_hull_fast(p: ArrayLike, hull_vertices: ArrayLike):
 	return(z)
 	# facet_dim = len(hull.vertices)
 
-def project_hull(X: ArrayLike, hull: Union[ArrayLike, ConvexHull], method: str = "interior"):
+def project_hull(X: ArrayLike, hull: Union[ArrayLike, ConvexHull], method: str = "interior", eps=1.1920929e-07):
 	''' 
-	Projects points 'X' onto parts of the convex hull 'hull'
+	Projects points 'X' orthogonally onto various parts of the convex hull given by 'hull'.
 
-	The convex hull of 
+	If a given point x \in X was already contained in the part of the hull to project to, 
+	then the original point is returned and a flag is specified in the return that it was 
+	not projected. 
+
+	Parameters: 
+		X := (n x d) matrix of n points in d dimensions to project 
+		hull := (m x d) matrix of points, or a precomputed convex hull 
+		method := one of "interior", "complenent", or "boundary".
+	
+	Return: 
+		(Z, P) := Tuple of projected points Z having the same shape as X and 
+							a boolean array P indicating which points llied outside the specified region.
 	'''
 	if not(isinstance(hull, ConvexHull)):
 		hull = ConvexHull(hull)
 	assert isinstance(hull, ConvexHull)
-	hull_vertices = hull.points[hull.vertices,:]
 	if method == "interior":
-		Z = np.array([project_hull_fast(x, hull_vertices) for x in X])
-	elif method == "complement":
-		## TODO: check for interior
+		hull_vertices = hull.points[hull.vertices,:]
+		ind_ext = np.flatnonzero([not(in_hull(x, hull)) for x in X])
+		Z, P = X.copy(), np.repeat(False, X.shape[0])
+		for i in ind_ext:
+			Z[i,:] = project_hull_fast(X[i,:], hull_vertices)
+		P[ind_ext] = True
+		return(Z, P)
+	elif method == "complement" or method == "exterior":
 		hull_simplices = hull.points[hull.simplices]
-		Z = []
-		for x in X: 
-			P = np.array([project_hull_fast(x, facet) for facet in hull_simplices])
-			z = P[np.argmin(np.linalg.norm(P - p, axis = 1)),:]
-			Z.append(z)
-		Z = np.array(Z)
+		ind_int = np.flatnonzero([in_hull(x, hull) for x in X])
+		Z, P = X.copy(), np.repeat(False, X.shape[0])
+		for i in ind_int: 
+			S = np.array([project_hull_fast(X[i,:], facet) for facet in hull_simplices])
+			Z[i,:] = S[np.argmin(np.linalg.norm(S - X[i,:], axis = 1)),:]
+		P[ind_int] = True
+		return(Z, P)
 	elif method == "boundary": 
 		hull_simplices = hull.points[hull.simplices]
-		Z = []
-		for x in X: 
-			P = np.array([project_hull_fast(x, facet) for facet in hull_simplices])
-			z = P[np.argmin(np.linalg.norm(P - p, axis = 1)),:]
-			Z.append(z)
-		Z = np.array(Z)
+		Z, P = np.zeros(X.shape), np.repeat(True, X.shape[0])
+		for i, x in enumerate(X): 
+			S = np.array([project_hull_fast(x, facet) for facet in hull_simplices])
+			z = S[np.argmin(np.linalg.norm(S - x, axis = 1)),:]
+			Z[i,:] = z
+			P[i] = np.linalg.norm(z - x) > eps
+		return(Z, P)
+	else: 
+		raise ValueError("Unknown method parameter passed in.")
 
-	facet_dim = len(hull.vertices)
-	hull_vertices = hull.points[hull.vertices,:]
+def normalize(v: ArrayLike) -> ArrayLike:
+	return(v / np.linalg.norm(v))
 
-def sdist_to_boundary(X: ArrayLike, hull: Union[ArrayLike, ConvexHull], project_facet: Callable, coords: bool = False):
+def sdist_to_boundary(X: ArrayLike, hull: Union[ArrayLike, ConvexHull], method="orthogonal", eps=1.1920929e-07):
 	'''
 		Computes the signed distance to the boundary of an arbitrary polytope.
 		
@@ -315,25 +363,39 @@ def sdist_to_boundary(X: ArrayLike, hull: Union[ArrayLike, ConvexHull], project_
 			min_dist := numpy array with size (n,) giving the (signed) distances between the points 'x' and 'hull'.
 			points := if coords=True, then the projected points are also returned.
 	'''
-	if isinstance(hull, ConvexHull):
-		delh = Delaunay(hull.points)
-	else: 
+	if isinstance(hull, np.ndarray):
 		hull = ConvexHull(hull)
-		delh = Delaunay(hull.points)
+	assert isinstance(hull, ConvexHull)
+	outside_hull = np.array([not(in_hull(x, hull)) for x in X])
+	if method == "orthogonal":
+		Z, P = project_hull(X, hull, "boundary")
+	elif method == "ray" or method == "line":
+		barycenter = np.mean(hull.points[hull.vertices], axis=0)
+		Z = np.zeros(X.shape)
+		for i, x in enumerate(X):
+			Z[i,:] = project_ray(x, normalize(x - barycenter), hull)
+	else: 
+		raise ValueError("Invalid method supplied")
+	d = np.linalg.norm(X-Z, axis = 1)
+	d[outside_hull] = -d[outside_hull]
+	if np.any(d == np.inf):
+		d[d == np.inf] = 0.0
+	return(d)
+
 	
-	hull_vertices = np.vstack((hull.points[hull.vertices,:], hull.points[hull.vertices[0]]))
-	n = hull_vertices.shape[0]
-	min_dist = np.full(X.shape[0], np.inf)
-	projected_pts = np.zeros(X.shape)
-	for i in range(n-1):
-		Z = np.array([project_facet(hull_vertices[i:(i+2),:].T, x) for x in X])
-		proj_dist = np.array([np.linalg.norm(x - z) for x,z in zip(X, Z)])
-		min_dist = np.minimum(proj_dist, min_dist)
-		to_replace = np.flatnonzero(proj_dist == min_dist)
-		projected_pts[to_replace,:] = Z[to_replace,:]
+	# hull_vertices = np.vstack((hull.points[hull.vertices,:], hull.points[hull.vertices[0]]))
+	# n = hull_vertices.shape[0]
+	# min_dist = np.full(X.shape[0], np.inf)
+	# projected_pts = np.zeros(X.shape)
+	# for i in range(n-1):
+	# 	Z = np.array([project_facet(hull_vertices[i:(i+2),:].T, x) for x in X])
+	# 	proj_dist = np.array([np.linalg.norm(x - z) for x,z in zip(X, Z)])
+	# 	min_dist = np.minimum(proj_dist, min_dist)
+	# 	to_replace = np.flatnonzero(proj_dist == min_dist)
+	# 	projected_pts[to_replace,:] = Z[to_replace,:]
 	
-	## Mark distances with the correct sign depending if they are outside or inside the polytope
-	is_outside = np.flatnonzero(delh.find_simplex(X) < 0)
-	if len(is_outside) > 0:
-		min_dist[is_outside] = -min_dist[is_outside]
-	return(min_dist, projected_pts)
+	# ## Mark distances with the correct sign depending if they are outside or inside the polytope
+	# is_outside = np.flatnonzero(delh.find_simplex(X) < 0)
+	# if len(is_outside) > 0:
+	# 	min_dist[is_outside] = -min_dist[is_outside]
+	# return(min_dist, projected_pts)
