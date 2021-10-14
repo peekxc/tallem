@@ -158,17 +158,6 @@ optional = false
 python-versions = ">=2.7, !=3.0.*, !=3.1.*, !=3.2.*, !=3.3.*"
 
 [[package]]
-name = "pybind11"
-version = "2.8.0"
-description = "Seamless operability between C++11 and Python"
-category = "main"
-optional = false
-python-versions = "!=3.0,!=3.1,!=3.2,!=3.3,!=3.4,>=2.7"
-
-[package.extras]
-global = ["pybind11-global (==2.8.0)"]
-
-[[package]]
 name = "pymanopt"
 version = "0.2.5"
 description = "Toolbox for optimization on manifolds with support for automatic differentiation"
@@ -292,7 +281,7 @@ sklearn = []
 [metadata]
 lock-version = "1.1"
 python-versions = ">=3.8"
-content-hash = "1cacd35c0647c1045ea59d5139e84e5bce71906541ec31c84eeef6555e684df8"
+content-hash = "d60529f317d3cb36c411d8709d300622c8cc5a8ef507ca95f9b9fba8ed5b9406"
 
 [metadata.files]
 atomicwrites = [
@@ -385,10 +374,6 @@ pluggy = [
 py = [
     {file = "py-1.10.0-py2.py3-none-any.whl", hash = "sha256:3b80836aa6d1feeaa108e046da6423ab8f6ceda6468545ae8d02d9d58d18818a"},
     {file = "py-1.10.0.tar.gz", hash = "sha256:21b81bda15b66ef5e1a777a21c4dcd9c20ad3efd0b3f817e7a809035269e1bd3"},
-]
-pybind11 = [
-    {file = "pybind11-2.8.0-py2.py3-none-any.whl", hash = "sha256:498c5ef8eb7454011d05f91d1faccf8c3c3685992811b0ece3d6fd6141a94bd8"},
-    {file = "pybind11-2.8.0.tar.gz", hash = "sha256:58e866369d184fdefb468377773a8bc707267a553039198b15309679bbc0a3f6"},
 ]
 pymanopt = [
     {file = "pymanopt-0.2.5-py3-none-any.whl", hash = "sha256:aa8c295f932ff76e8f470aa1fe60148588ad738b9fae8d07c83291cb4438aa15"},

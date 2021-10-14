@@ -76,21 +76,21 @@ carma_includes = include_directories('.' / 'extern' / 'carma' / 'include')
 
 ## Include NumPy headers
 numpy_include = include_directories(numpy_include_dir)
-pybind11_include = include_directories()
+pybind11_include = include_directories('.' / 'extern')
 
 ## Target(s)
 py_mod.extension_module('fast_svd',
 	sources : project_dir / 'src' / 'tallem' / 'pbm' / 'fast_svd.cpp', 
-	dependencies : [py_dep, py_b11, arma], 
-	include_directories : [numpy_include, carma_includes],
+	dependencies : [py_dep, arma], 
+	include_directories : [numpy_include, carma_includes, pybind11_include],
 	install : true, 
 	install_dir : project_dir / 'src' / 'tallem' / 'pbm'
 )
 
 py_mod.extension_module('landmark', 
 	sources :  project_dir / 'src' / 'tallem' / 'pbm' / 'landmark.cpp', 
-	dependencies : [py_dep, py_b11, arma], 
-	include_directories : [numpy_include, carma_includes], 
+	dependencies : [py_dep, arma], 
+	include_directories : [numpy_include, carma_includes, pybind11_include], 
 	install : true, 
 	install_dir : project_dir / 'src' / 'tallem' / 'pbm'
 )

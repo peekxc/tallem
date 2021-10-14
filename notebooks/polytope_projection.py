@@ -90,7 +90,8 @@ sdist_to_boundary(Y, hull, method="ray")
 
 
 ## Show contour level sets
-X = np.random.uniform(size=(20,2), low = 5, high = 10)
+X = np.random.uniform(size=(50,2), low = 5, high = 10)
+# X = np.array([[-1,1], [-1,-1],[10,-1], [10,1]])
 hull = ConvexHull(X)
 Q = hull.points[hull.vertices]
 
@@ -99,10 +100,14 @@ min_x, min_y = np.min(hull.points, axis = 0)
 max_x, max_y = np.max(hull.points, axis = 0)
 MX, MY = np.meshgrid(np.linspace(min_x, max_x, 100), np.linspace(min_y, max_y, 100))
 XY = np.c_[np.ravel(MX), np.ravel(MY)]
+sd = sdist_to_boundary(XY, hull, method="orthogonal")
+
 sd = sdist_to_boundary(XY, hull, method="ray")
+dist_to_center = np.linalg.norm(XY - np.mean(hull.points[hull.vertices], axis = 0), axis = 1)
+nd = sd/(dist_to_center+sd)
 
 fig, ax = plt.subplots(1, 1, figsize=(8,8))
-ax.contourf(MX, MY, sd.reshape(MX.shape), levels=100)
+ax.contourf(MX, MY, nd.reshape(MX.shape), levels=100)
 plt.plot(*np.vstack((Q[0:Q.shape[0],:], Q[0,:])).T, color="red")
 plt.gca().set_aspect('equal')
 
