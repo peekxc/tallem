@@ -60,7 +60,7 @@ def plot_images(P, shape, max_val = "default", figsize=(8,8), layout = None):
 		fig.gca().axes.get_yaxis().set_visible(False)
 	else:
 		assert layout is not None, "missing layout"
-		fig = plt.figure(figsize=figsize)
+		fig, ax = plt.subplots(*layout, figsize=figsize)
 		for i, p in enumerate(P):
 			fig.add_subplot(layout[0], layout[1], i+1)
 			plt.imshow(P[i,:].reshape(shape), cmap='gray', vmin=0, vmax=max_val)
@@ -87,7 +87,7 @@ def scatter3D(P, angles = None, layout = None, figsize=(8,8), **kwargs):
 	if isinstance(P, np.ndarray):
 		if angles is not None:
 			assert len(angles) == np.prod(layout)
-			fig = plt.figure(figsize=figsize)
+			fig, ax = plt.subplots(*layout, figsize=figsize)
 			for i, theta in enumerate(angles):
 				ax = fig.add_subplot(layout[0], layout[1], i+1, projection='3d')
 				ax.scatter3D(*P.T, **kwargs) 
@@ -101,11 +101,12 @@ def scatter3D(P, angles = None, layout = None, figsize=(8,8), **kwargs):
 		if angles is None:
 			angles = np.repeat(60, len(P))
 		assert len(angles) == np.prod(layout)
-		fig = plt.figure(figsize=figsize)
+		fig, ax = plt.subplots(*layout, figsize=figsize)
 		for i, p in enumerate(P):
 			ax = fig.add_subplot(layout[0], layout[1], i+1, projection='3d')
 			ax.scatter3D(*p.T, **kwargs) 
 			ax.view_init(30, angles[i])
+	return(fig, ax)
 
 def rotating_disk(n_pixels: int, r: float, sigma: float = 1.0):
 	from scipy.ndimage import gaussian_filter

@@ -1,3 +1,258 @@
+# %% simplex projectors 
+import matplotlib.pyplot as plt
+from tallem.datasets import * 
+from tallem.polytope import *
+from scipy.spatial import ConvexHull, Delaunay
+
+X = np.random.uniform(size=(20,2), low = 5, high = 10)
+Y = np.random.uniform(size=(50,2), low = 4, high = 11)
+
+fig, ax = plt.subplots(figsize=(8,8))
+plt.triplot(X[:,0], X[:,1], Delaunay(X).simplices)
+ax.scatter(*X.T, color="blue") 
+ax.scatter(*Y.T, color="green")
+Z = np.array([project_hull(y, X) for y in Y])
+ax.scatter(*Z.T, color="purple")
+for y,z in zip(Y,Z): plt.plot(*np.vstack((y,z)).T, color="purple")
+
+########
+
+#V = np.random.uniform(size=(5,2), low=0.0, high=1.0)
+V = np.array([[3,7],[10,7],[8,2],[5,3]]) 
+
+alpha = np.mean(V, axis=0) # barycenter 
+x = alpha + np.random.uniform(size=2)
+
+hull = ConvexHull(V)
+Q = hull.points[hull.vertices]
+#plt.triplot(V[:,0], V[:,1], Delaunay(V).simplices)
+# hull.equations[1,-1]*np.linalg.norm(np.array([5,-2]))
+
+plt.plot(*np.vstack((Q[0:Q.shape[0],:], Q[0,:])).T)
+plt.scatter(*alpha, color="green")
+
+X = np.random.uniform(size=(80,2), low=-1.0, high=1.0)+alpha
+Z = np.array([project_from_center(x, hull) for x in X])
+
+plt.scatter(*X.T, color="red")
+plt.scatter(*Z.T, color="orange")
+for x,z in zip(X, Z):
+	plt.plot(*np.vstack((x,z)).T, color="purple")
+plt.scatter(*alpha, color="green")
+
+
+
+
+plt.scatter(*z, color="orange")
+# plt.scatter(*Q.T, c=dist)
+
+p0 = np.mean(hull.points[hull.simplices[1,:]], axis = 0)
+plt.scatter(*p0, color="purple")
+
+plt.scatter(*z, color="orange")
+plt.plot(hull.equations[0,:-1])
+
+
+# import potpourri3d as pp3d
+# delh = Delaunay(ConvexHull(points=V).points)
+# plt.triplot(V[:,0], V[:,1], delh.simplices)
+# solver = pp3d.MeshHeatMethodDistanceSolver(np.c_[V, np.zeros(V.shape[0])],delh.simplices)
+# dist = solver.compute_distance(0)
+
+def LinePlaneCollision(planeNormal, planePoint, rayDirection, rayPoint, epsilon=1e-6):
+	ndotu = planeNormal.dot(rayDirection)
+	if abs(ndotu) < epsilon:
+		# raise RuntimeError("no intersection or line is within plane")
+		return(np.repeat(np.inf, len(planePoint)))
+	w = rayPoint - planePoint
+	si = -planeNormal.dot(w) / ndotu
+	Psi = w + si * rayDirection + planePoint
+	return Psi, si
+
+	# ndotu = planeNormal.dot(rayDirection)
+	# if abs(ndotu) < epsilon:
+	# 	# raise RuntimeError("no intersection or line is within plane")
+	# 	return(np.repeat(np.inf, len(planePoint)))
+	# w = rayPoint - planePoint
+	# si = -planeNormal.dot(w) / ndotu
+	# Psi = w + si * rayDirection + planePoint
+	# return Psi, si
+
+def project_from_center(x, hull):
+	''' Projects a point 'x' along a ray extending from the barycenter of 'hull' onto the boundary of 'hull' '''
+	if isinstance(hull, np.ndarray):
+		hull = ConvexHull(hull)
+	assert isinstance(hull, ConvexHull)
+	n_facets = hull.equations.shape[0]
+	barycenter = np.mean(hull.points[hull.vertices], axis=0)
+	u = (x - barycenter)
+	u = u / np.linalg.norm(u)
+	p = np.repeat(np.inf, len(x))
+	for i in range(n_facets):
+		p0 = np.mean(hull.points[hull.simplices[i,:],:], axis = 0)
+		z, d = intersect_line_plane(n=hull.equations[i,:-1], p=p0, u=u, x=x)
+		# LinePlaneCollision(
+		# 	planeNormal = hull.equations[i,:-1], 
+		# 	planePoint = , 
+		# 	rayDirection = u, 
+		# 	rayPoint = x
+		# )
+		if d > 0 and (np.linalg.norm(z-x) < np.linalg.norm(p-x)):
+			p = z
+	return(p)
+
+A, B = hull.points[hull.simplices[0,:]]
+z = LinePlaneCollision(n, 0.5*(A + B) + b, u, alpha)
+
+p0 = 0.5*(A + B)
+b = hull.equations[0,-1]
+u = (x - alpha)
+u = u / np.linalg.norm(u)
+n = hull.equations[0,:-1]
+d = np.dot(p0 - alpha, n)/np.dot(u, n)
+z = alpha - u*d
+
+np.dot(hull.equations[:,0:2], alpha.reshape((2,1))).flatten() < hull.equations[:,2]
+
+t = (hull.equations[0,-1] - np.dot(n, alpha))/(np.dot(n, x - alpha))
+d = -np.dot(n, p0 - b)
+
+def proj_line_seg(X, x0, bary=False):
+	''' Projects point x0 onto line segment X=(x1, x2) where X == (d x 2) matrix defining the line segment'''
+	x1, x2 = X[:,0], X[:,1]
+	alpha = float(np.dot(np.transpose(x1-x2), x0-x2))/(np.dot(np.transpose(x1-x2), x1-x2))
+	alpha = max(0,min(1,alpha))
+	y = alpha*x1 + (1-alpha)*x2
+	theta = np.array([alpha, 1-alpha])
+	return(theta if bary else y)
+
+
+
+X = np.random.uniform(size=(20,2), low = 5, high = 10)
+Y = np.random.uniform(size=(50,2), low = 4, high = 11)
+from scipy.spatial import Delaunay, ConvexHull, convex_hull_plot_2d
+from scipy.spatial.qhull import _Qhull
+# wut = _Qhull(b"i", X, options=b"Qw QG18 QG19",furthest_site=False, incremental=False, interior_point=None)
+
+hull = ConvexHull(points=X)
+delh = Delaunay(hull.points)
+delh.find_simplex(np.vstack((X, Y)))
+
+
+
+
+from scipy.spatial import ConvexHull
+from quadprog import solve_qp
+
+# From: https://stackoverflow.com/questions/16750618/whats-an-efficient-way-to-find-if-a-point-lies-in-the-convex-hull-of-a-point-cl
+def in_hull(points, queries):
+	from scipy.spatial.qhull import _Qhull
+	hull = _Qhull(b"i", points, options=b"", furthest_site=False, incremental=False, interior_point=None)
+	equations = hull.get_simplex_facet_array()[2].T
+	return np.all(queries @ equations[:-1] < - equations[-1], axis=1)
+
+def in_hull(points, x):
+	from scipy.optimize import linprog
+	n_points, n_dim = len(points),len(x)
+	c = np.zeros(n_points)
+	A = np.r_[points.T,np.ones((1,n_points))]
+	b = np.r_[x, np.ones(1)]
+	lp = linprog(c, A_eq=A, b_eq=b)
+	return lp.success
+
+def point_in_hull(point, hull, tolerance=1e-12):
+	return all((np.dot(eq[:-1], point) + eq[-1] <= tolerance) for eq in hull.equations)
+
+Z = np.array([proj2hull(y, hull.equations) for y in Y])
+
+
+fig = plt.figure(figsize=(16,16))
+plt.triplot(X[:,0], X[:,1], delh.simplices)
+plt.scatter(*X.T, color="blue")
+plt.scatter(*Y.T, color="red")
+# plt.scatter(*Z.T, color="green")
+# for y,z in zip(Y, Z):
+# 	plt.plot(*np.vstack((y,z)).T, color="purple")
+
+hull_vertices = hull.points[hull.vertices,:]
+
+Z = np.array([proj_line_seg(hull_vertices[0:2,:].T, y) for y in Y])
+plt.scatter(*Z.T, color="green")
+for y,z in zip(Y, Z):
+	plt.plot(*np.vstack((y,z)).T, color="purple")
+
+hull.points
+
+
+## Testing line projection
+fig = plt.figure(figsize=(12,12))
+plt.triplot(X[:,0], X[:,1], delh.simplices)
+plt.scatter(*X.T, color="blue")
+plt.scatter(*Y.T, color="red")
+
+db, Z = dist_to_boundary(Y, hull)
+plt.scatter(*Z.T, color="purple") 
+for y,z in zip(Y, Z):
+	plt.plot(*np.vstack((y,z)).T, color="purple")
+
+
+
+hull_vertices = X[hull.vertices,:]
+
+fig = plt.figure(figsize=(8,8))
+convex_hull_plot_2d(hull, ax=ax)
+
+hull.equations[:-1]
+np.all(Y @ hull.equations[:-1] < -hull.equations[-1], axis=1)
+
+
+
+# plot_in_hull(X, ConvexHull(points=X))
+
+def plot_in_hull(p, hull):
+    """
+    plot relative to `in_hull` for 2d data
+    """
+    import matplotlib.pyplot as plt
+    from matplotlib.collections import PolyCollection, LineCollection
+
+    from scipy.spatial import Delaunay
+    if not isinstance(hull,Delaunay):
+        hull = Delaunay(hull)
+
+    # plot triangulation
+    poly = PolyCollection(hull.points[hull.vertices], facecolors='w', edgecolors='b')
+    plt.clf()
+    plt.title('in hull')
+    plt.gca().add_collection(poly)
+    plt.plot(hull.points[:,0], hull.points[:,1], 'o', hold=1)
+
+
+    # plot the convex hull
+    edges = set()
+    edge_points = []
+
+    def add_edge(i, j):
+        """Add a line between the i-th and j-th points, if not in the list already"""
+        if (i, j) in edges or (j, i) in edges:
+            # already added
+            return
+        edges.add( (i, j) )
+        edge_points.append(hull.points[ [i, j] ])
+
+    for ia, ib in hull.convex_hull:
+        add_edge(ia, ib)
+
+    lines = LineCollection(edge_points, color='g')
+    plt.gca().add_collection(lines)
+    plt.show()    
+
+    # plot tested points `p` - black are inside hull, red outside
+    inside = in_hull(p,hull)
+    plt.plot(p[ inside,0],p[ inside,1],'.k')
+    plt.plot(p[-inside,0],p[-inside,1],'.r')
+
+
 # %% Patch the PYTHONPATH to run scripts native to parent-level folder
 import sys
 import os
@@ -243,78 +498,6 @@ vertices = project_polytope(proj, ineq=(A, b), eq=eq, method='bretl')
 
 # %% Wolfe's algorithm 
 
-# From: https://github.com/kboulif/Non-negative-matrix-factorization-NMF-/blob/648ea6026a6ef11919f87885fd16ffebf51e5e28/NMF.py
-def wolfe_proj(X,epsilon=1e-6,threshold=1e-8,niter=100,verbose=False):
-	''' 
-	Projects origin onto the convex hull of the rows of 'X' using Wolfe method. The algorithm is by Wolfe in his paper 'Finding the nearest point in A polytope'. 
-	Parameters:	
-		'epsilon', 'threshold': Algorithm parameters determining approximation acceptance thresholds. These parameters are denoted as (Z2,Z3) and Z1, in the main paper, respectively. Default values = 1e-6, 1e-8.
-		'niter': Maximum number of iterations. Default = 10000.	
-		'verbose': If set to be True, the algorithm prints out the current set of weights, active set, current estimate of the projection after each iteration. Default = False.
-	'''
-	n = X.shape[0]
-	d = X.shape[1]
-	max_norms = np.min(np.sum(np.abs(X)**2,axis=-1)**(1./2))
-	s_ind = np.array([np.argmin(np.sum(np.abs(X)**2,axis=-1)**(1./2))])
-	w = np.array([1.0])
-	E = np.array([[-max_norms**2, 1.0], [1.0, 0.0]])
-	isoptimal = 0
-	iter = 0
-	while (isoptimal == 0) and (iter <= niter):
-			isoptimal_aff = 0
-			iter = iter+1
-			P = np.dot(w,np.reshape(X[s_ind,:], (len(s_ind), d)))
-			new_ind = np.argmin(np.dot(P,X.T))
-			max_norms = max(max_norms, np.sum(np.abs(X[new_ind,:])**2))
-			if (np.dot(P, X[new_ind,:]) > np.dot(P,P) - threshold*max_norms):
-					isoptimal = 1
-			elif (np.any(s_ind == new_ind)):
-					isoptimal = 1
-			else:
-					y = np.append(1,np.dot(X[s_ind,:], X[new_ind,:]))
-					Y = np.dot(E, y)
-					t = np.dot(X[new_ind,:], X[new_ind,:]) - np.dot(y, np.dot(E, y))
-					s_ind = np.append(s_ind, new_ind)
-					w = np.append(w, 0.0)
-					E = np.block([[E + np.outer(Y, Y)/(t+0.0), -np.reshape(Y/(t+0.0), (len(Y),1))], [-Y/(t+0.0), 1.0/(t+0.0)]])
-					while (isoptimal_aff == 0):
-							v = np.dot(E,np.block([1, np.zeros(len(s_ind))]))
-							v = v[1:len(v)]          
-							if (np.all(v>epsilon)):
-									w = v
-									isoptimal_aff = 1
-							else:
-									POS = np.where((w-v)>epsilon)[0]
-									if (POS.size==0):
-											theta = 1
-									else:
-											fracs = (w+0.0)/(w-v)
-											theta = min(1, np.min(fracs[POS]))
-									w = theta*v + (1-theta)*w
-									w[w<epsilon] = 0
-									if np.any(w==0):
-											remov_ind = np.where(w==0)[0][0]
-											w = np.delete(w, remov_ind)
-											s_ind = np.delete(s_ind, remov_ind)
-											col = E[:, remov_ind+1]
-											E = E - (np.outer(col,col)+0.0)/col[remov_ind+1]
-											E = np.delete(np.delete(E, remov_ind+1, axis=0), remov_ind+1, axis=1)
-			
-			y = np.dot(X[s_ind,:].T, w)
-			if (verbose==True):
-					print ('X_s=')
-					print (X[s_ind,:])
-					print ('w=')
-					print (w)
-					print ('y=')
-					print (y)
-					print ('s_ind=')
-					print (s_ind)
-
-			weights = np.zeros(n)
-			weights[s_ind] = w
-	return [y, weights]
-
 # %% 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -352,5 +535,11 @@ plt.plot(*(np.vstack([P, P[0,:]])).T)
 plt.scatter(*x_outer, c = 'red')
 plt.scatter(*c, c = 'blue')
 plt.scatter(*(np.c_[Q]).T, c = 'green')
+
+
+
+
+
+
 
 

@@ -8,6 +8,8 @@ I'm following the package structure layed out:
 Loosely, the benefits of this layout are as follows: 
 - Packages used in testing scripts are de-coupled from the main package. This is desirable for dependency minimization; not all packages imported in test scripts necessarily should be required to import the package itself.
 
+Good article on packaging https://dx13.co.uk/articles/2020/01/02/python-packaging-in-2020/
+
 
 ## Why is meson used to build the extension modules instead of cmake?
 

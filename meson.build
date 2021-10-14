@@ -31,7 +31,7 @@ home_dir = fs.expanduser('~')
 py = import('python')
 py_mod = py.find_installation('python3')
 py_dep = py_mod.dependency(version : '>=3.8.0', components: ['Interpreter', 'Development', 'NumPy'])
-py_b11 = dependency('pybind11')
+# py_b11 = dependency('pybind11')
 
 ## Need numpy includes explicitly
 numpy_include_dir = py_mod.get_path('purelib') / 'numpy' / 'core' / 'include'
@@ -76,6 +76,7 @@ carma_includes = include_directories('.' / 'extern' / 'carma' / 'include')
 
 ## Include NumPy headers
 numpy_include = include_directories(numpy_include_dir)
+pybind11_include = include_directories()
 
 ## Target(s)
 py_mod.extension_module('fast_svd',
