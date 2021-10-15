@@ -20,7 +20,7 @@ home_dir = fs.expanduser('~')
 #   lapack_proj = subproject('lapack')
 #   lapack = lapack_proj.get_variable('lapack')
 # endif
- 
+
 ## Query the variables to see what we're working with
 # lapack_lib = lapack.get_variable(cmake: 'LAPACK_LIBRARIES', default_value: '')
 # lapack_linker_flags = lapack.get_variable(cmake: 'LAPACK_LINKER_FLAGS', default_value : ['-llapack', '-lblas'])
@@ -29,9 +29,20 @@ home_dir = fs.expanduser('~')
 
 ## Find Python 3.8+ for Protocol classes
 py = import('python')
-py_mod = py.find_installation('python3')
+py_mod = py.find_installation('python3', modules : ['numpy'], disabler:true, required:false)
 py_dep = py_mod.dependency(version : '>=3.8.0', components: ['Interpreter', 'Development', 'NumPy'])
 # py_b11 = dependency('pybind11')
+
+## Detect numpy
+numpy = run_command(python,'-c','import numpy;print(numpy.get_include())')
+if numpy.returncode()==0
+	message ('Numpy found: '+ numpy.stdout())
+	pybind_inc = include_directories(numpy.stdout().strip())
+else
+	message ('Numpy not found: building without arrays')
+	pybind_inc = include_directories()
+endif
+
 
 # np = py_mod.get_path('numpy')
 # print(np)
