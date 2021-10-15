@@ -130,7 +130,10 @@ jobs:
           sudo -H pip install pytest
           pip install pytest
           python -m pip install pytest 
-          poetry run pytest tests/
+          pytest tests/
+      
+      # on mac: Group dependencies w/ delocate!
+      # sudo delocate-listdeps /Users/mpiekenbrock/tallem/dist/tallem-0.1.4-cp39-cp39-macosx_10_15_x86_64.whl && delocate-wheel --require-archs x86_64 -w /Users/mpiekenbrock/tallem/repaired/ /Users/mpiekenbrock/tallem/dist/tallem-0.1.4-cp39-cp39-macosx_10_15_x86_64.whl 
 
   build_ciwheels: 
     runs-on: "ubuntu-latest"  
@@ -138,16 +141,15 @@ jobs:
       CIBW_TEST_REQUIRES: pytest
       CIBW_TEST_COMMAND: "pytest {project}/tests"
       CIBW_BUILD_FRONTEND: "build"
-      CIBW_BEFORE_ALL_LINUX: |
-        sudo add-apt-repository universe
-        sudo apt-get update
-        sudo apt-get install python3 python3-pip python3-setuptools python3-wheel ninja-build
-        pip install --upgrade pip
-        sudo apt install -yq --no-install-recommends ninja-build gfortran liblapack-dev liblapacke-dev
+      CIBW_BEFORE_ALL_LINUX: >
+        sudo add-apt-repository universe &&
+        sudo apt-get update &&
+        sudo apt-get install python3 python3-pip python3-setuptools python3-wheel ninja-build &&
+        pip install --upgrade pip &&
         sudo ldconfig
     steps:
     - uses: actions/checkout@v2
-    
+
     - name: Setup cmake
       uses: jwlawson/actions-setup-cmake@v1.9
       with:
