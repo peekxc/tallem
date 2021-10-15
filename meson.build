@@ -37,10 +37,11 @@ py_dep = py_mod.dependency(version : '>=3.8.0', components: ['Interpreter', 'Dev
 numpy = run_command(py_mod,'-c','import numpy;print(numpy.get_include())')
 if numpy.returncode()==0
 	message ('Numpy found: '+ numpy.stdout())
-	pybind_inc = include_directories(numpy.stdout().strip())
+	numpy_include = include_directories(numpy.stdout().strip())
 else
-	message ('Numpy not found: building without arrays')
-	pybind_inc = include_directories()
+	numpy_include_dir = py_mod.get_path('purelib') / 'numpy' / 'core' / 'include'
+	message('Using NumPy includes from: ' + numpy_include_dir)
+	numpy_include = include_directories(numpy_include_dir)
 endif
 
 
@@ -48,11 +49,11 @@ endif
 # print(np)
 
 ## Need numpy includes explicitly
-numpy_include_dir = py_mod.get_path('purelib') / 'numpy' / 'core' / 'include'
+# numpy_include_dir = py_mod.get_path('purelib') / 'numpy' / 'core' / 'include'
 # np = import('numpy')
 # py_mod.get_path('numpy')
-message('Detected numpy include from: ' + pybind_inc)
-message('Using NumPy includes from: ' + numpy_include_dir)
+# message('Detected numpy include from: ' + pybind_inc)
+
 
 
 ## Find armadillo, and if not found install it via subproject wrap
@@ -92,7 +93,7 @@ carma_includes = include_directories('.' / 'extern' / 'carma' / 'include')
 
 ## Include NumPy headers
 # numpy_include = include_directories(numpy_include_dir)
-numpy_include = include_directories(pybind_inc)
+# numpy_include = include_directories(pybind_inc)
 pybind11_include = include_directories('.' / 'extern')
 
 ## Target(s)
