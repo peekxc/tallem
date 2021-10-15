@@ -115,12 +115,12 @@ jobs:
           pip install --upgrade pip
           sudo apt install -yq --no-install-recommends ninja-build gfortran liblapack-dev liblapacke-dev
           sudo ldconfig
-          
+
       - name: Setup cmake
         uses: jwlawson/actions-setup-cmake@v1.9
         with:
           cmake-version: '3.16.x'
-
+      
       - name: Build package with pip 
         run: |
           pip install .
@@ -129,6 +129,20 @@ jobs:
     runs-on: "ubuntu-latest"  
     steps:
     - uses: actions/checkout@v2
+
+    - name: Setup linux APT dependencies 
+      run: |
+        sudo add-apt-repository universe
+        sudo apt-get update
+        sudo apt-get install python3 python3-pip python3-setuptools python3-wheel ninja-build
+        pip install --upgrade pip
+        sudo apt install -yq --no-install-recommends ninja-build gfortran liblapack-dev liblapacke-dev
+        sudo ldconfig
+
+    - name: Setup cmake
+      uses: jwlawson/actions-setup-cmake@v1.9
+      with:
+        cmake-version: '3.16.x'
 
     - uses: pypa/cibuildwheel@v1.12.0
       
