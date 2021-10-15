@@ -3,7 +3,7 @@
 requires-python = ">=3.8"
 
 [build-system]
-requires = ["setuptools>=42", "wheel", "poetry>=1.0.10", "meson>=0.59.0", "ninja", "cmake"]
+requires = ["setuptools>=42", "wheel", "poetry>=1.0.10", "meson>=0.59.0", "ninja", "cmake", "numpy>=1.20"]
 build-backend = "poetry.masonry.api" # build backends for pip to use to building the wheel
 
 [tool.poetry]
@@ -37,7 +37,7 @@ build = ">=0.7"
 wheel = ">=0.37"
 meson = ">=0.52"
 ninja = ">=1.10"
-numpy = "==1.20"
+numpy = ">=1.20"
 scipy = ">=1.6"
 Shapely = "^1.7"
 autograd = {version = ">=.3", optional = true}
