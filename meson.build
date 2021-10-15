@@ -33,6 +33,9 @@ py_mod = py.find_installation('python3')
 py_dep = py_mod.dependency(version : '>=3.8.0', components: ['Interpreter', 'Development', 'NumPy'])
 # py_b11 = dependency('pybind11')
 
+# np = py_mod.get_path('numpy')
+# print(np)
+
 ## Need numpy includes explicitly
 numpy_include_dir = py_mod.get_path('purelib') / 'numpy' / 'core' / 'include'
 # np = import('numpy')

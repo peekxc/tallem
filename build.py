@@ -3,6 +3,7 @@ import sys
 from pathlib import Path
 import mesonbuild
 
+
 # From: https://stackoverflow.com/questions/51108256/how-to-take-a-pathname-string-with-wildcards-and-resolve-the-glob-with-pathlib
 def expandpath(path_pattern):
 	p = Path(path_pattern).expanduser()
@@ -18,6 +19,10 @@ def build(setup_kwargs):
 		print("Removing existing modules for a clean build")
 	#ext_modules = [p.name for p in ]
 	
+	import numpy as np
+	print("\n==== NUMPY INCLUDES ====\n")
+	print(f"{np.get_include()}")
+
 	## Remove existing extension modules
 	for m in existing_modules:
 		os.remove(m)
