@@ -1,12 +1,22 @@
 ## TALLEM needs C++17 or higher 
 project('tallem', 'cpp', 'fortran',
 	version: '0.1.1',
-  default_options : ['buildtype=release', 'warning_level=3', 'cpp_std=c++17']
+  default_options : [
+		'cpp_std=c++17', 'warning_level=3',
+		'buildtype=release', 'optimization=0', 'debug=false', 
+		'b_lto_mode=default', 'b_pie=true', 'b_sanitize=none',
+		'install_umask=002', 'strip=false'
+	]
 )
 project_dir = meson.current_source_dir()
-# add_project_arguments('-Db_pie=true -Db_staticpic=true', language : 'cpp')
+# add_project_arguments('-stdlib=libc++', language: 'c')
+add_project_arguments('-stdlib=libc++', language: 'cpp')
 add_project_arguments('-Wno-non-virtual-dtor', language : 'cpp') # to remove installation warnings
-add_project_arguments('-DCARMA_DONT_REQUIRE_F_CONTIGUOUS=OFF', language : 'cpp')
+# add_project_arguments('-DCARMA_DONT_REQUIRE_F_CONTIGUOUS=OFF', language : 'cpp')
+
+## Check the C++ compiler location
+compiler = meson.get_compiler('cpp')
+message(compiler.get_id())
 
 ## Folder variables 
 fs = import('fs')
@@ -102,7 +112,9 @@ py_mod.extension_module('fast_svd',
 	dependencies : [py_dep, arma], 
 	include_directories : [numpy_include, carma_includes, pybind11_include],
 	install : true, 
-	install_dir : project_dir / 'src' / 'tallem' / 'pbm'
+	install_dir : project_dir / 'src' / 'tallem' / 'pbm',
+	override_options :'-stdlib=libc++',
+	cpp_args : '-stdlib=libc++'
 )
 
 py_mod.extension_module('landmark', 
@@ -110,5 +122,7 @@ py_mod.extension_module('landmark',
 	dependencies : [py_dep, arma], 
 	include_directories : [numpy_include, carma_includes, pybind11_include], 
 	install : true, 
-	install_dir : project_dir / 'src' / 'tallem' / 'pbm'
+	install_dir : project_dir / 'src' / 'tallem' / 'pbm', 
+	cpp_args : '-stdlib=libc++',
+	override_options :'-stdlib=libc++'
 )

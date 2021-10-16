@@ -12,6 +12,13 @@ from scipy.spatial import KDTree
 from scipy.sparse import csc_matrix, csr_matrix
 from scipy.sparse.csgraph import minimum_spanning_tree, connected_components
 
+
+import numba as nb
+from numba import njit, types, float32, float64, int32, int64, prange
+from numba.extending import overload
+
+
+
 # %%  Dimensionality reduction definitions
 def pca(x: npt.ArrayLike, d: int = 2, center: bool = True) -> npt.ArrayLike:
 	''' PCA embedding '''
@@ -76,6 +83,89 @@ def sammon(data, d: int = 2, max_iterations: int = 250, max_halves: int = 10):
 # 	H = -np.ones((n, n))/n
 # 	np.fill_diagonal(H,1-1/n)
 # 	return(H)
+
+@njit('float64[:,:](float64[:,:])', fastmath=True,parallel=False)
+def average_rows(x):
+	assert x.ndim == 2
+	res = np.zeros((1, x.shape[0]),dtype=np.float64)
+	for i in prange(x.shape[0]):
+		res += x[i,:]
+	return res / x.shape[0]
+
+@njit('float64[:,:](float64[:,:])', fastmath=True,parallel=False)
+def average_cols(x):
+	assert x.ndim == 2
+	res = np.zeros((1, x.shape[1]),dtype=np.float64)
+	for i in prange(x.shape[1]):
+		res += x[:,i]
+	return res / x.shape[1]
+
+#test.parallel_diagnostics(level=4)
+
+## Classical MDS with Numba
+@njit(nb.types.Tuple((float64[:], float64[:,:]))(float64[:,:], int32), fastmath=False)
+def cmds_numba_E(D, d):
+	''' Given distance matrix 'D' and dimension 'd', computes the classical MDS '''
+	n = D.shape[0]
+	D = -0.5*(D - average_rows(D) - average_cols(D).T + np.mean(D))
+	evals, evecs = np.linalg.eigh(D)
+	evals, evecs = np.flip(evals)[:d] , np.fliplr(evecs)[:,:d] 
+	return((evals, evecs))
+
+@njit('float64[:,:](float64[:,:], int32)', fastmath=False)
+def cmds_numba(D, d):
+	n = D.shape[0]
+	evals, evecs = cmds_numba_E(D, d)
+	w = np.flatnonzero(evals > 0)
+	Y = np.zeros(shape=(n, d))
+	Y[:,w] = np.dot(evecs[:,w], np.diag(np.sqrt(evals[w])))
+	return(Y)
+
+@njit('float64[:,:](float64[:,:], float64[:,:], int32)', fastmath=False)
+def landmark_cmds_numba(LD, S, d):
+	''' 
+	Barbones landmark MDS with Numba 
+	
+	LD := (k x k) landmark distance matrix 
+	S := (k x n) matrix of distances from the n points to the k landmark points, where n > k
+	d := dimension of output coordinitization
+	'''
+	n = S.shape[1]
+	evals, evecs = cmds_numba_E(LD, d)
+	mean_landmark = average_cols(LD).T
+	w = np.flatnonzero(evals > 0)
+	L_pseudo = evecs/np.sqrt(evals[w])
+	Y = np.zeros(shape=(n, d))
+	Y[:,w] = (-0.5*(L_pseudo.T @ (S.T - mean_landmark.T).T)).T 
+	return(Y)
+
+import ctypes
+from numba import vectorize, njit
+from numba.extending import get_cython_function_address
+
+addr = get_cython_function_address('scipy.linalg.cython_lapack','dsyevr')
+# TODO: implement dsyevr using numba. see: https://github.com/numba/numba/issues/5301
+# from scipy.linalg import lapack
+# from tallem.distance import dist
+# x = np.random.uniform(size=(5,2))
+# D = dist(x, as_matrix=True)
+# jobz, rng, uplo, N, vl, vu, il, iu, tol = 'V', 'V', 'U', int(D.shape[0]), np.float64(3), np.float64(5), int(1), int(1), np.float64(1e-7)
+# m = int(2)
+# w, Z, ldz, isuppz, work, lwork = np.zeros(N), np.zeros((N, m)), N, np.zeros(2*m, dtype=int), np.zeros(26*N, dtype=np.float64), 26*N, 
+# iwork, liwork = 10*N, np.zeros(10*N, dtype=int)
+# info = int(0)
+
+# print(lapack.dsyevr.__doc__)
+
+# lapack.dsyevr(jobz, rng, uplo, N, D, N, vl, vu, il, iu, tol, m, w, Z, ldz, isuppz, work, lwork, iwork, liwork, info)
+
+# @njit('float64[:,:](float64[:,:], int32, int32)', parallel=True)
+# def bench_parallel(D, d, n):
+# 	for i in prange(n):
+# 		cmds_numba(D, d)
+
+# NOTE: 
+# use np.split(X, (1,3), axis = 1) to split into final list!
 
 ## Classical MDS 
 def cmds(a: npt.ArrayLike, d: int = 2, coords: bool = True, method="scipy"):

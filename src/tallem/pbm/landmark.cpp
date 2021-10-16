@@ -7,9 +7,11 @@
 #include <functional>
 #include <numeric>
 #include <algorithm>
+#include <thread>
 
-using std::vector; 
 using std::size_t;
+using std::vector; 
+using std::thread; 
 
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h>
@@ -194,9 +196,6 @@ py::tuple maxmin(const py::array_t<double>& x, const double eps, const size_t n,
 	}
 }
 
-#include <thread>
-using std::thread; 
-
 void doSomething(int thread_id, vector< double >& output) {
 	output[thread_id] = std::sqrt(static_cast< double >(thread_id));
 }
@@ -279,7 +278,7 @@ void dist_matrix(const arma::mat& x, arma::mat& D){
 
 // Each C++11 thread should be running in their function with an infinite loop, constantly waiting for new tasks to grab and run.
 #include "threadpool.h"
-void parallel_mds_cpp(const arma::mat& X, const vector< arma::uvec >& cover_sets, const size_t d, const size_t n_threads, vector< arma::mat >& out){
+void parallel_mds_threadpool(const arma::mat& X, const vector< arma::uvec >& cover_sets, const size_t d, const size_t n_threads, vector< arma::mat >& out){
 	// Allocate max number of threads
 	ctpl::thread_pool p(n_threads);
 
@@ -292,14 +291,7 @@ void parallel_mds_cpp(const arma::mat& X, const vector< arma::uvec >& cover_sets
 
 	for (size_t j = 0; j < n_opens; ++j) {
 		results[j] = p.push([&models, &X, &cover_sets, j, d](int thread_id){
-			// py::print(j);
 			const size_t n = cover_sets.at(j).size();
-			// models.at(j) = arma::mat(2,2);
-			// models.at(j)(0,0) = thread_id;
-			// models.at(j)(1,1) = j;
-			// models.at(j)(1,0) = n;
-			// auto it = std::max_element(cover_sets.at(j).begin(), cover_sets.at(j).end());
-			// models.at(j)(0,1) = double(*it);
 			const arma::mat X_j = X.cols(cover_sets.at(j));
 			arma::mat D = arma::mat(n, n, arma::fill::zeros);
 			dist_matrix(X_j, D);
@@ -324,18 +316,13 @@ auto parallel_mds(const py::array_t< double >& x, const py::list& cover_sets, co
 	for (size_t j = 0; j < cover_sets.size(); ++j){ 
 		indices[j] = cover_sets[j].cast< arma::uvec >(); 
 	}
-
-	// for (size_t j = 0; j < cover_sets.size(); ++j) {
-	// 	auto it = std::max_element(indices.at(j).begin(), indices.at(j).end());
-	// 	py::print(int(*it));
-	// }
 	
 	// Do the parallel mds
 	std::cout << "The GIL state is " << PyGILState_Check() <<std::endl;
 	py::gil_scoped_release release;
 	std::cout << "The GIL state is " << PyGILState_Check() <<std::endl;
 	vector< arma::mat > results(indices.size(), arma::mat()); 
-	parallel_mds_cpp(X, indices, d, n_threads, results);
+	parallel_mds_threadpool(X, indices, d, n_threads, results);
 	py::gil_scoped_acquire acquire;
 
 	// py::list output(indices.size()); 
@@ -345,6 +332,121 @@ auto parallel_mds(const py::array_t< double >& x, const py::list& cover_sets, co
 	}
 	return(py::cast(output));
 } // parallel_mds
+
+// auto parallel_mds_blocks(const py::array_t< double >& x, const py::list& cover_sets, const size_t d, 	const vector< size_t >& blocks, const size_t n_threads) -> py::list {
+// 	// Conversions
+// 	const arma::mat X = carma::arr_to_mat< double >(x).t();
+// 	auto indices = vector< arma::uvec >(cover_sets.size());
+// 	for (size_t j = 0; j < cover_sets.size(); ++j){ 
+// 		indices[j] = cover_sets[j].cast< arma::uvec >(); 
+// 	}
+	
+// 	// Do the parallel mds
+// 	py::gil_scoped_release release;
+// 	vector< arma::mat > results(indices.size(), arma::mat()); 
+// 	parallel_mds_simple(X, indices, d, n_threads, results);
+// 	py::gil_scoped_acquire acquire;
+
+// 	// py::list output(indices.size()); 
+// 	vector< py::array_t< double > > output(indices.size());
+// 	for (size_t j = 0; j < indices.size(); ++j){
+// 		output[j] = carma::mat_to_arr(results[j]);
+// 	}
+// 	return(py::cast(output));
+// }
+
+// Simple parallelization of MDS on each open of the cover 
+// Assumes n_threads > 1 
+// X := (d x n) column major matrix of points
+// blocks := (n_threads+1) vector of offsets such that indicating a range [blocks[i], blocks[i+1]) of open for thread i to handle
+void parallel_mds_simple(
+	const arma::mat& X, 
+	const vector< vector< arma::uword > >& cover_sets, 
+	const size_t d, 
+	const size_t n_threads, 
+	const vector< size_t >& blocks, 
+	vector< arma::mat >& out
+){
+	if (blocks.size() != (n_threads+1)){ throw std::invalid_argument("Block vector size must match number of threads."); }
+
+	// Prepare the lambda to do the work
+	const auto do_mds = [&out, &X, &cover_sets, d](int i, const int j) -> void {
+		for (; i < j; ++i){
+			// py::print("subset: ", i, "/", cover_sets.size());
+			const size_t n = cover_sets.at(i).size();	
+			//vector< arma::uword >& c_open = cover_sets.at(i);
+			arma::uvec ind(cover_sets.at(i));// unfortunately this copy is required
+			const arma::mat X_i = X.cols(ind);
+			arma::mat D = arma::mat(n, n, arma::fill::zeros);
+			dist_matrix(X_i, D);
+			cmds(D, d, out.at(i)); 
+		}
+	};
+
+	// Do sequential computation 
+	// for (size_t j = 0; j < n_threads; ++j){
+	// 	// py::print("Starting thread: ", j);
+	// 	do_mds(blocks.at(j), blocks.at(j+1));
+	// }
+
+	// Launch the threads
+	auto tt = vector< thread >(n_threads - 1);
+	for (size_t j = 0; j < (n_threads-1); ++j){
+		tt.at(j) = thread(do_mds, blocks.at(j), blocks.at(j+1));
+	}
+	// Have the main thread do some work as well
+	do_mds(blocks.at(n_threads-1), blocks.at(n_threads));
+
+	// Join the threads 
+	for (size_t j = 0; j < (n_threads-1); ++j) { tt.at(j).join(); }
+}
+
+// When threads are created using the dedicated Python APIs (such as the threading module), a thread state is automatically associated to 
+// them and the code showed above is therefore correct. However, when threads are created from C (for example by a third-party library 
+// with its own thread management), they don’t hold the GIL, nor is there a thread state structure for them.
+
+// If you need to call Python code from these threads (often this will be part of a callback API provided by the aforementioned third-party 
+// library), you must first register these threads with the interpreter by creating a thread state data structure, then acquiring the GIL, 
+// and finally storing their thread state pointer, before you can start using the Python/C API. When you are done, you should reset the 
+// thread state pointer, release the GIL, and finally free the thread state data structure.
+
+// trust pybind11/carma to do the automatic conversions here
+// Parallelization notes: 
+// (1) DO NOT PASS AN ARMA::MAT DIRECTLY AS A PARAMETER; convert manually w/ carma
+// (2) The GIL lock seems to require spawning threads, if unlocked and reacquired. Only unlock if threads are spawned.
+// (3) Can actually return vector< arma::mat > fine, surprisingly
+auto parallel_mds_blocks(
+	const py::array_t< double >& X,
+	const vector< vector< arma::uword >  >& cover_sets, 
+	const size_t d, 
+	const size_t n_threads, 
+	const vector< size_t >& blocks
+) -> vector< arma::mat > {
+
+	// Allocate the output
+	vector< arma::mat > results(cover_sets.size(), arma::mat(1,1, arma::fill::zeros)); 
+
+	// Do the parallel mds
+	// std::cout << "INIT: The GIL state is " << PyGILState_Check() <<std::endl;
+	const arma::mat points = carma::arr_to_mat(X); 
+	py::gil_scoped_release release;
+	vector< double > res = spawnThreads(n_threads);
+	// std::cout << "BEGIN: The GIL state is " << PyGILState_Check() <<std::endl;
+	parallel_mds_simple(points, cover_sets, d, n_threads, blocks, results);
+	// PyGILState_Ensure();
+	// std::cout << "FINISHED: The GIL state is " << PyGILState_Check() <<std::endl;
+	py::gil_scoped_acquire acquire;
+	// std::cout << "END: The GIL state is " << PyGILState_Check() <<std::endl;
+	// py::cast(results)
+
+	// vector< py::array_t< double > > output(cover_sets.size());
+	// for (size_t j = 0; j < cover_sets.size(); ++j){
+	// 	output[j] = carma::mat_to_arr(results[j], true);
+	// }
+	// return(output);
+	return(results);
+	// return(py::list(1));
+}
 
 
 
@@ -365,6 +467,7 @@ PYBIND11_MODULE(landmark, m) {
 	});
 	// void parallel_mds(const py::array_t< double >& x, const py::list& cover_sets, const size_t d){
 	m.def("parallel_cmds", parallel_mds);
+	m.def("parallel_mds_blocks", parallel_mds_blocks);
 	m.def("dist_matrix", [](const py::array_t< double >& x) -> py::array_t< double > {
 		const arma::mat X = carma::arr_to_mat(x).t();
 		arma::mat D = arma::mat(X.n_cols, X.n_cols, arma::fill::zeros);

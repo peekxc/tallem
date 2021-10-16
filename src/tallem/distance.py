@@ -3,7 +3,7 @@ import numpy as np
 import numpy.typing as npt 
 from numpy.typing import ArrayLike
 from typing import Callable, Optional, Union
-from scipy.spatial.distance import pdist, cdist
+from scipy.spatial.distance import squareform, pdist, cdist
 from scipy.sparse import issparse
 from .utility import inverse_choose, rank_comb2, unrank_comb2
 
@@ -50,7 +50,12 @@ def subset_dist(x: ArrayLike, I: ArrayLike):
 		raise ValueError("'x' must be a distance matrix or a set of pairwise distances")
 	return(subset)
 			
-
+# @numba.jit(cache=True, nopython=True, parallel=True, fastmath=True, boundscheck=False, nogil=True)
+# def numba_dist(a, b):
+# 	dist = np.zeros(a.shape[0])
+# 	for r in range(a.shape[0]):
+# 		for c in range(128):
+# 			dist[r] += (b[c] - a[r, c])**2
 
 def dist(x: npt.ArrayLike, y: Optional[npt.ArrayLike] = None, pairwise = False, as_matrix = False, metric : Union[str, Callable] = 'euclidean', **kwargs):
 	''' 
@@ -71,7 +76,8 @@ def dist(x: npt.ArrayLike, y: Optional[npt.ArrayLike] = None, pairwise = False, 
 	if (x.shape[0] == 1 or x.ndim == 1) and y is None: 
 		return(np.zeros((0, np.prod(x.shape))))
 	if y is None:
-		return(cdist(x, x, metric, **kwargs) if (as_matrix) else pdist(x, metric, **kwargs))
+		#return(cdist(x, x, metric, **kwargs) if (as_matrix) else pdist(x, metric, **kwargs))
+		return(squareform(pdist(x, metric, **kwargs)) if (as_matrix) else pdist(x, metric, **kwargs))
 	else:
 		n, y = x.shape[0], np.asanyarray(y)
 		if pairwise:

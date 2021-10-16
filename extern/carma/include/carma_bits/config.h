@@ -19,6 +19,8 @@
 // This is a safer option compared to HARD_STEAL
 // The default approach when staling is to only set the OWNDATA flag to False
 #if !defined(CARMA_SOFT_STEAL)
+#define CARMA_SOFT_STEAL
+#define ENABLE_CARMA_SOFT_STEAL
 /* #undef ENABLE_CARMA_SOFT_STEAL */
 /* #undef CARMA_SOFT_STEAL */
 #endif
@@ -38,16 +40,16 @@
 // Do NOT copy arrays if the data is not owned by Numpy, default behaviour
 // is to copy when OWNDATA is False
 #if !defined(CARMA_DONT_REQUIRE_OWNDATA)
-/* #undef ENABLE_CARMA_DONT_REQUIRE_OWNDATA */
-/* #undef CARMA_DONT_REQUIRE_OWNDATA */
+	#undef ENABLE_CARMA_DONT_REQUIRE_OWNDATA
+	#undef CARMA_DONT_REQUIRE_OWNDATA 
 #endif
 
 // -- REQUIRE_F_CONTIGUOUS --
 // Do NOT copy c-style arrays, default behaviour is to copy c-style arrays
 
 #if !defined(CARMA_DONT_REQUIRE_F_CONTIGUOUS)
-/* #undef ENABLE_CARMA_DONT_REQUIRE_F_CONTIGUOUS */
-/* #undef CARMA_DONT_REQUIRE_F_CONTIGUOUS */
+	#undef ENABLE_CARMA_DONT_REQUIRE_F_CONTIGUOUS 
+	#undef CARMA_DONT_REQUIRE_F_CONTIGUOUS
 #endif
 
 #endif  // INCLUDE_CARMA_BITS_CONFIG_H_
