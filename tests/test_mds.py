@@ -338,7 +338,7 @@ np.max(abs(dist(cmds_numba(D, 2)) - dist(cmds(D, d=2))))
 from tallem.samplers import landmarks
 
 X = np.random.uniform(size=(100, 2))
-X = np.hstack((X, np.random.uniform(size=X.shape, low=0.0, high=0.05)))
+X = np.hstack((X, np.random.uniform(size=X.shape, low=0.0, high=0.15)))
 
 Lind, Lrad = landmarks(X, k  = X.shape[0])
 

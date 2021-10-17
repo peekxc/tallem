@@ -106,7 +106,6 @@ def average_cols(x):
 @njit(nb.types.Tuple((float64[:], float64[:,:]))(float64[:,:], int32), fastmath=False)
 def cmds_numba_E(D, d):
 	''' Given distance matrix 'D' and dimension 'd', computes the classical MDS '''
-	n = D.shape[0]
 	D = -0.5*(D - average_rows(D) - average_cols(D).T + np.mean(D))
 	evals, evecs = np.linalg.eigh(D)
 	evals, evecs = np.flip(evals)[:d] , np.fliplr(evecs)[:,:d] 
@@ -139,11 +138,6 @@ def landmark_cmds_numba(LD, S, d):
 	Y[:,w] = (-0.5*(L_pseudo.T @ (S.T - mean_landmark.T).T)).T 
 	return(Y)
 
-import ctypes
-from numba import vectorize, njit
-from numba.extending import get_cython_function_address
-
-addr = get_cython_function_address('scipy.linalg.cython_lapack','dsyevr')
 # TODO: implement dsyevr using numba. see: https://github.com/numba/numba/issues/5301
 # from scipy.linalg import lapack
 # from tallem.distance import dist

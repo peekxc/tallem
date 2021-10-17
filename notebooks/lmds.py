@@ -1,6 +1,39 @@
 
+from tallem.syevr import numba_dsyevr
 
+import numpy as np 
+from scipy.spatial.distance import squareform, pdist, cdist
+from tallem.dimred import *
 
+a = np.random.uniform(size=(3,3))
+D = squareform(pdist(a))**2
+D = -0.5*(D - average_rows(D) - average_cols(D).T + np.mean(D))
+numba_dsyevr(D, 1, D.shape[0]-1, 0)
+np.linalg.eigh(D)
+
+cmds(D, D.shape[0], coords=False)
+
+# From: https://software.intel.com/sites/products/documentation/doclib/mkl_sa/11/mkl_lapack_examples/dsyevr_ex.f.htm
+x = np.array([
+	[ 0.67, -0.20,  0.19, -1.06,  0.46],
+	[-0.20,  3.82, -0.13,  1.06, -0.48],
+	[ 0.19, -0.13,  3.27,  0.11,  1.10],
+	[-1.06,  1.06,  0.11,  5.86, -0.98],
+	[ 0.46, -0.48,  1.10, -0.98,  3.54]
+], dtype=np.float64)
+#  -0.98  -0.01  -0.08
+# *   0.01   0.02  -0.93
+# *   0.04  -0.69  -0.07
+# *  -0.18   0.19   0.31
+# *   0.07   0.69  -0.13
+z = numba_dsyevr(x, 1, x.shape[0]-1, 0)
+
+from tallem.dimred import cmds
+evals, evecs = cmds(x, a.shape[0], coords=False)
+
+print(evals)
+print(z[0])
+# 0.43   2.14   3.37
 # %% 
 import sys
 import os
