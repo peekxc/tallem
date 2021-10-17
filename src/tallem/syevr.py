@@ -40,8 +40,8 @@ _ORD_JOBVS = ord('V')
 _ORD_RNG = ord('I')
 _ORD_UPLO = ord('U')
 
-@nb.jit(nb.types.Tuple((nb.float64[:], nb.float64[:,:], nb.int32, nb.int32))(nb.float64[:,:], nb.int32, nb.int32, nb.float32), nopython=True)
-def numba_dsyevr(x, I1, I2, tolerance=-1.0):
+@nb.jit(nb.types.Tuple((nb.float64[:], nb.float64[:,:], nb.int32, nb.int32))(nb.float64[:,:], nb.int32, nb.int32, nb.float32), nopython=True, parallel=True, fastmath=True)
+def numba_dsyevr(x, I1, I2, tolerance):
 	''' Computes all eigenvalues in range 1 <= I1 <= I2 <= N'''
 	assert (x.shape[0] == x.shape[1])
 	assert I1 <= I2 and I1 >= 1 and I2 <= x.shape[0]
@@ -59,15 +59,31 @@ def numba_dsyevr(x, I1, I2, tolerance=-1.0):
 	IL, IU = np.array(i1, np.int32), np.array(i2, np.int32)
 	ABS_TOL = np.array([tolerance], np.float64)
 	N_EVALS_FOUND = np.empty(1, np.int32)
-	W = np.zeros((n,), np.float64)
-	Z = np.zeros((m, n), np.float64).T
+	W = np.zeros(n, np.float64)
 	LDZ, ISUPPZ = np.array([n], np.int32), np.zeros(2*m, np.int32) 
-	WORK, LWORK = np.zeros(26*n, np.float64), np.array([26*n], np.int32) 
-	IWORK, LIWORK = np.zeros(10*n, np.int32), np.array([10*n], np.int32) 
-	INFO = np.empty(1, dtype=np.int32)
+	INFO = np.array([0.0], np.int32)
+
+	## Output
+	Z = np.zeros((m, n), np.float64).T
 	
+	# preallocate
+	LWORK, LIWORK = np.array([26*n], np.int32), np.array([10*n], np.int32)
+	WORK, IWORK = np.zeros(26*n, np.float64), np.zeros(10*n, np.int32)
+
+	## Dry-run to get workspace allocation amount 
+	# LWORK, LIWORK = np.array([-1.0], np.int32), np.array([-1.0], np.int32)
+	# WORK, IWORK = np.zeros(1, np.float64), np.zeros(1, np.int32)
+	# dsyevr_fn(
+	# 	JOBVS.ctypes,RNG.ctypes,UPLO.ctypes,N.ctypes,A.view(np.float64).ctypes,
+	# 	LDA.ctypes,VL.ctypes,VU.ctypes,IL.ctypes,IU.ctypes,ABS_TOL.ctypes,N_EVALS_FOUND.ctypes,
+	# 	W.view(np.float64).ctypes, Z.view(np.float64).ctypes,
+	# 	LDZ.ctypes,ISUPPZ.view(np.int32).ctypes,WORK.view(np.float64).ctypes,
+	# 	LWORK.ctypes,IWORK.view(np.int32).ctypes,LIWORK.ctypes,INFO.ctypes
+	# )
+	# LWORK, LIWORK = np.array([WORK[0]], np.int32), np.array([IWORK[0]], np.int32)
+	# WORK, IWORK = np.array([LWORK[0]], np.float64), np.array([LIWORK[0]], np.int32)
+
 	## Call the function
-	# jobvs = ctypes.POINTER(ctypes.c_int)()
 	dsyevr_fn(
 		JOBVS.ctypes,
 		RNG.ctypes,
@@ -91,4 +107,4 @@ def numba_dsyevr(x, I1, I2, tolerance=-1.0):
 		LIWORK.ctypes,
 		INFO.ctypes
 	)
-	return((W, Z, INFO[0], N_EVALS_FOUND[0]))
+	return((W[:m], Z, INFO[0], N_EVALS_FOUND[0]))

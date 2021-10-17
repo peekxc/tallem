@@ -1,4 +1,8 @@
 
+
+# from numba import config 
+# config.THREADING_LAYER = 'safe'
+
 from tallem.syevr import numba_dsyevr
 
 import numpy as np 
@@ -8,8 +12,26 @@ from tallem.dimred import *
 a = np.random.uniform(size=(3,3))
 D = squareform(pdist(a))**2
 D = -0.5*(D - average_rows(D) - average_cols(D).T + np.mean(D))
-numba_dsyevr(D, 1, D.shape[0]-1, 0)
+
+numba_dsyevr(D, 1, D.shape[0], 0)
 np.linalg.eigh(D)
+
+# Benchmark
+import time 
+a = np.random.uniform(size=(1500,3))
+D = squareform(pdist(a))**2
+D = -0.5*(D - average_rows(D) - average_cols(D).T + np.mean(D))
+
+tic = time.perf_counter()
+w = np.linalg.eigh(D)
+toc = time.perf_counter()
+print(f"{toc - tic:0.4f} seconds")
+
+tic = time.perf_counter()
+cc = numba_dsyevr(D, D.shape[0]-2, D.shape[0], 0)
+toc = time.perf_counter()
+print(f"{toc - tic:0.4f} seconds")
+
 
 cmds(D, D.shape[0], coords=False)
 
