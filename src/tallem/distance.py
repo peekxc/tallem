@@ -1,8 +1,9 @@
 # %% Distance imports
+import numbers
 import numpy as np
 import numpy.typing as npt 
 from numpy.typing import ArrayLike
-from typing import Callable, Optional, Union
+from typing import *
 from scipy.spatial.distance import squareform, pdist, cdist
 from scipy.sparse import issparse
 from .utility import inverse_choose, rank_comb2, unrank_comb2
@@ -38,14 +39,33 @@ def as_dist_matrix(x: ArrayLike, metric="euclidean") -> ArrayLike:
 	else:
 		return(dist(x, as_matrix=True, metric=metric))
 
-def subset_dist(x: ArrayLike, I: ArrayLike):
+def is_dist_like(x: ArrayLike):
+	return(is_distance_matrix(x) or is_pairwise_distances(x))
+
+def is_index_like(x: ArrayLike):
+	return(np.all([isinstance(el, numbers.Integral) for el in x]))
+
+def subset_dist(x: ArrayLike, I: Union[ArrayLike, Tuple]):
 	from itertools import combinations
 	# assert is unique
 	if is_distance_matrix(x):
-		subset = x[np.ix_(I, I)]
+		if isinstance(I, np.ndarray):
+			subset = x[np.ix_(I, I)]
+		else:
+			assert len(I) == 2
+			subset = x[np.ix_(I[0], I[1])]
 	elif is_pairwise_distances(x):
 		n = inverse_choose(len(x), 2)
-		subset = np.array([x[rank_comb2(i,j,n)] for i,j in combinations(I, 2)])
+		if isinstance(I, np.ndarray):
+			subset = np.array([x[rank_comb2(i,j,n)] for i,j in combinations(I, 2)])
+		else:
+			subset = np.zeros((len(I[0]), len(I[1])))
+			for i, ind0 in enumerate(I[0]):
+				for j, ind1 in enumerate(I[1]):
+					if ind0 == ind1:
+						subset[i,j] = 0.0
+					else: 
+						subset[i,j] = x[rank_comb2(ind0,ind1,n)]
 	else: 
 		raise ValueError("'x' must be a distance matrix or a set of pairwise distances")
 	return(subset)

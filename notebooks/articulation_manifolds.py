@@ -57,22 +57,14 @@ import numpy as np
 
 ## Sample images
 samples, params, blob, c = white_dot(n_pixels=17, r=0.35, n=(600, 100), method="random")
-ind = np.random.choice(range(samples.shape[0]), size=8, replace=False)
-plot_images(samples[ind,:], shape=(17,17), max_val=c, layout=(1,8))
+ind = np.random.choice(range(samples.shape[0]), size=3*8, replace=False)
+plot_images(samples[ind,:], shape=(17,17), max_val=c, layout=(3,8), figsize=(12,4))
 
 from tallem.samplers import landmarks
 cover = LandmarkCover(samples, k=20, scale=1.8)
 assert(np.all(np.array([len(s) for s in cover.values()]) > 1))
 
-from tallem.cover import bump
-from scipy.sparse import coo_matrix, csc_matrix
-Q = cover._neighbors.tocoo()
-Q.data = 1.0 - (Q.data/cover.cover_radius) ## apply triangular pou
-Q = coo_matrix(Q / np.sum(Q, axis = 1))
-Q.data = bump(Q.data, "triangular")
-P = csc_matrix(Q)
-
-top = TALLEM(cover, local_map="cmds3", n_components=3, pou=P)
+top = TALLEM(cover, local_map="cmds3", n_components=3)
 emb = top.fit_transform(X=samples, B=samples)
 
 ## Eccentricity for color
@@ -105,15 +97,7 @@ cover = LandmarkCover(bars, k=15, scale=1.5)
 assert np.all(np.array([len(s) for s in cover.values()]) > 1)
 assert validate_cover(bars.shape[0], cover)
 
-from tallem.cover import bump
-from scipy.sparse import coo_matrix, csc_matrix
-Q = cover._neighbors.tocoo()
-Q.data = 1.0 - (Q.data/cover.cover_radius) ## apply triangular pou
-Q = coo_matrix(Q / np.sum(Q, axis = 1))
-Q.data = bump(Q.data, "triangular")
-P = csc_matrix(Q)
-
-top = TALLEM(cover, local_map="cmds2", n_components=3, pou=P)
+top = TALLEM(cover, local_map="cmds2", n_components=3)
 emb = top.fit_transform(X=bars, B=bars)
 
 ## Use parameters for color
@@ -162,7 +146,7 @@ P = [
 	pc
 ]
 
-scatter3D(P, layout=(1,3), figsize=(12,18), c=dist_to_center)
+scatter3D(P, layout=(1,3), figsize=(18,6), c=dist_to_center)
 
 
 # %% Klein bottle example

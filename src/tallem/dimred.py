@@ -111,6 +111,19 @@ def cmds_numba_E(D, d):
 	evals, evecs = np.flip(evals)[:d] , np.fliplr(evecs)[:,:d] 
 	return((evals, evecs))
 
+
+@njit('float64[:,:](float64[:,:], int32)', fastmath=False)
+def cmds_numba_naive(D, d):
+	n = D.shape[0]
+	H = np.eye(n) - (1.0/n)*np.ones(shape=(n,n)) # centering matrix
+	B = -0.5 * H @ D @ H
+	evals, evecs = np.linalg.eigh(B)
+	evals, evecs = np.flip(evals)[np.arange(d)], np.fliplr(evecs)[:,np.arange(d)]        
+	w = np.flatnonzero(evals > 0)
+	Y = np.zeros(shape=(n, d))
+	Y[:,w] = evecs[:,w] @ np.diag(np.sqrt(evals[w]))
+	return(Y)
+
 @njit('float64[:,:](float64[:,:], int32)', fastmath=False)
 def cmds_numba(D, d):
 	n = D.shape[0]
@@ -152,11 +165,23 @@ def landmark_cmds_numba(LD, S, d):
 # print(lapack.dsyevr.__doc__)
 
 # lapack.dsyevr(jobz, rng, uplo, N, D, N, vl, vu, il, iu, tol, m, w, Z, ldz, isuppz, work, lwork, iwork, liwork, info)
+@njit('float64[:,:](float64[:,:])', parallel=True)
+def dist_matrix(X):
+	n = X.shape[0]
+	D = np.zeros((n,n))
+	for i in np.arange(n):
+		for j in np.arange(n):
+			D[i,j] = np.sum((X[i,:]-X[j,:])**2)
+	return(D)
 
-# @njit('float64[:,:](float64[:,:], int32, int32)', parallel=True)
-# def bench_parallel(D, d, n):
-# 	for i in prange(n):
-# 		cmds_numba(D, d)
+# @njit('float64[:,:](float64[:,:], int32[:], int32[:], int32)', parallel=True)
+# def bench_parallel(X, subsets_vec, subsets_len, d):
+# 	results = []
+# 	for i in prange(len(subsets_vec)-1):
+# 		ind = np.arange(np.subsets_vec[i], subsets_vec[i+1])
+# 		D = dist_matrix(X[ind,:])
+# 		results.append(cmds_numba(D, d))
+# 	return(results)
 
 # NOTE: 
 # use np.split(X, (1,3), axis = 1) to split into final list!

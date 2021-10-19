@@ -1,5 +1,5 @@
 # polytope.py
-# Much of this code is based on code written here: 
+# This code has been modified/inspired from here: 
 # https://github.com/kboulif/Non-negative-matrix-factorization-NMF-/blob/648ea6026a6ef11919f87885fd16ffebf51e5e28/NMF.py
 
 import numpy as np
@@ -7,7 +7,6 @@ from typing import *
 from numpy.typing import ArrayLike
 from scipy.spatial import ConvexHull, Delaunay
 from scipy.optimize import linprog
-
 
 def intersect_line_plane(n, p, u, x, eps=1.1920929e-07):
 	''' Computes the intersections of line with a plane.
@@ -33,9 +32,6 @@ def project_ray(x: ArrayLike, ray: ArrayLike, hull: Union[ArrayLike, ConvexHull]
 	assert isinstance(hull, ConvexHull)
 	n_facets = hull.equations.shape[0]
 	u = ray
-	# barycenter = np.mean(hull.points[hull.vertices], axis=0)
-	# u = (x - point)
-	# u = u / np.linalg.norm(u)
 	p = np.repeat(np.inf, len(x))
 	for i in range(n_facets):
 		p0 = np.mean(hull.points[hull.simplices[i,:],:], axis = 0)
@@ -44,14 +40,6 @@ def project_ray(x: ArrayLike, ray: ArrayLike, hull: Union[ArrayLike, ConvexHull]
 		is_shorter = (np.linalg.norm(z-x) < np.linalg.norm(p-x))
 		if is_shorter and in_hull(z, hull) and ((x_in_hull and d >= 0) or (not(x_in_hull) and d <= 0)):
 			p = z
-		# elif is_shorter and :
-		# 	p = z
-		# is_candidate = in_hull(z, hull)
-		# if is_candidate:
-		# 	if d > 0 and (np.linalg.norm(z-x) < np.linalg.norm(p-x)) and in_hull(x, hull):
-		# 		p = z
-		# 	elif d < 0 and (np.linalg.norm(z-x) < np.linalg.norm(p-x)):
-		# 		p = z
 	return(p)
 
 

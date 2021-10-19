@@ -5,7 +5,6 @@ from pytest import approx
 
 print(sys.path)
 
-## Test landmarks
 def test_landmarks():
 	import numpy as np
 	from tallem.samplers import landmarks
@@ -28,7 +27,6 @@ def test_interval_cover_1d():
 # 	cover = IntervalCover(x, n_sets = 10, overlap = 0.20)
 # 	assert validate_cover(x.shape[0], cover)
 
-
 def test_landmark_cover():
 	import numpy as np
 	from tallem.cover import LandmarkCover, validate_cover
@@ -42,11 +40,6 @@ def test_landmark_cover():
 
 	cover3 = LandmarkCover(dist(x, as_matrix=False), k = 15)
 	assert validate_cover(x.shape[0], cover3)
-
-	# from tallem.dimred import neighborhood_graph, floyd_warshall
-
-	# geodesic_dist(x, radius = 15)
-
 
 def check_neighborhood_graphs():
 	import numpy as np

@@ -149,6 +149,7 @@ constexpr size_t to_nat_2(size_t i, size_t j, size_t n) noexcept {
   return i < j ? (n*i - i*(i+1)/2 + j - i - 1) : (n*j - j*(j+1)/2 + i - j - 1);
 }
 
+// X := (n_pts choose 2) pairwise distances
 // n_pts := number of points in X
 py::tuple maxmin_dist(
 	const arma::vec& X, const size_t n_pts,
