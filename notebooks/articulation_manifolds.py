@@ -31,12 +31,12 @@ Disks = np.vstack([disk(theta) for theta in Theta])
 plot_images(Disks, shape=(25,25), max_val=c, figsize=(18, 4), layout=(2,8))
 
 ## Generate data set
-Theta = np.random.uniform(size=250, low=0.0, high=2*np.pi)
+Theta = np.random.uniform(size=800, low=0.0, high=2*np.pi)
 Disks = np.vstack([disk(theta) for theta in Theta])
 
 cover = LandmarkCover(Disks, k=8, scale=1.8)
-local_map = lambda x: pca(x, d=2)
-top = TALLEM(cover, local_map=local_map, n_components=2)
+# local_map = lambda x: pca(x, d=1)
+top = TALLEM(cover, local_map="pca2", n_components=2)
 emb = top.fit_transform(X=Disks, B=Disks)
 P = [
 	cmds(Disks, d=2),
@@ -97,7 +97,7 @@ cover = LandmarkCover(bars, k=15, scale=1.5)
 assert np.all(np.array([len(s) for s in cover.values()]) > 1)
 assert validate_cover(bars.shape[0], cover)
 
-top = TALLEM(cover, local_map="cmds2", n_components=3)
+top = TALLEM(cover, local_map="cmds3", n_components=3)
 emb = top.fit_transform(X=bars, B=bars)
 
 ## Use parameters for color
@@ -136,9 +136,8 @@ scatter3D(p_ext, c=dist_to_center)
 
 ## Tallem 
 cover = LandmarkCover(p_ext, 25, scale = 1.5)
-local_map = lambda x: isomap(x, d=3, k=15)
+local_map = lambda x: isomap(x, d=2, k=15)
 pc = TALLEM(cover, local_map=local_map, n_components=3).fit_transform(X=p_ext,B=p_ext)
-
 
 P = [
 	cmds(p_ext, d=3), 

@@ -102,15 +102,6 @@ def average_cols(x):
 
 #test.parallel_diagnostics(level=4)
 
-## Classical MDS with Numba
-@njit(nb.types.Tuple((float64[:], float64[:,:]))(float64[:,:], int32), fastmath=False)
-def cmds_numba_E(D, d):
-	''' Given distance matrix 'D' and dimension 'd', computes the classical MDS '''
-	D = -0.5*(D - average_rows(D) - average_cols(D).T + np.mean(D))
-	evals, evecs = np.linalg.eigh(D)
-	evals, evecs = np.flip(evals)[:d] , np.fliplr(evecs)[:,:d] 
-	return((evals, evecs))
-
 
 @njit('float64[:,:](float64[:,:], int32)', fastmath=False)
 def cmds_numba_naive(D, d):
@@ -124,6 +115,15 @@ def cmds_numba_naive(D, d):
 	Y[:,w] = evecs[:,w] @ np.diag(np.sqrt(evals[w]))
 	return(Y)
 
+## Classical MDS with Numba
+@njit(nb.types.Tuple((float64[:], float64[:,:]))(float64[:,:], int32), fastmath=False)
+def cmds_numba_E(D, d):
+	''' Given distance matrix 'D' and dimension 'd', computes the classical MDS '''
+	D = -0.5*(D - average_rows(D) - average_cols(D).T + np.mean(D))
+	evals, evecs = np.linalg.eigh(D)
+	evals, evecs = np.flip(evals)[:d] , np.fliplr(evecs)[:,:d] 
+	return((evals, evecs))
+
 @njit('float64[:,:](float64[:,:], int32)', fastmath=False)
 def cmds_numba(D, d):
 	n = D.shape[0]
@@ -132,6 +132,19 @@ def cmds_numba(D, d):
 	Y = np.zeros(shape=(n, d))
 	Y[:,w] = np.dot(evecs[:,w], np.diag(np.sqrt(evals[w])))
 	return(Y)
+
+from tallem.syevr import numba_dsyevr
+
+@njit('float64[:,:](float64[:,:], int32)', fastmath=False)
+def cmds_numba_fortran(D, d):
+	n = D.shape[0]
+	D = -0.5*(D - average_rows(D) - average_cols(D).T + np.mean(D))
+	evals, evecs, i, e = numba_dsyevr(D, n-d+1, n, 1e-8)
+	w = np.flatnonzero(evals > 0)
+	Y = np.zeros(shape=(n, d))
+	Y[:,w] = np.dot(evecs[:,w], np.diag(np.sqrt(evals[w])))
+	return(Y)
+
 
 @njit('float64[:,:](float64[:,:], float64[:,:], int32)', fastmath=False)
 def landmark_cmds_numba(LD, S, d):

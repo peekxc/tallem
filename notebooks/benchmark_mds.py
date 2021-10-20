@@ -24,43 +24,33 @@ from numba import prange
 X = np.random.uniform(size=(500, 8), low=0.0, high=10.0)
 D = dist(X, as_matrix=True)
 
-tic = time.perf_counter()
-for i in range(100):
-	mds_cc = cmds(D, 10, method="numpy")
-toc = time.perf_counter()
-print(f"{toc - tic:0.4f} seconds")
+res = timeit.timeit(lambda: dist(X, as_matrix=True), number = 50)
+print(f"{res:0.4f} seconds")
 
-tic = time.perf_counter()
-for i in range(100):
-	mds_cc = cmds(D, 10, method="scipy")
-toc = time.perf_counter()
-print(f"{toc - tic:0.4f} seconds")
+# res = timeit.timeit(lambda: dist_matrix(X), number = 20)
+# print(f"{res:0.4f} seconds")
 
-tic = time.perf_counter()
-for i in range(100):
-	mds_cc = cmds_numba_naive(D, 10)
-toc = time.perf_counter()
-print(f"{toc - tic:0.4f} seconds")
+res = timeit.timeit(lambda: cmds(D, 10, method="numpy"), number = 50)
+print(f"{res:0.4f} seconds")
 
-tic = time.perf_counter()
-for i in range(100):
-	mds_cc = cmds_numba(D, 10)
-toc = time.perf_counter()
-print(f"{toc - tic:0.4f} seconds")
+res = timeit.timeit(lambda: cmds(D, 10, method="scipy"), number = 50)
+print(f"{res:0.4f} seconds")
 
-tic = time.perf_counter()
-for i in range(100):
-	mds_cc = landmark.cmds(D, 10)
-toc = time.perf_counter()
-print(f"{toc - tic:0.4f} seconds")
+res = timeit.timeit(lambda: cmds_numba_naive(D, 10), number = 50)
+print(f"{res:0.4f} seconds")
+
+res = timeit.timeit(lambda: cmds_numba(D, 10), number = 50)
+print(f"{res:0.4f} seconds")
+
+res = timeit.timeit(lambda: landmark.cmds(D, 10), number = 50)
+print(f"{res:0.4f} seconds")
+
+res = timeit.timeit(lambda: cmds_numba_fortran(D, 10), number = 50)
+print(f"{res:0.4f} seconds")
 
 # %% Testing landmark MDS
-tic = time.perf_counter()
-for i in range(100):
-	L_ind, L_rad = landmarks(X, 15)
-	landmark_mds(X, L_ind, d=10)
-toc = time.perf_counter()
-print(f"{toc - tic:0.4f} seconds")
+res = timeit.timeit(lambda: landmark_mds(X, landmarks(X, 15)[0], d=10), number = 50)
+print(f"{res:0.4f} seconds")
 
 # %% Testing just landmark portion
 L_ind, L_rad = landmarks(X, 15)
