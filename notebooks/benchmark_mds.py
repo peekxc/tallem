@@ -20,7 +20,6 @@ import numpy as np
 from importlib import reload
 import pyximport; pyximport.install(reload_support=True, language_level="3", setup_args={'include_dirs': np.get_include()})
 import mds_cython
-
 mds_cython = reload(mds_cython)
 
 from tallem.distance import dist
@@ -29,12 +28,24 @@ X = np.random.uniform(size=(10,2))
 D = dist(X, X)
 D = -0.5*(D - average_rows(D) - average_cols(D).T + np.mean(D))
 
+
 z = mds_cython.cython_dsyevr(D, 8, 10, 1e-7)
 
 evals, evecs = np.linalg.eigh(D)
 
 z[0][:3] - evals[7:10]
 
+D = np.asfortranarray(D)
+mds_cython.cython_cmds_fortran(D, 2)
+cmds(dist(X, X), 2)
+# %% 
+import numpy as np 
+from importlib import reload
+import pyximport; pyximport.install(reload_support=True, language_level="3", setup_args={'include_dirs': np.get_include()})
+import mds_cython
+mds_cython = reload(mds_cython)
+D = np.asfortranarray(D)
+mds_cython.center(D)
 # mds_cython.fast_cmds(np.array([[0,1.0], [1, 0]]), 0, 1)
 
 # %% Test multiple implementations of numba

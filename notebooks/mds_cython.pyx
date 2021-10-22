@@ -1,39 +1,12 @@
 import cython
 import numpy as np
-cimport numpy as np
 
 from cython cimport view
 from cpython.array cimport array, clone
-from cython.view cimport array as cvarray
 from cython.parallel import prange
 from scipy.linalg.cython_lapack cimport dsyevr
-from libc.stdlib cimport malloc, free
 
-from scipy.linalg.cython_lapack cimport dgetri, dgetrf, dpotrf
-
-def chol_c(double[:, ::1] A, double[:, ::1] B):
-	'''cholesky factorization of real symmetric positive definite float matrix A
-
-	Parameters
-	----------
-	A : memoryview (numpy array)
-			n x n matrix to compute cholesky decomposition
-	B : memoryview (numpy array)
-			n x n matrix to use within function, will be modified
-			in place to become cholesky decomposition of A. works
-			similar to np.linalg.cholesky
-	'''
-	cdef int n = A.shape[0], info
-	cdef char* uplo = 'U'
-	B[...] = A
-	dpotrf(uplo, &n, &B[0,0], &n, &info)
-	cdef int i, j
-	for i in range(n):
-		for j in range(n):
-			if j > i:
-				B[i, j] = 0 
-
-def _dyevr(double[::1, :] A, int IL, int IU, double ABS_TOL, double[:] W, double[:] WORK, int[:] IWORK, int[:] ISUPPZ, double[::1, :] Z):
+cpdef void _dyevr(double[::1, :] A, int IL, int IU, double ABS_TOL, double[:] W, double[:] WORK, int[:] IWORK, int[:] ISUPPZ, double[::1, :] Z):
 	cdef int N = A.shape[0]
 	cdef int M = IU-IL+1
 	cdef char* JOBVS = 'V'
@@ -48,20 +21,18 @@ def _dyevr(double[::1, :] A, int IL, int IU, double ABS_TOL, double[:] W, double
 	cdef int LIWORK = IWORK.size
 	cdef int LWORK = WORK.size
 	dsyevr(
-		JOBVS,RNG,UPLO,
-		&N,
-		&A[0,0],
-		&LDA,&VL,&VU,&IL,&IU,&ABS_TOL,&N_EVALS_FOUND,
-		&W[0],
-		&Z[0,0],&LDZ, 
-		&ISUPPZ[0],
-		&WORK[0],	&LWORK,
-		&IWORK[0],&LIWORK,
-		&INFO
+		JOBVS,RNG,UPLO,&N,&A[0,0],
+		&LDA,&VL,&VU,&IL,&IU,&ABS_TOL,
+		&N_EVALS_FOUND,&W[0],&Z[0,0],
+		&LDZ, &ISUPPZ[0],&WORK[0],&LWORK,&IWORK[0],&LIWORK,&INFO
 	)
 
 def cython_dsyevr(x, IL, IU, tolerance):
-	''' Computes all eigenvalues in range 1 <= IL <= IU <= N'''
+	''' 
+	Computes all eigenvalues/vectors in range 1 <= IL <= IU <= N of an (N x N) real symmetric matrix 'x' 
+
+	Calls underlying LAPACK procedure 'dyevr'
+	'''
 	assert (x.shape[0] == x.shape[1])
 	assert IL <= IU and IL >= 1 and IU <= x.shape[0]
 	x = np.asfortranarray(x.copy())
@@ -71,29 +42,65 @@ def cython_dsyevr(x, IL, IU, tolerance):
 	Z = np.zeros((n, m), dtype=np.float64, order='F')
 	WORK, IWORK = np.empty((26*n,), np.float64), np.empty((10*n,), np.int32)
 	_dyevr(x, IL, IU, tolerance, W, WORK, IWORK, ISUPPZ, Z)
-	return((W, Z))
+	return((W[:m], Z))
 
-	# 	RNG.ctypes,
-	# 	UPLO.ctypes,
-	# 	N.ctypes,
-	# 	A.view(np.float64).ctypes,
-	# 	LDA.ctypes,
-	# 	VL.ctypes,
-	# 	VU.ctypes,
-	# 	IL.ctypes,
-	# 	IU.ctypes,
-	# 	ABS_TOL.ctypes,
-	# 	N_EVALS_FOUND.ctypes,
-	# 	W.view(np.float64).ctypes,
-	# 	Z.view(np.float64).ctypes,
-	# 	LDZ.ctypes,
-	# 	ISUPPZ.view(np.int32).ctypes,
-	# 	WORK.view(np.float64).ctypes,
-	# 	LWORK.ctypes,
-	# 	IWORK.view(np.int32).ctypes,
-	# 	LIWORK.ctypes,
-	# 	INFO.ctypes
-	# return(dsyevr(a=x, n=x.shape[0], jobz='V', range='I', uplo='U', il=I1, iu=I2, abstol=tolerance))
+from cython cimport view
+cimport numpy as cnp
+
+# my_array = view.array(shape=(10, 2), itemsize=sizeof(int), format="i")
+# cdef int[:, :] my_slice = my_array
+# row_sum = view.array(shape=(n,), itemsize=sizeof(double), format="d")
+# col_sum = view.array(shape=(n,), itemsize=sizeof(double), format="d")
+# cdef double[:] row_sum_view = row_sum
+# cdef double[:] col_sum_view = col_sum
+# cdef double[:] col_sum = cnp.zeros(n, dtype=numpy.int32)
+
+## Applies double-centering to a square matrix 'D'
+cpdef center(double[::1, :] D):
+	cdef int i, j 
+	cdef int n = D.shape[0]
+	cdef double total = 0.0
+	cdef double[::1] row_sum_view = np.zeros((n,), dtype='double')
+	cdef double[::1] col_sum_view = np.zeros((n,), dtype='double')
+	for i in range(n):
+		for j in range(n):
+			row_sum_view[i] += D[i,j]
+			col_sum_view[j] += D[i,j]
+			total += D[i,j]
+	for i in range(n):
+		row_sum_view[i] /= n
+		col_sum_view[i] /= n
+	total /= (n*n)
+	for i in range(n):
+		for j in range(n):
+			D[i,j] = -0.5*(D[i,j] - row_sum_view[i] - col_sum_view[j] + total)
+
+
+cpdef cython_cmds_fortran(double[::1, :] D, int d):
+	cdef int n = D.shape[0]
+	center(D)
+	evals, evecs = cython_dsyevr(D, n-d+1, n, 1e-8)
+	w = np.flatnonzero(evals > 0)
+	Y = np.zeros(shape=(n, d))
+	Y[:,w] = np.dot(evecs[:,w], np.diag(np.sqrt(evals[w])))
+	return(Y)
+
+
+# def cython_cmds(double[::1, :] X, int[:] ind_vec, int[:] ind_len):
+# 	''' 
+# 		X := (d,n) matrix [columns-oriented (Fortran-style)] of points 
+# 		ind_vec := (m,) contiguous vector of indices for each subset 
+# 		ind_len := (j+1,) contiguous vector such that ind_vec[ind_len[i]:ind_len[i+1]] represents the i'th subset
+# 	'''
+# 	for i in range(len(ind_len)-1):
+# 		ind = ind_vec[ind_len[i]:ind_len[i+1]]
+# 		subset = X[:,ind]
+
+	
+
+
+
+
 
 
 
