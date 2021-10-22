@@ -12,12 +12,10 @@ from scipy.spatial import KDTree
 from scipy.sparse import csc_matrix, csr_matrix
 from scipy.sparse.csgraph import minimum_spanning_tree, connected_components
 
-
+import numpy as np
 import numba as nb
 from numba import njit, types, float32, float64, int32, int64, prange
 from numba.extending import overload
-
-
 
 # %%  Dimensionality reduction definitions
 def pca(x: npt.ArrayLike, d: int = 2, center: bool = True) -> npt.ArrayLike:
@@ -27,62 +25,6 @@ def pca(x: npt.ArrayLike, d: int = 2, center: bool = True) -> npt.ArrayLike:
 	ew, ev = np.linalg.eigh(np.cov(x, rowvar=False))
 	idx = np.argsort(ew)[::-1] # descending order to pick the largest components first 
 	return(np.dot(x, ev[:,idx[range(d)]]))
-
-def sammon(data, d: int = 2, max_iterations: int = 250, max_halves: int = 10):
-	"""
-	This implementation is adapted from a (1) GSOC 2016 project by Daniel McNeela (1) 
-	which itself is adapted from the (2) Matlab implementation by Dr. Gavin C. Cawley.
-	
-	Sources can be found here: 
-	1. https://github.com/mcneela/Retina
-	2. https://people.sc.fsu.edu/~jburkardt/m_src/profile/sammon_test.m
-	"""
-	TolFun = 1 * 10 ** (-9)
-	
-	D = dist(data, as_matrix = True)
-	N = data.shape[0]
-	scale = np.sum(D.flatten('F'))
-	D = D + np.identity(N)
-	D_inv = np.linalg.inv(D)
-	
-	y = np.random.randn(N, d)
-	one = np.ones((N, d))
-	d = dist(y, as_matrix = True) + np.identity(N)
-	d_inv = np.linalg.inv(d)
-	delta = D - d
-	E = np.sum(np.sum(np.power(delta, 2) * D_inv))
-
-	for i in range(max_iterations):
-		delta = d_inv - D_inv
-		deltaone = np.dot(delta, one)
-		g = np.dot(delta, y) - y * deltaone
-		dinv3 = np.power(d_inv, 3)
-		y2 = np.power(y, 2)
-		H = np.dot(dinv3, y2) - deltaone - 2 * np.multiply(y, np.dot(dinv3, y)) + np.multiply(y2, np.dot(dinv3, one))
-		s = np.divide(-np.transpose(g.flatten('F')), np.transpose(np.abs(H.flatten('F'))))
-		y_old = y
-
-	for j in range(max_halves):
-		[rows, columns] = y.shape
-		y = y_old.flatten('F') + s
-		y = y.reshape(rows, columns)
-		d = dist(y, as_matrix = True) + np.identity(N)
-		d_inv = np.linalg.inv(d)
-		delta = D - d
-		E_new = np.sum(np.sum(np.power(delta, 2) * D_inv))
-		if E_new < E:
-			break
-		else:
-			s = 0.5 * s
-
-	E = E_new
-	E = E * scale
-	return (y, E)
-
-# def centering_matrix(n) -> ArrayLike:
-# 	H = -np.ones((n, n))/n
-# 	np.fill_diagonal(H,1-1/n)
-# 	return(H)
 
 @njit('float64[:,:](float64[:,:])', fastmath=True,parallel=False)
 def average_rows(x):
@@ -144,6 +86,8 @@ def cmds_numba_fortran(D, d):
 	Y = np.zeros(shape=(n, d))
 	Y[:,w] = np.dot(evecs[:,w], np.diag(np.sqrt(evals[w])))
 	return(Y)
+
+
 
 
 @njit('float64[:,:](float64[:,:], float64[:,:], int32)', fastmath=False)
@@ -463,3 +407,6 @@ def fit_local_models(f, X, cover, n_cores=1): #os.cpu_count()
 	# 		for index, model in future:
 	# 			models[index] = model
 	return(models)
+
+
+# cc.compile()

@@ -1,6 +1,8 @@
 ## Color RGB values from: https://www.ehdp.com/methods/x11-color-names-rgb-values.htm
 COLORS = {}
 COLORS["black"] = (0, 0, 0)
+COLORS["gray"] = (20, 20, 20)
+COLORS["grey"] = (20, 20, 20)
 COLORS["gray0"] = (0, 0, 0)
 COLORS["grey0"] = (0, 0, 0)
 COLORS["gray1"] = (3, 3, 3)
@@ -51,6 +53,7 @@ COLORS["green4"] = (0, 139, 0)
 COLORS["dark red"] = (139, 0, 0)
 COLORS["DarkRed"] = (139, 0, 0)
 COLORS["red4"] = (139, 0, 0)
+COLORS["red"] = (255, 0, 0)
 COLORS["gray19"] = (48, 48, 48)
 COLORS["grey19"] = (48, 48, 48)
 COLORS["gray20"] = (51, 51, 51)

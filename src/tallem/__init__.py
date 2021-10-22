@@ -128,6 +128,7 @@ class TALLEM():
 		return(assembly_fast(self._stf, D_frame, self.cover, pou, self.models, self.translations))
 
 	def _profile(self, **kwargs):
+		ask_package_install("line_profiler")
 		import line_profiler
 		profile = line_profiler.LineProfiler()
 		profile.add_function(self.fit)

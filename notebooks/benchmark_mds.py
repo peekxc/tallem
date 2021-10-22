@@ -15,6 +15,28 @@ import matplotlib.pyplot as plt
 plt.scatter(*Z.T)
 plt.scatter(*Y.T)
 
+# %% Test Cython mds 
+import numpy as np 
+from importlib import reload
+import pyximport; pyximport.install(reload_support=True, language_level="3", setup_args={'include_dirs': np.get_include()})
+import mds_cython
+
+mds_cython = reload(mds_cython)
+
+from tallem.distance import dist
+from tallem.dimred import * 
+X = np.random.uniform(size=(10,2))
+D = dist(X, X)
+D = -0.5*(D - average_rows(D) - average_cols(D).T + np.mean(D))
+
+z = mds_cython.cython_dsyevr(D, 8, 10, 1e-7)
+
+evals, evecs = np.linalg.eigh(D)
+
+z[0][:3] - evals[7:10]
+
+# mds_cython.fast_cmds(np.array([[0,1.0], [1, 0]]), 0, 1)
+
 # %% Test multiple implementations of numba
 import time
 import numpy as np	
@@ -72,6 +94,14 @@ subsets = [np.array(list(range(i*n, ((i+1)*n))), dtype=int) for i in range(n)]
 # s_ind = np.hstack((np.array([0]), np.cumsum([len(s) for s in subsets])))
 
 # bench_parallel(X, s_vec, )
+
+#%%
+%%cython --force
+# distutils: extra_compile_args=-fopenmp
+# distutils: extra_link_args=-fopenmp
+import numpy as np
+
+
 
 
 

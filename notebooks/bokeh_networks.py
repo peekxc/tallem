@@ -36,20 +36,39 @@ p = figure(
 )
 edge_x = [v_coords[e,0] for e in G.edges]
 edge_y = [list(v_coords[e,1]) for e in G.edges]
-p.multi_line(edge_x, edge_y, color="firebrick", alpha=0.20, line_width=4)
 
-p.circle(v_coords[:,0], v_coords[:,1], size=v_sizes*0.15, color="navy", alpha=0.5)
+from tallem.color import bin_color, colors_to_hex
+
+align_edge_color = bin_color(alignment_error, linear_gradient(["gray", "red"], 100)['hex'])
+cocyle_edge_color = bin_color(list(cocycle_error.values()), linear_gradient(["gray", "red"], 100)['hex'])
+
+p.multi_line(edge_x, edge_y, color=cocyle_edge_color, alpha=0.80, line_width=4)
+
+p.circle(v_coords[:,0], v_coords[:,1], size=v_sizes*0.15, color="navy", alpha=1.0)
 
 p.toolbar.logo = None
 p.toolbar_location = None
+show(p)
 
-button = Button(label="Assemble", button_type="primary", width_policy="min")
-
-button.on_click(lambda event: print("Assembling frames"))
-
-show(column(button, p))
+# button = Button(label="Assemble", button_type="primary", width_policy="min")
+# button.on_click(lambda event: print("Assembling frames"))
 
 # gridplot([[s1, s2, s3]], toolbar_location=None)
+
+## Alignment error
+alignment_error = np.array([a['distance'] for a in top.alignments.values()])
+
+## Get error between Phiframes 
+cocycle_error = {}
+index_set = list(top.cover.keys())
+for ((j,k), pa) in top.alignments.items():
+	omega_jk = pa['rotation'].T
+	X_jk = np.intersect1d(top.cover[index_set[j]], top.cover[index_set[k]])
+	phi_j = top._stf.generate_frame(j, np.ravel(top.pou[x,:].A))
+	phi_k = top._stf.generate_frame(k, np.ravel(top.pou[x,:].A))
+	cocycle_error[(j,k)] = np.linalg.norm((phi_j @ omega_jk) - phi_k)
+
+
 
 # Linked brushing in Bokeh is expressed by sharing data sources between glyph renderers.
 
@@ -71,12 +90,16 @@ R = np.array([[np.cos(angle), np.sin(angle)],[-np.sin(angle), np.cos(angle)]])
 z = ((R @ y.T) * 3.5).T
 
 ax.scatter(*x.T)
-ax.scatter(*z.T)
+ax.scatter(*y.T)
+
+z = (R @ x.T).T
 
 from scipy.linalg import orthogonal_procrustes
-orthogonal_procrustes(x, z)
+R_pro, d_pro = orthogonal_procrustes(x, z) 
+
 
 procrustes(x, z)
+
 # source = ColumnDataSource(data=
 # 	dict(
 # 		height=[66, 71, 72, 68, 58, 62],
@@ -106,6 +129,25 @@ procrustes(x, z)
 
 # #Add network graph to the plot
 # plot.renderers.append(network_graph)
+
+
+theta = np.linspace(0, 2*np.pi, 100)
+circle = np.hstack((np.cos(theta), np.sin(theta)))
+
+from tallem import TALLEM
+from tallem.dimred import *
+from tallem.cover import *
+from tallem.datasets import *
+
+## Run TALLEM on interval cover using polar coordinate information
+m_dist = lambda x,y: np.minimum(abs(x - y), (2*np.pi) - abs(x - y))
+cover = IntervalCover(theta, n_sets = 15, overlap = 0.40, space = [0, 2*np.pi], metric = m_dist)
+embedding = TALLEM(cover, local_map="pca2", n_components=3).fit_transform(X, theta)
+
+## Rotate and view
+angles = np.linspace(0, 360, num=12, endpoint=False)
+scatter3D(embedding, angles=angles, figsize=(16, 8), layout=(2,6), c=polar_coordinate)
+
 
 
 
