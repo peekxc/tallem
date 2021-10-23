@@ -35,7 +35,7 @@ evals, evecs = np.linalg.eigh(D)
 
 z[0][:3] - evals[7:10]
 
-D = np.asfortranarray(D)
+
 mds_cython.cython_cmds_fortran(D, 2)
 cmds(dist(X, X), 2)
 # %% 

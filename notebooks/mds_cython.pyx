@@ -56,7 +56,7 @@ cimport numpy as cnp
 # cdef double[:] col_sum = cnp.zeros(n, dtype=numpy.int32)
 
 ## Applies double-centering to a square matrix 'D'
-cpdef center(double[::1, :] D):
+cdef center(double[::1, :] D):
 	cdef int i, j 
 	cdef int n = D.shape[0]
 	cdef double total = 0.0
@@ -75,30 +75,92 @@ cpdef center(double[::1, :] D):
 		for j in range(n):
 			D[i,j] = -0.5*(D[i,j] - row_sum_view[i] - col_sum_view[j] + total)
 
-
-cpdef cython_cmds_fortran(double[::1, :] D, int d):
+cpdef cython_cmds_fortran(double[::1, :] D, int d, double[::1, :] Y):
+	''' Puts the results into Y '''
 	cdef int n = D.shape[0]
 	center(D)
 	evals, evecs = cython_dsyevr(D, n-d+1, n, 1e-8)
 	w = np.flatnonzero(evals > 0)
-	Y = np.zeros(shape=(n, d))
-	Y[:,w] = np.dot(evecs[:,w], np.diag(np.sqrt(evals[w])))
-	return(Y)
+	Y = np.dot(evecs[:,w], np.diag(np.sqrt(evals[w])))
+	# Y = np.zeros(shape=(n, d))
+	# Y[:,w] = np.dot(evecs[:,w], np.diag(np.sqrt(evals[w])))
+	# return(Y)
 
 
-# def cython_cmds(double[::1, :] X, int[:] ind_vec, int[:] ind_len):
+
+# cpdef cython_cmds_fortran(double[::1, :] D, double[::1, :] LD, int d):
 # 	''' 
-# 		X := (d,n) matrix [columns-oriented (Fortran-style)] of points 
-# 		ind_vec := (m,) contiguous vector of indices for each subset 
-# 		ind_len := (j+1,) contiguous vector such that ind_vec[ind_len[i]:ind_len[i+1]] represents the i'th subset
-# 	'''
-# 	for i in range(len(ind_len)-1):
-# 		ind = ind_vec[ind_len[i]:ind_len[i+1]]
-# 		subset = X[:,ind]
-
+# 	Barbones landmark MDS with Numba 
 	
+# 	LD := (k x k) landmark distance matrix 
+# 	S := (k x n) matrix of distances from the n points to the k landmark points, where n > k
+# 	d := dimension of output coordinitization
+# 	'''
+# 	cdef int k = S.shape[0]
+# 	cdef int n = S.shape[1]
+# 	evals, evecs = cython_dsyevr(D, n-d+1, n, 1e-8)
+
+# 	mean_landmark = average_cols(LD).T
+
+# 	w = np.flatnonzero(evals > 0)
+# 	L_pseudo = evecs/np.sqrt(evals[w])
+	
+# 	Y = np.zeros(shape=(n, d))
+# 	Y[:,w] = (-0.5*(L_pseudo.T @ (S.T - mean_landmark.T).T)).T 
+
+# 	cdef int n = D.shape[0]
+# 	center(D)
+# 	evals, evecs = cython_dsyevr(D, n-d+1, n, 1e-8)
+# 	w = np.flatnonzero(evals > 0)
+# 	Y = np.zeros(shape=(n, d))
+# 	Y[:,w] = np.dot(evecs[:,w], np.diag(np.sqrt(evals[w])))
+# 	return(Y)
+
+	# def landmark_cmds_numba(LD, S, d):
+	
+	# 	n = S.shape[1]
+	# 	evals, evecs = cmds_numba_E(LD, d)
+	# 	mean_landmark = average_cols(LD).T
+	# 	w = np.flatnonzero(evals > 0)
+	# 	L_pseudo = evecs/np.sqrt(evals[w])
+	# 	Y = np.zeros(shape=(n, d))
+	# 	Y[:,w] = (-0.5*(L_pseudo.T @ (S.T - mean_landmark.T).T)).T 
+	# 	return(Y)
+
+from scipy.spatial.distance import squareform, pdist
+
+def cython_cmds_parallel(const double[::1, :] X, int d, int[:] ind_vec, int[:] ind_len):
+	''' 
+		X := (d,n) matrix [columns-oriented (Fortran-style)] of points 
+		ind_vec := (m,) contiguous vector of indices for each subset 
+		ind_len := (j+1,) contiguous vector such that ind_vec[ind_len[i]:ind_len[i+1]] represents the i'th subset
+	'''
+	cdef int N = len(ind_vec)
+	cdef double[::1, :] D
+	cdef double[::1, :] results = np.zeros((N,d), dtype='double')
+	cdef double[::1, :] output 
+	for i in range(len(ind_len)-1):
+		ind = ind_vec[ind_len[i]:ind_len[i+1]]
+		D = squareform(pdist(X[:,ind]))
+		output = results[ind_len[i]:ind_len[i+1],:]
+		cython_cmds_fortran(D, d, output)
+	return(results)	
 
 
+import numpy as np
+def flatten_list_of_lists(lst_of_lsts):
+	N = sum(map(len, lst_of_lsts))  # number of elements in the flattened array   
+	starts = np.empty(len(lst_of_lsts)+1, dtype=np.uint64)  # needs place for one sentinel
+	values = np.empty(N, dtype=np.int64)
+
+	starts[0], cnt = 0, 0
+	for i,lst in enumerate(lst_of_lsts):
+		for el in lst:
+			values[cnt] = el
+			cnt += 1       # update index in the flattened array for the next element
+		starts[i+1] = cnt  # remember the start of the next list
+
+	return starts, values
 
 
 
