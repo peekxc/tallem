@@ -17,3 +17,7 @@ def test_classical_mds():
 	assert np.max(abs(mds1 - mds2)) <= np.finfo(np.float32).eps
 	assert np.max(abs(mds2 - mds3)) <= np.finfo(np.float32).eps
 
+
+
+def test_mds_cython():
+	from tallem.extensions import mds_cython

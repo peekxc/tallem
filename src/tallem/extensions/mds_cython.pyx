@@ -1,9 +1,3 @@
-# cython: language_level=3, profile=True
-# distutils: define_macros=NPY_NO_DEPRECATED_API=NPY_1_7_API_VERSION
-# distutils: extra_compile_args=-fopenmp
-# distutils: extra_link_args=-fopenmp
-# distutils: language=c++
-# distutils: include_dirs = NUMPY_INCLUDE
 import cython
 import numpy as np
 
@@ -11,13 +5,9 @@ from cython cimport view
 from cpython.array cimport array, clone
 from cython.parallel import prange
 from scipy.linalg.cython_lapack cimport dsyevr
-
-
-
-
 from libc.math cimport sqrt
 
-from scipy.spatial.distance import squareform, pdist # for validation
+# from scipy.spatial.distance import squareform, pdist # for validation
 
 @cython.boundscheck(False)
 @cython.wraparound(False)
@@ -65,8 +55,6 @@ cpdef cython_dsyevr_inplace(double[::1,:] D, IL, IU, tolerance, int n, double[:]
 	cdef int[:] IWORK = np.empty((10*n,), np.int32)
 	_dyevr(D, IL, IU, tolerance, W, WORK, IWORK, ISUPPZ, Z)
 
-	# return((W[:m], Z))
-
 def cython_dsyevr(x, IL, IU, tolerance):
 	''' 
 	Computes all eigenvalues/vectors in range 1 <= IL <= IU <= N of an (N x N) real symmetric matrix 'x' 
@@ -88,16 +76,6 @@ def cython_dsyevr(x, IL, IU, tolerance):
 	_dyevr(x, IL, IU, tolerance, W, WORK, IWORK, ISUPPZ, Z)
 	return((W[:m], Z))
 
-from cython cimport view
-cimport numpy as cnp
-
-# my_array = view.array(shape=(10, 2), itemsize=sizeof(int), format="i")
-# cdef int[:, :] my_slice = my_array
-# row_sum = view.array(shape=(n,), itemsize=sizeof(double), format="d")
-# col_sum = view.array(shape=(n,), itemsize=sizeof(double), format="d")
-# cdef double[:] row_sum_view = row_sum
-# cdef double[:] col_sum_view = col_sum
-# cdef double[:] col_sum = cnp.zeros(n, dtype=numpy.int32)
 
 ## Applies double-centering to a square matrix 'D'
 @cython.boundscheck(False)
@@ -144,68 +122,6 @@ cpdef cython_cmds_fortran_inplace(double[::1, :] D, int d, int n, double[::1, :]
 			for i in range(n):
 				Y[di, offset+i] = c_eval*Z[i,di]
 
-
-# cpdef cython_cmds_fortran(double[::1, :] D, int d, int n, double[::1, :] Y):
-# 	''' 
-# 	Given a double-centered square distance matrix 'D' Puts the results into Y
-
-# 		n := first (n x n) submatrix of D to consider
-# 		Y := (d x n*) column-major typed memoryview 
-# 	The 'n*' means that the memory-view has at least 'n' slices in that dimension 
-# 	'''
-# 	# cdef int n = D.shape[0]
-# 	double_center(D)
-# 	evals, evecs = cython_dsyevr(D, n-d+1, n, 1e-8)
-# 	# print(Y.shape)
-# 	# print(Y.base.flags)
-# 	w = np.flatnonzero(evals > 0)
-# 	Y = np.dot(evecs[:,w], np.diag(np.sqrt(evals[w]))).T # not the tranpose 
-
-	# Y = np.zeros(shape=(n, d))
-	# Y[:,w] = np.dot(evecs[:,w], np.diag(np.sqrt(evals[w])))
-	# return(Y)
-
-
-
-# cpdef cython_cmds_fortran(double[::1, :] D, double[::1, :] LD, int d):
-# 	''' 
-# 	Barbones landmark MDS with Numba 
-	
-# 	LD := (k x k) landmark distance matrix 
-# 	S := (k x n) matrix of distances from the n points to the k landmark points, where n > k
-# 	d := dimension of output coordinitization
-# 	'''
-# 	cdef int k = S.shape[0]
-# 	cdef int n = S.shape[1]
-# 	evals, evecs = cython_dsyevr(D, n-d+1, n, 1e-8)
-
-# 	mean_landmark = average_cols(LD).T
-
-# 	w = np.flatnonzero(evals > 0)
-# 	L_pseudo = evecs/np.sqrt(evals[w])
-	
-# 	Y = np.zeros(shape=(n, d))
-# 	Y[:,w] = (-0.5*(L_pseudo.T @ (S.T - mean_landmark.T).T)).T 
-
-# 	cdef int n = D.shape[0]
-# 	center(D)
-# 	evals, evecs = cython_dsyevr(D, n-d+1, n, 1e-8)
-# 	w = np.flatnonzero(evals > 0)
-# 	Y = np.zeros(shape=(n, d))
-# 	Y[:,w] = np.dot(evecs[:,w], np.diag(np.sqrt(evals[w])))
-# 	return(Y)
-
-	# def landmark_cmds_numba(LD, S, d):
-	
-	# 	n = S.shape[1]
-	# 	evals, evecs = cmds_numba_E(LD, d)
-	# 	mean_landmark = average_cols(LD).T
-	# 	w = np.flatnonzero(evals > 0)
-	# 	L_pseudo = evecs/np.sqrt(evals[w])
-	# 	Y = np.zeros(shape=(n, d))
-	# 	Y[:,w] = (-0.5*(L_pseudo.T @ (S.T - mean_landmark.T).T)).T 
-	# 	return(Y)
-
 @cython.boundscheck(False)
 @cython.wraparound(False)
 cpdef dist_matrix_subset(const double[::1, :] X, const int[:] ind, double[::1, :] D):
@@ -225,8 +141,6 @@ cpdef dist_matrix_subset(const double[::1, :] X, const int[:] ind, double[::1, :
 				tmp = tmp + (diff * diff)
 			D[i,j] = tmp
 			D[j,i] = tmp
-
-# cdef np.ndarray[np.float64_t, ndim=2] D = np.zeros((n, n), np.double)
 
 @cython.boundscheck(False)
 @cython.wraparound(False)
@@ -248,8 +162,6 @@ def cython_cmds_parallel(const double[::1, :] X, const int d, const int[:] ind_v
 		dist_matrix_subset(X, ind_vec[ni:nj], D_reuse)
 		cython_cmds_fortran_inplace(D_reuse, d, local_n, output, ni)
 
-
-import numpy as np
 def flatten_list_of_lists(lst_of_lsts):
 	N = sum(map(len, lst_of_lsts))  # number of elements in the flattened array   
 	starts = np.empty(len(lst_of_lsts)+1, dtype=np.int32)  # needs place for one sentinel

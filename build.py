@@ -54,7 +54,7 @@ def build(setup_kwargs):
 	print("\n==== Starting meson build ====\n")
 	os.system("meson setup build")
 	os.system("meson compile -vC build")
-	target_path = next(expandpath(f"{home_dir}/src/tallem/pbm/")).resolve()
+	target_path = next(expandpath(f"{home_dir}/src/tallem/extensions/")).resolve()
 	print(f"\n==== Extension module install path: {target_path} ====\n")
 	os.system(f"sudo cp build/*{suffix} {target_path}")
 	print("\n==== Finished meson build ====\n")
@@ -62,7 +62,7 @@ def build(setup_kwargs):
 	# os.system("meson install -C build")
 
 	## Check if they now exist
-	num_so = len([p.name for p in expandpath(f"{home_dir}/src/tallem/pbm/*{suffix}")])
+	num_so = len([p.name for p in expandpath(f"{home_dir}/src/tallem/extensions/*{suffix}")])
 	if num_so > 0:
 		return(0)
 	else: 

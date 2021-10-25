@@ -5,7 +5,7 @@ package_dir = \
 {'': 'src'}
 
 packages = \
-['tallem', 'tallem.pbm']
+['tallem', 'tallem.extensions']
 
 package_data = \
 {'': ['*']}

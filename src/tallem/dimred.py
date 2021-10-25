@@ -12,11 +12,6 @@ from scipy.spatial import KDTree
 from scipy.sparse import csc_matrix, csr_matrix
 from scipy.sparse.csgraph import minimum_spanning_tree, connected_components
 
-import numpy as np
-import numba as nb
-from numba import njit, types, float32, float64, int32, int64, prange
-from numba.extending import overload
-
 # %%  Dimensionality reduction definitions
 def pca(x: npt.ArrayLike, d: int = 2, center: bool = True) -> npt.ArrayLike:
 	''' PCA embedding '''
@@ -25,123 +20,6 @@ def pca(x: npt.ArrayLike, d: int = 2, center: bool = True) -> npt.ArrayLike:
 	ew, ev = np.linalg.eigh(np.cov(x, rowvar=False))
 	idx = np.argsort(ew)[::-1] # descending order to pick the largest components first 
 	return(np.dot(x, ev[:,idx[range(d)]]))
-
-@njit('float64[:,:](float64[:,:])', fastmath=True,parallel=False)
-def average_rows(x):
-	assert x.ndim == 2
-	res = np.zeros((1, x.shape[0]),dtype=np.float64)
-	for i in prange(x.shape[0]):
-		res += x[i,:]
-	return res / x.shape[0]
-
-@njit('float64[:,:](float64[:,:])', fastmath=True,parallel=False)
-def average_cols(x):
-	assert x.ndim == 2
-	res = np.zeros((1, x.shape[1]),dtype=np.float64)
-	for i in prange(x.shape[1]):
-		res += x[:,i]
-	return res / x.shape[1]
-
-#test.parallel_diagnostics(level=4)
-
-
-@njit('float64[:,:](float64[:,:], int32)', fastmath=False)
-def cmds_numba_naive(D, d):
-	n = D.shape[0]
-	H = np.eye(n) - (1.0/n)*np.ones(shape=(n,n)) # centering matrix
-	B = -0.5 * H @ D @ H
-	evals, evecs = np.linalg.eigh(B)
-	evals, evecs = np.flip(evals)[np.arange(d)], np.fliplr(evecs)[:,np.arange(d)]        
-	w = np.flatnonzero(evals > 0)
-	Y = np.zeros(shape=(n, d))
-	Y[:,w] = evecs[:,w] @ np.diag(np.sqrt(evals[w]))
-	return(Y)
-
-## Classical MDS with Numba
-@njit(nb.types.Tuple((float64[:], float64[:,:]))(float64[:,:], int32), fastmath=False)
-def cmds_numba_E(D, d):
-	''' Given distance matrix 'D' and dimension 'd', computes the classical MDS '''
-	D = -0.5*(D - average_rows(D) - average_cols(D).T + np.mean(D))
-	evals, evecs = np.linalg.eigh(D)
-	evals, evecs = np.flip(evals)[:d] , np.fliplr(evecs)[:,:d] 
-	return((evals, evecs))
-
-@njit('float64[:,:](float64[:,:], int32)', fastmath=False)
-def cmds_numba(D, d):
-	n = D.shape[0]
-	evals, evecs = cmds_numba_E(D, d)
-	w = np.flatnonzero(evals > 0)
-	Y = np.zeros(shape=(n, d))
-	Y[:,w] = np.dot(evecs[:,w], np.diag(np.sqrt(evals[w])))
-	return(Y)
-
-from tallem.syevr import numba_dsyevr
-
-@njit('float64[:,:](float64[:,:], int32)', fastmath=False)
-def cmds_numba_fortran(D, d):
-	n = D.shape[0]
-	D = -0.5*(D - average_rows(D) - average_cols(D).T + np.mean(D))
-	evals, evecs, i, e = numba_dsyevr(D, n-d+1, n, 1e-8)
-	w = np.flatnonzero(evals > 0)
-	Y = np.zeros(shape=(n, d))
-	Y[:,w] = np.dot(evecs[:,w], np.diag(np.sqrt(evals[w])))
-	return(Y)
-
-
-
-
-@njit('float64[:,:](float64[:,:], float64[:,:], int32)', fastmath=False)
-def landmark_cmds_numba(LD, S, d):
-	''' 
-	Barbones landmark MDS with Numba 
-	
-	LD := (k x k) landmark distance matrix 
-	S := (k x n) matrix of distances from the n points to the k landmark points, where n > k
-	d := dimension of output coordinitization
-	'''
-	n = S.shape[1]
-	evals, evecs = cmds_numba_E(LD, d)
-	mean_landmark = average_cols(LD).T
-	w = np.flatnonzero(evals > 0)
-	L_pseudo = evecs/np.sqrt(evals[w])
-	Y = np.zeros(shape=(n, d))
-	Y[:,w] = (-0.5*(L_pseudo.T @ (S.T - mean_landmark.T).T)).T 
-	return(Y)
-
-# TODO: implement dsyevr using numba. see: https://github.com/numba/numba/issues/5301
-# from scipy.linalg import lapack
-# from tallem.distance import dist
-# x = np.random.uniform(size=(5,2))
-# D = dist(x, as_matrix=True)
-# jobz, rng, uplo, N, vl, vu, il, iu, tol = 'V', 'V', 'U', int(D.shape[0]), np.float64(3), np.float64(5), int(1), int(1), np.float64(1e-7)
-# m = int(2)
-# w, Z, ldz, isuppz, work, lwork = np.zeros(N), np.zeros((N, m)), N, np.zeros(2*m, dtype=int), np.zeros(26*N, dtype=np.float64), 26*N, 
-# iwork, liwork = 10*N, np.zeros(10*N, dtype=int)
-# info = int(0)
-
-# print(lapack.dsyevr.__doc__)
-
-# lapack.dsyevr(jobz, rng, uplo, N, D, N, vl, vu, il, iu, tol, m, w, Z, ldz, isuppz, work, lwork, iwork, liwork, info)
-@njit('float64[:,:](float64[:,:])', parallel=True)
-def dist_matrix(X):
-	n = X.shape[0]
-	D = np.zeros((n,n))
-	for i in np.arange(n):
-		for j in np.arange(n):
-			D[i,j] = np.sum((X[i,:]-X[j,:])**2)
-	return(D)
-
-# @njit('float64[:,:](float64[:,:], int32[:], int32[:], int32)', parallel=True)
-# def bench_parallel(X, subsets_vec, subsets_len, d):
-# 	results = []
-# 	for i in prange(len(subsets_vec)-1):
-# 		ind = np.arange(np.subsets_vec[i], subsets_vec[i+1])
-# 		D = dist_matrix(X[ind,:])
-# 		results.append(cmds_numba(D, d))
-# 	return(results)
-
-# NOTE: 
-# use np.split(X, (1,3), axis = 1) to split into final list!
 
 ## Classical MDS 
 def cmds(a: npt.ArrayLike, d: int = 2, coords: bool = True, method="scipy"):
@@ -226,34 +104,6 @@ def neighborhood_graph(a: npt.ArrayLike, k: Optional[int] = 15, radius: Optional
 	Returns a sparse weighted adjacency matrix where positive entries indicate the distance between points in 'a'. 
 	'''
 	return(neighborhood_list(a, a, k, radius, **kwargs))
-	# if radius is None and k is None: raise RuntimeError("Either radius or k must be supplied")
-	# a = as_np_array(a)
-	# n = a.shape[0]
-
-	# ## If 'a' is a point cloud, form a KD tree to extract the neighbors
-	# if not(is_distance_matrix(a)):
-	# 	tree = KDTree(data=a, **kwargs)
-	# 	if radius is not None:
-	# 		pairs = tree.query_pairs(r=radius*2.0)
-	# 		r, c = np.array([p[0] for p in pairs]), np.array([p[1] for p in pairs])
-	# 		d = dist(a[r,:], a[c,:], pairwise = True)
-	# 	else:
-	# 		knn = tree.query(a, k=k+1)
-	# 		r, c, d = np.repeat(range(n), repeats=k), knn[1][:,1:].flatten(), knn[0][:,1:].flatten()
-	# else: 
-	# 	if radius is not None: 
-	# 		r, c = np.where(a <= (radius*2.0))
-	# 		valid = (r != c) & (r < c)
-	# 		r, c = r[valid], c[valid]
-	# 		d = a[r,c]
-	# 	else: 
-	# 		knn = np.apply_along_axis(lambda a_row: np.argsort(a_row)[0:(k+1)],axis=1,arr=a)
-	# 		r, c = np.repeat(range(n), repeats=k), np.ravel(knn[:,1:])
-	# 		d = a[r,c]
-
-	# ## Form the neighborhood graph 
-	# D = csc_matrix((d, (r, c)), dtype=np.float32, shape=(n,n))
-	return(D)
 
 ## Note: neighborhood list doesn't work with distance matrices!
 def neighborhood_list(centers: npt.ArrayLike, a: npt.ArrayLike, k: Optional[int] = 15, radius: Optional[float] = None, metric = "euclidean", **kwargs):
@@ -383,18 +233,6 @@ def nmds(a: npt.ArrayLike, d: int = 2, **kwargs):
 	embedding = MDS(n_components=d, metric=False, random_state=0, **kwargs)
 	return(embedding.fit_transform(a))
 
-
-#from numba import njit, prange
-# @njit(parallel=True)
-# def fit_local_models(f, X, cover):
-# 	index_set = list(cover.keys())
-# 	subsets = list(cover.values())
-# 	result = {}
-# 	for j in prange(len(cover)):
-# 		index, subset = index_set[j], subsets[j]
-# 		result[index] = f(X[np.array(subset),:])
-# 	return(result)
-
 def fit_local_models(f, X, cover, n_cores=1): #os.cpu_count()
 	models = { index : f(X[np.array(subset),:]) for index, subset in cover.items() }
 	# if n_cores == 1:
@@ -407,6 +245,3 @@ def fit_local_models(f, X, cover, n_cores=1): #os.cpu_count()
 	# 		for index, model in future:
 	# 			models[index] = model
 	return(models)
-
-
-# cc.compile()

@@ -22,6 +22,13 @@ message(compiler.get_id())
 fs = import('fs')
 home_dir = fs.expanduser('~')
 
+# openmp = dependency('openmp', required : false, language : 'cpp')
+# if openmp.found()
+# 	#_c = compiler.has_argument('-fopenmp')
+#   #_h = compiler.has_header('omp.h')
+# 	message('using OpenMP')
+# endif
+
 ## Link with LAPACK
 # fc = meson.get_compiler('fortran')
 # lapack = dependency('lapack', cmake_module_path: 'cmake_modules', required: false)
@@ -107,30 +114,30 @@ pybind11_include = include_directories('.' / 'extern')
 
 ## Target(s)
 py_mod.extension_module('fast_svd',
-	sources : project_dir / 'src' / 'tallem' / 'pbm' / 'fast_svd.cpp', 
+	sources : project_dir / 'src' / 'tallem' / 'extensions' / 'fast_svd.cpp', 
 	dependencies : [py_dep, arma], 
 	include_directories : [numpy_include, carma_includes, pybind11_include],
 	install : true, 
-	install_dir : project_dir / 'src' / 'tallem' / 'pbm',
+	install_dir : project_dir / 'src' / 'tallem' / 'extensions',
 	override_options :'-stdlib=libc++',
 	cpp_args : '-stdlib=libc++'
 )
 
 py_mod.extension_module('landmark', 
-	sources :  project_dir / 'src' / 'tallem' / 'pbm' / 'landmark.cpp', 
+	sources :  project_dir / 'src' / 'tallem' / 'extensions' / 'landmark.cpp', 
 	dependencies : [py_dep, arma], 
 	include_directories : [numpy_include, carma_includes, pybind11_include], 
 	install : true, 
-	install_dir : project_dir / 'src' / 'tallem' / 'pbm', 
+	install_dir : project_dir / 'src' / 'tallem' / 'extensions', 
 	cpp_args : '-stdlib=libc++',
 	override_options :'-stdlib=libc++'
 )
 
 py_mod.extension_module('mds_cython',
-	sources: 'src' / 'tallem' / 'mds_cython.pyx',
-	dependencies : py_dep,
+	sources: 'src' / 'tallem' / 'extensions' / 'mds_cython.pyx',
+	dependencies : [py_dep],
 	include_directories : [numpy_include],
-	install_dir : project_dir / 'src' / 'tallem',
+	install_dir : project_dir / 'src' / 'tallem' / 'extensions',
 	install : true,
 	override_options : ['cython_language=cpp']
 )
