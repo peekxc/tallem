@@ -16,15 +16,37 @@ def build(setup_kwargs):
 	existing_modules = list(expandpath(f"{home_dir}/src/tallem/pbm/*{suffix}"))
 	if len(existing_modules) > 0:
 		print("Removing existing modules for a clean build")
-	#ext_modules = [p.name for p in ]
+	## Remove existing extension modules
+	for m in existing_modules:
+		os.remove(m)
 	
 	import numpy as np
 	print("\n==== NUMPY INCLUDES ====\n")
 	print(f"{np.get_include()}")
 
-	## Remove existing extension modules
-	for m in existing_modules:
-		os.remove(m)
+	# print("\n==== CYTHONIZING *.pyx files ====\n")
+	# from Cython.Build import cythonize
+	# from setuptools import Extension
+	# from setuptools.dist import Distribution
+	# from distutils.command.build_ext import build_ext
+
+	# extensions = [Extension(
+	# 	name='mds_cython',
+	# 	sources=[f"{home_dir}/src/tallem/mds_cython.pyx"],
+	# 	extra_compile_args=[''],
+	# 	extra_link_args=['-fopenmp', '-I/usr/local/Cellar/libomp/12.0.1/include', '-lomp', '-L/usr/local/Cellar/libomp/12.0.1/lib']
+	# )]
+	# setup_kwargs.update({
+	# 	'ext_modules': cythonize(
+	# 		module_list=extensions,
+	# 		aliases={ 'NUMPY_INCLUDE': np.get_include() },
+	# 		include_path=[np.get_include()],
+	# 		language_level=3,
+	# 		compiler_directives={'linetrace': True},
+	# 		annotate=True
+	# 	),
+	# 	'cmdclass': {'build_ext': build_ext}
+	# })
 
 	## Recompile
 	print("\n==== Printing compiler version ====\n")
@@ -35,9 +57,10 @@ def build(setup_kwargs):
 	target_path = next(expandpath(f"{home_dir}/src/tallem/pbm/")).resolve()
 	print(f"\n==== Extension module install path: {target_path} ====\n")
 	os.system(f"sudo cp build/*{suffix} {target_path}")
-	# os.system("meson install -C build")
 	print("\n==== Finished meson build ====\n")
 	
+	# os.system("meson install -C build")
+
 	## Check if they now exist
 	num_so = len([p.name for p in expandpath(f"{home_dir}/src/tallem/pbm/*{suffix}")])
 	if num_so > 0:

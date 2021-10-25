@@ -6,8 +6,8 @@ from typing import *
 from .distance import dist, is_distance_matrix, is_pairwise_distances
 from .utility import find_points
 
-## Import the specific pybind11 module we need
-from tallem.pbm import landmark
+## Import the specific extensions module we need
+from tallem.extensions import landmark
 
 # %% Definitions
 def landmarks(a: ArrayLike, k: Optional[int] = 15, eps: Optional[float] = -1.0, seed: int = 0, diameter: bool = False, metric = "euclidean"):

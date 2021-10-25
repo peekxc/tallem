@@ -40,6 +40,8 @@ setup_kwargs = {
     'extras_require': extras_require,
     'python_requires': '>=3.8,<4.0'
 }
+# package_data={'mypkg': ['data/*.dat']
+
 from build import *
 build(setup_kwargs)
 

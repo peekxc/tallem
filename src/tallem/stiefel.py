@@ -10,8 +10,8 @@ from .cover import partition_of_unity
 from .samplers import uniform_sampler
 from .utility import * 
 
-## Import the specific pybind11 module we need
-from tallem.pbm import fast_svd
+## Import the specific extension module we need
+from tallem.extensions import fast_svd
 
 def _initial_frame(D, phi, n):
 	Fb = np.vstack([phi(j).T for j in range(n)])

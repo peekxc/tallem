@@ -10,8 +10,8 @@ from typing import Callable, Iterable, List, Set, Dict, Optional, Tuple, Any, Un
 from itertools import combinations
 from scipy.sparse import issparse, csc_matrix
 
-## Import the pybind modules (pbm) subpackage
-import tallem.pbm
+## Import the extension modules subpackage
+import tallem.extensions
 
 # TODO: define __all__
 # __all__ = [

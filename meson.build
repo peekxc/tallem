@@ -1,5 +1,5 @@
 ## TALLEM needs C++17 or higher 
-project('tallem', 'cpp', 'fortran',
+project('tallem', 'cpp', 'fortran', 'cython',
 	version: '0.1.1',
   default_options : [
 		'cpp_std=c++17', 'warning_level=3',
@@ -10,7 +10,7 @@ project('tallem', 'cpp', 'fortran',
 )
 project_dir = meson.current_source_dir()
 # add_project_arguments('-stdlib=libc++', language: 'c')
-add_project_arguments('-stdlib=libc++', language: 'cpp')
+# add_project_arguments('-stdlib=libc++', language: 'cpp')
 add_project_arguments('-Wno-non-virtual-dtor', language : 'cpp') # to remove installation warnings
 # add_project_arguments('-DCARMA_DONT_REQUIRE_F_CONTIGUOUS=OFF', language : 'cpp')
 
@@ -39,9 +39,8 @@ home_dir = fs.expanduser('~')
 
 ## Find Python 3.8+ for Protocol classes
 py = import('python')
-py_mod = py.find_installation('python3', modules : ['numpy'], disabler:true, required:false)
-py_dep = py_mod.dependency(version : '>=3.8.0', components: ['Interpreter', 'Development', 'NumPy'])
-# py_b11 = dependency('pybind11')
+py_mod = py.find_installation('python3', modules:['numpy'], disabler:true, required:false)
+py_dep = py_mod.dependency(version:'>=3.8.0', components:['Interpreter', 'Development', 'NumPy'])
 
 ## Detect numpy
 numpy = run_command(py_mod,'-c','import numpy;print(numpy.get_include())')
@@ -125,4 +124,13 @@ py_mod.extension_module('landmark',
 	install_dir : project_dir / 'src' / 'tallem' / 'pbm', 
 	cpp_args : '-stdlib=libc++',
 	override_options :'-stdlib=libc++'
+)
+
+py_mod.extension_module('mds_cython',
+	sources: 'src' / 'tallem' / 'mds_cython.pyx',
+	dependencies : py_dep,
+	include_directories : [numpy_include],
+	install_dir : project_dir / 'src' / 'tallem',
+	install : true,
+	override_options : ['cython_language=cpp']
 )

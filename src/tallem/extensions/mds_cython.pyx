@@ -1,4 +1,9 @@
+# cython: language_level=3, profile=True
 # distutils: define_macros=NPY_NO_DEPRECATED_API=NPY_1_7_API_VERSION
+# distutils: extra_compile_args=-fopenmp
+# distutils: extra_link_args=-fopenmp
+# distutils: language=c++
+# distutils: include_dirs = NUMPY_INCLUDE
 import cython
 import numpy as np
 
@@ -7,10 +12,15 @@ from cpython.array cimport array, clone
 from cython.parallel import prange
 from scipy.linalg.cython_lapack cimport dsyevr
 
+
+
+
 from libc.math cimport sqrt
 
 from scipy.spatial.distance import squareform, pdist # for validation
 
+@cython.boundscheck(False)
+@cython.wraparound(False)
 cpdef void _dyevr(double[::1, :] A, int IL, int IU, double ABS_TOL, double[:] W, double[:] WORK, int[:] IWORK, int[:] ISUPPZ, double[::1, :] Z):
 	cdef int N = A.shape[0]
 	cdef int M = IU-IL+1
@@ -90,11 +100,19 @@ cimport numpy as cnp
 # cdef double[:] col_sum = cnp.zeros(n, dtype=numpy.int32)
 
 ## Applies double-centering to a square matrix 'D'
+@cython.boundscheck(False)
+@cython.wraparound(False)
+@cython.cdivision(True)
 cdef double_center(double[::1, :] D, int n):
 	cdef int i, j 
 	cdef double total = 0.0
-	cdef double[::1] row_sum_view = np.zeros((n,), dtype='double')
-	cdef double[::1] col_sum_view = np.zeros((n,), dtype='double')
+	cdef double[:] row_sum_view = np.zeros((n,), dtype=np.float64)
+	cdef double[:] col_sum_view = np.zeros((n,), dtype=np.float64)
+	# cdef double[::1] row_sum_view = cnp.empty(n, dtype=np.float64)
+	# cdef double[::1] col_sum_view = cnp.empty(n, dtype=np.float64)
+	# for i in range(n):
+	# 	row_sum_view[i] = 0.0
+	# 	col_sum_view[i] = 0.0
 	for i in range(n):
 		for j in range(n):
 			row_sum_view[i] += D[i,j]
@@ -109,11 +127,16 @@ cdef double_center(double[::1, :] D, int n):
 			D[i,j] = -0.5*(D[i,j] - row_sum_view[i] - col_sum_view[j] + total)
 
 
+FLOAT64 = np.float64
+
+@cython.boundscheck(False)
+@cython.wraparound(False)
 cpdef cython_cmds_fortran_inplace(double[::1, :] D, int d, int n, double[::1, :] Y, int offset):
 	double_center(D, n) # double-center first (n x n submatrix of D)
-	cdef double[:] W = np.empty(n, dtype='double')
-	cdef double[::1,:] Z = np.zeros(shape=(n, d), dtype='double', order='F')
-	cdef c_eval = 0.0
+	cdef double[:] W = np.empty(n, dtype=FLOAT64)
+	cdef double[::1,:] Z = np.zeros(shape=(n, d), dtype=FLOAT64, order='F')
+	cdef double c_eval = 0.0
+	cdef int i, di
 	cython_dsyevr_inplace(D, n-d+1, n, 1e-8, n, W, Z)
 	for di in range(d):
 		if W[di] > 0:
@@ -205,6 +228,8 @@ cpdef dist_matrix_subset(const double[::1, :] X, const int[:] ind, double[::1, :
 
 # cdef np.ndarray[np.float64_t, ndim=2] D = np.zeros((n, n), np.double)
 
+@cython.boundscheck(False)
+@cython.wraparound(False)
 def cython_cmds_parallel(const double[::1, :] X, const int d, const int[:] ind_vec, const int[:] ind_len, const int max_n, double[::1, :] output):
 	''' 
 		X := (d,n) matrix [columns-oriented (Fortran-style)] of points 
@@ -214,10 +239,9 @@ def cython_cmds_parallel(const double[::1, :] X, const int d, const int[:] ind_v
 	cdef int N = len(ind_vec)
 	assert output.shape[0] == d and output.shape[1] == N
 	cdef double[::1, :] D_reuse = np.zeros((max_n,max_n), dtype='double', order='F')
-	cdef int ni
-	cdef int nj
-	cdef int local_n
-	for i in range(len(ind_len)-1):
+	cdef int i, ni, nj, local_n
+	cdef int M = len(ind_len)-1
+	for i in range(M):
 		ni = ind_len[i]
 		nj = ind_len[i+1]
 		local_n = nj - ni
@@ -237,103 +261,3 @@ def flatten_list_of_lists(lst_of_lsts):
 			cnt += 1       # update index in the flattened array for the next element
 		starts[i+1] = cnt  # remember the start of the next list
 	return values, starts
-
-
-
-
-
-# DTYPE = np.int
-# ctypedef np.int_t DTYPE_t
-# np.ndarray[np.float64_t, ndim=2]
-# cdef const double[:] myslice   # const item type => read-only view
-
-# def fast_cmds(x, i1, i2, tol=1e-7):
-# 	cdef double[:,:] x_buffer = x
-# 	cdef int I1 = i1
-# 	cdef int I2 = i2
-# 	cdef double eps = tol
-# 			# LWORK, LIWORK = np.array([26*n], np.int32), np.array([10*n], np.int32)
-# 	# WORK, IWORK = np.zeros(26*n, np.float64), np.zeros(10*n, np.int32)
-# 	_fast_cmds(x_buffer, I1, I2, eps)
-
-# def _fast_cmds(double[:,:] x, int I1, int I2, double tolerance=1e-7):
-# 	return(0.0)
-	# LDZ, ISUPPZ = np.array([n], np.int32), np.zeros(2*m, np.int32) 
-	# INFO = np.array([0.0], np.int32)
-
-	# ## Output
-	# Z = np.zeros((m, n), np.float64).T
-	
-	# # preallocate
-	# LWORK, LIWORK = np.array([26*n], np.int32), np.array([10*n], np.int32)
-	# WORK, IWORK = np.zeros(26*n, np.float64), np.zeros(10*n, np.int32)
-	# cdef double[::1] W = clone(array('d'), n, False)
-	# cdef W = np.empty((n,), dtype='double')
-	# LDA = np.array([n], np.int32)
-	# VL, VU =  np.array(0, np.float64), np.array(0, np.float64), 
-	# IL, IU = np.array(i1, np.int32), np.array(i2, np.int32)
-	# ABS_TOL = np.array([tolerance], np.float64)
-	# N_EVALS_FOUND = np.empty(1, np.int32)
-	# W = np.zeros(n, np.float64)
-	# LDZ, ISUPPZ = np.array([n], np.int32), np.zeros(2*m, np.int32) 
-	# INFO = np.array([0.0], np.int32)
-
-
-
-# def fast_cmds(double[:,:] x, int I1, int I2, double tolerance=1e-7):
-# 	cdef int n = x.shape[0]
-# 	cdef int m = abs(I2-I1)+1
-# 	cdef char* JOBVS = 'V'
-# 	return(0)
-	# cdef long N = A.shape[0]
-	# cdef long LWORK = A.shape[1]
-	# cdef long LIWORK = A.shape[1]
-	# cdef int INFO = 0
-	# cdef long IA = 0 #the row index in the global array A indicating the first row of sub( A )
-	# cdef long JA = 0 #The column index in the global array A indicating the first column of sub( A ).
-	# cdef double[::1] WORK = np.empty(LWORK, dtype=np.float64)
-	# cdef int[::1] IWORK = np.empty(LIWORK, dtype=np.int32)
-	# cdef int[::1] IPIV = np.empty(N, dtype=np.int32)
-	# cdef int[::1] DESCA = np.empty(N, dtype=np.int32)
-	
-	# JOBVS = np.array([_ORD_JOBVS], np.int32)
-	# RNG = np.array([_ORD_RNG], np.int32)
-	# UPLO = np.array([_ORD_UPLO], np.int32)
-	# N = np.array([n], np.int32)
-	# A = x.copy()     # in & out
-	# LDA = np.array([n], np.int32)
-	# VL, VU =  np.array(0, np.float64), np.array(0, np.float64), 
-	# IL, IU = np.array(i1, np.int32), np.array(i2, np.int32)
-	# ABS_TOL = np.array([tolerance], np.float64)
-	# N_EVALS_FOUND = np.empty(1, np.int32)
-	# W = np.zeros(n, np.float64)
-	# LDZ, ISUPPZ = np.array([n], np.int32), np.zeros(2*m, np.int32) 
-	# INFO = np.array([0.0], np.int32)
-
-	## Output
-	# Z = np.zeros((m, n), np.float64).T
-	
-	# # preallocate
-	# LWORK, LIWORK = np.array([26*n], np.int32), np.array([10*n], np.int32)
-	# WORK, IWORK = np.zeros(26*n, np.float64), np.zeros(10*n, np.int32)
-	# dsyevr(&JOBVS,
-	# 	RNG.ctypes,
-	# 	UPLO.ctypes,
-	# 	N.ctypes,
-	# 	A.view(np.float64).ctypes,
-	# 	LDA.ctypes,
-	# 	VL.ctypes,
-	# 	VU.ctypes,
-	# 	IL.ctypes,
-	# 	IU.ctypes,
-	# 	ABS_TOL.ctypes,
-	# 	N_EVALS_FOUND.ctypes,
-	# 	W.view(np.float64).ctypes,
-	# 	Z.view(np.float64).ctypes,
-	# 	LDZ.ctypes,
-	# 	ISUPPZ.view(np.int32).ctypes,
-	# 	WORK.view(np.float64).ctypes,
-	# 	LWORK.ctypes,
-	# 	IWORK.view(np.int32).ctypes,
-	# 	LIWORK.ctypes,
-	# 	INFO.ctypes)
