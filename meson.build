@@ -133,11 +133,21 @@ py_mod.extension_module('landmark',
 	override_options :'-stdlib=libc++'
 )
 
+cython = find_program('cython')
+mds_cython_cpp = custom_target('mds_cython',
+  output : 'mds_cython.cpp',
+  input : 'src' / 'tallem' / 'extensions' / 'mds_cython.pyx',
+  command : 
+		[cython, '@INPUT@', '--cplus', '-3', '--line-directives', '-X', 'profile=True', '-X', 'linetrace=True', '-X', 'binding=True', # for profiling only
+		'-o', '@OUTPUT@'],
+)
+
 py_mod.extension_module('mds_cython',
-	sources: 'src' / 'tallem' / 'extensions' / 'mds_cython.pyx',
+	sources: mds_cython_cpp,
 	dependencies : [py_dep],
 	include_directories : [numpy_include],
 	install_dir : project_dir / 'src' / 'tallem' / 'extensions',
 	install : true,
-	override_options : ['cython_language=cpp']
+	override_options : ['cython_language=cpp'], 
+	cpp_args: '-DCYTHON_TRACE_NOGIL=1'
 )

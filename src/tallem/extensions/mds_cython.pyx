@@ -1,3 +1,6 @@
+# cython: profile=True, linetrace=True, binding=True
+# distutils: define_macros=CYTHON_TRACE_NOGIL=1
+
 import cython
 import numpy as np
 

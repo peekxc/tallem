@@ -95,6 +95,12 @@ print(f"{res:0.4f} seconds")
 res = timeit.timeit(lambda: [cmds(X[s,:], 2) for s in subsets], number = 50)
 print(f"{res:0.4f} seconds")
 
+import line_profiler
+profile = line_profiler.LineProfiler()
+profile.add_function(mds_cython.cython_cmds_parallel)
+profile.enable_by_count()
+mds_cython.cython_cmds_parallel(X, 2, ind_vec, len_vec, max_n, results)
+profile.print_stats(output_unit=1e-3)
 
 # import matplotlib.pyplot as plt
 # plt.scatter(*models[0])

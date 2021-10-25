@@ -24,6 +24,16 @@ def build(setup_kwargs):
 	print("\n==== NUMPY INCLUDES ====\n")
 	print(f"{np.get_include()}")
 
+
+	# Use cython -a *.pyx
+	import Cython.Compiler.Options
+	Cython.Compiler.Options.annotate = True
+
+	from Cython.Compiler.Options import get_directive_defaults
+	directive_defaults = get_directive_defaults()
+	directive_defaults['linetrace'] = True
+	directive_defaults['binding'] = True
+
 	# print("\n==== CYTHONIZING *.pyx files ====\n")
 	# from Cython.Build import cythonize
 	# from setuptools import Extension
