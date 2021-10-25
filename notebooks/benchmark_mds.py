@@ -38,15 +38,55 @@ z[0][:3] - evals[7:10]
 
 mds_cython.cython_cmds_fortran(D, 2)
 cmds(dist(X, X), 2)
-# %% 
+
+# %% Compile cython modules
 import numpy as np 
 from importlib import reload
 import pyximport; pyximport.install(reload_support=True, language_level="3", setup_args={'include_dirs': np.get_include()})
 import mds_cython
 mds_cython = reload(mds_cython)
+
+# %% 
+X = np.random.uniform(size=(10,2))
+D = np.zeros(shape=(X.shape[0], X.shape[0]), dtype=np.float64)
+X, D = np.asfortranarray(X), np.asfortranarray(D)
+mds_cython.dist_matrix(X, D)
+
+I = np.array([1,2,3,4,5], np.int32)
+mds_cython.dist_matrix_subset(X, I, D)
+
+# dist(X, X) - D
+# %% 
 D = np.asfortranarray(D)
 mds_cython.center(D)
 # mds_cython.fast_cmds(np.array([[0,1.0], [1, 0]]), 0, 1)
+
+# %% Test lists of lists mds 
+import numpy as np
+n_sets = 15
+X = np.asfortranarray(np.random.uniform(size=(250,3)), dtype=np.float64)
+subsets = [np.random.choice(X.shape[0], size=X.shape[0]//n_sets) for i in range(n_sets)]
+ind_vec, len_vec = mds_cython.flatten_list_of_lists(subsets)
+
+max_n =  np.max([len(s) for s in subsets])
+sum_n = np.sum([len(s) for s in subsets])
+results = np.zeros((2, sum_n), dtype=np.float64, order='F') ## Output 
+
+mds_cython.cython_cmds_parallel(X, 2, ind_vec, len_vec, max_n, results)
+np.sum(results != 0.0)
+
+models = np.hsplit(results, len_vec[1:(len(len_vec)-1)])
+
+from tallem.dimred import cmds
+from tallem.distance import dist
+true_dist = dist(cmds(X[subsets[0], :], 2))
+test_dist = dist(models[0].T)
+np.max(true_dist - test_dist)
+
+# import matplotlib.pyplot as plt
+# plt.scatter(*models[0])
+# plt.scatter(*cmds(X[subsets[0], :], 2).T)
+
 
 # %% Test multiple implementations of numba
 import time
