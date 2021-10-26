@@ -123,9 +123,33 @@ class TALLEM():
 		return("TALLEM instance")
 
 	def assemble(self, pou: Optional[csc_matrix] = None, D_frame: Optional[npt.ArrayLike] = None) -> npt.ArrayLike:
+		''' 
+		Assembles the local models in a lower-dimensional (D) space using 'D_frame' 
+
+		Parameters: 
+			pou := partition of unity to use with the assembly. Defaults to the precomputed one. See details. 
+			D_frame := frame to use to project down to D dimensions
+
+		As before, the partition of unity must respect the closure property with respect to the cover. 
+		'''
 		if D_frame is None: D_frame = self.A
 		if pou is None: pou = self.pou
-		return(assembly_fast(self._stf, D_frame, self.cover, pou, self.models, self.translations))
+		return(assembly_fast(self._stf, D_frame, self.cover, pou, self.models, self.translations, False))
+
+	def assemble_high(self, pou: Optional[csc_matrix] = None) -> npt.ArrayLike:
+		''' 
+		Assembles the local models into a high-dimensional (dJ) space. 
+		This step is usually done per-point prior to projecting down to a lower-dimensional space. 
+		It can be useful to have the high-dimensional coordinates in certain debugging situations (e.g. 
+		assessing the quality of the (dJ -> d) projection).
+
+		Parameters: 
+			pou := partition of unity to use with the assembly. Defaults to the precomputed one. See details. 
+
+		As before, the partition of unity must respect the closure property with respect to the cover. 
+		'''
+		if pou is None: pou = self.pou
+		return(assembly_fast(self._stf, self.A, self.cover, pou, self.models, self.translations, True))
 
 	def _profile(self, **kwargs):
 		ask_package_install("line_profiler")

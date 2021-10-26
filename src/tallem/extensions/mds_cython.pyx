@@ -176,3 +176,50 @@ def flatten_list_of_lists(lst_of_lsts):
 			cnt += 1       # update index in the flattened array for the next element
 		starts[i+1] = cnt  # remember the start of the next list
 	return values, starts
+
+# @cython.boundscheck(False)
+# @cython.wraparound(False)
+# cpdef pdist_matrix_subset(const double[::1, :] X, const int[:] source_ind, double[::1, :] D):
+# 	'''
+# 	Computes (l x n) distances, stored in D
+# 	X := (d x n)
+# 	'''
+# 	n = X.shape[1]
+# 	d = X.shape[0]
+# 	l = source_ind.size
+# 	for j in range(l):
+# 		for i in range(n):
+# 			tmp = 0.0
+# 			for k in range(d):
+# 				diff = X[ind[i], k] - X[ind[j], k]
+# 				tmp = tmp + (diff * diff)
+# 			D[i,j] = 
+		
+
+
+
+# cpdef cython_landmark_mds(const double[::1, :] X, const int d, const int[:] ind_vec, const int[:] ind_len, const int max_n, double[::1, :] output):
+# 	''' 
+# 	Barbones landmark MDS with Cython 
+# 	X := (d,n) matrix [columns-oriented (Fortran-style)] of points 
+# 	ind_vec := (m,) contiguous vector of indices for each subset 
+# 	ind_len := (j+1,) contiguous vector such that ind_vec[ind_len[i]:ind_len[i+1]] represents the i'th subset
+# 	max_n := maximum size of a cover subset
+# 	'''
+# 	cdef int N = len(ind_vec)
+# 	assert output.shape[0] == d and output.shape[1] == N
+# 	cdef int k = d*3
+# 	cdef double[::1, :] LD_reuse = np.zeros((k,k), dtype=np.float64, order='F') # landmark distance matrix 
+# 	cdef double[::1, :] S_reuse = np.zeros((k, max_n), dtype=np.float64, order='F')
+# 	cdef int i, ni, nj, local_n
+# 	cdef int J = len(ind_len)-1 # number of subsets
+# 	for i in range(J):
+		
+
+	# n = S.shape[1]
+	# evals, evecs = cmds_numba_E(LD, d)
+	# mean_landmark = average_cols(LD).T
+	# w = np.flatnonzero(evals > 0)
+	# L_pseudo = evecs/np.sqrt(evals[w])
+	# Y = np.zeros(shape=(n, d))
+	# Y[:,w] = (-0.5*(L_pseudo.T @ (S.T - mean_landmark.T).T)).T 

@@ -511,14 +511,48 @@ struct StiefelLoss {
 		}
 	}
 
+	// High dimensional (dJ) assembly
+	// assembly := output (dJ x n) matrix 
+	void fast_assembly_high(const arma::sp_mat& pou, const index_list& cover_subsets, const vec_mats& local_models, const arma::mat& T, arma::mat& assembly){
+		
+		const size_t J = pou.n_rows;
+		arma::vec coords = arma::zeros(d*J);
+		
+		// Variables to re-use/cache in the loop 
+		vector< double > phi_i(J); // the partition of unity weights for x_i 
+		arma::mat d_frame(d*J, d); // the current frame to populate 
+
+		// Build the assembly
+		for (size_t i = 0; i < n; ++i){
+			phi_i.assign(J, 0.0);
+			coords.zeros();
+
+			// Fill phi weight vector 
+			arma::sp_mat::const_col_iterator ci = pou.begin_col(i);
+			for (; ci != pou.end_col(i); ++ci){ phi_i[ci.row()] = *ci; }
+
+			// Compute the weighted average of the Fj's using the partition of unity
+			ci = pou.begin_col(i);
+			for (; ci != pou.end_col(i); ++ci){
+				size_t j = ci.row(); 
+				generate_frame_(j, phi_i, d_frame); 			// populates the (dJ x d) frame in d_frame
+				size_t jj = find_index(cover_subsets[j].begin(), cover_subsets[j].end(), i); // todo: remove this
+				arma::vec local_coord = local_models[j].col(jj) + T.col(j); // should be (d)-length column vector
+				coords += (*ci) * d_frame * local_coord; // lhs := (dJ x 1), local coords := (d x 1)
+			}
+			assembly.col(i) = coords; 
+		}
+	}
+
 	// Uses the fast_assembly2() function. 
 	// All inputs as passed as-is to fast_assembly2; do not transpose anything here
-	auto assemble_frames2(const py::array_t< double >& A, const py::object& pou, const py::list& cover_subsets, const py::list& local_models, const py::array_t< double >& T ) -> py::array_t< double > {
+	auto assemble_frames2(const py::array_t< double >& A, const py::object& pou, const py::list& cover_subsets, const py::list& local_models, const py::array_t< double >& T, bool high) -> py::array_t< double > {
 		arma::mat A_ = carma::arr_to_mat(A);
 		
 		// Partition of unity
 		arma::sp_mat pou_;
 		to_sparse(pou, pou_);
+		const size_t J = pou_.n_rows;
 
 		// Convert cover subsets to C++ versions
 		auto subsets = vector< vector< size_t > >();
@@ -535,9 +569,16 @@ struct StiefelLoss {
 		arma::mat translations = carma::arr_to_mat(T);
 		
 		// Output assembly
-		arma::mat assembly = arma::zeros(D, n);
-		fast_assembly2(A_, pou_, subsets, models, translations, assembly);
-		return(carma::mat_to_arr(assembly));
+		if (high){
+			arma::mat assembly = arma::zeros(d*J, n);
+			fast_assembly_high(pou_, subsets, models, translations, assembly);
+			return(carma::mat_to_arr(assembly));	
+		}
+		else {
+			arma::mat assembly = arma::zeros(D, n);
+			fast_assembly2(A_, pou_, subsets, models, translations, assembly);
+			return(carma::mat_to_arr(assembly));
+		}
 	}
 
 	// TODO: make pou and local_models transposed to access by column

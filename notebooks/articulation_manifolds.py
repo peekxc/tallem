@@ -11,12 +11,19 @@ polar_coordinate = B[:,[1]]
 ## Run TALLEM on interval cover using polar coordinate information
 m_dist = lambda x,y: np.minimum(abs(x - y), (2*np.pi) - abs(x - y))
 cover = IntervalCover(polar_coordinate, n_sets = 15, overlap = 0.40, space = [0, 2*np.pi], metric = m_dist)
-embedding = TALLEM(cover, local_map="pca2", n_components=3).fit_transform(X, polar_coordinate)
+top = TALLEM(cover, local_map="pca2", n_components=3)
+emb = top.fit_transform(X, polar_coordinate)
 
 ## Rotate and view
 angles = np.linspace(0, 360, num=12, endpoint=False)
-scatter3D(embedding, angles=angles, figsize=(16, 8), layout=(2,6), c=polar_coordinate)
+scatter3D(emb, angles=angles, figsize=(16, 8), layout=(2,6), c=polar_coordinate)
 
+
+# %% View isomap of high-dimensional
+from tallem.dimred import isomap
+Y = top.assemble_high()
+Z = isomap(Y, 3, p = 0.15)
+scatter3D(Z, angles=angles, figsize=(16, 8), layout=(2,6), c=polar_coordinate)
 
 #%% Rotating disk example
 from tallem import TALLEM
@@ -40,11 +47,10 @@ top = TALLEM(cover, local_map="pca2", n_components=2)
 emb = top.fit_transform(X=Disks, B=Disks)
 P = [
 	cmds(Disks, d=2),
-	isomap(Disks, d=2, k=10), 
 	isomap(Disks, d=2, p=0.15), 
 	emb
 ]
-scatter2D(P, layout=(1,4), figsize=(8,3), c = Theta)
+scatter2D(P, layout=(1,3), figsize=(8,3), c = Theta)
 
 # local_models = [m for m in top.models.values()]
 # scatter2D(local_models, layout=(1,len(local_models)), figsize=(8,3))

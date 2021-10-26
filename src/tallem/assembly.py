@@ -26,11 +26,11 @@ def assemble_frames(stf, A: npt.ArrayLike, cover: CoverLike, pou: csc_matrix, lo
 		assembly[i,:] = coords
 	return(assembly)
 
-def assembly_fast(stf, A: npt.ArrayLike, cover: CoverLike, pou: csc_matrix, local_models: Dict, translations: Dict) -> npt.ArrayLike:
+def assembly_fast(stf, A: npt.ArrayLike, cover: CoverLike, pou: csc_matrix, local_models: Dict, translations: Dict, high: bool = False) -> npt.ArrayLike:
 	''' Performs the final assembly of all the frames. '''
 	assert isinstance(pou, csc_matrix), "Partition of unity not a CSC matrix"
 	offsets = np.vstack([ offset for index,offset in translations.items()]).T
 	cover_subsets = [np.sort(subset) for index, subset in cover.items()]
 	local_models = [coords.T for index, coords in local_models.items()]
-	return(stf.assemble_frames2(A, pou.transpose().tocsc(), cover_subsets, local_models, offsets).T)
+	return(stf.assemble_frames2(A, pou.transpose().tocsc(), cover_subsets, local_models, offsets, high).T)
 
