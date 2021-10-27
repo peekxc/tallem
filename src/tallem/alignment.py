@@ -85,8 +85,9 @@ def opa(a: npt.ArrayLike, b: npt.ArrayLike, transform=False, rotation_only=True)
 	t = bC - s * aC @ R              # place translation vector relative to B
 
 	# Procrustes distance
-	z = (s * a @ R + t)
-	d = np.linalg.norm(z - b)**2
+	# z = (s * a @ R + t)
+	# d = np.linalg.norm(z - b)**2
+	d = np.linalg.norm(A @ R - B, "fro")
 	
 	# The transformed/superimposed coordinates
 	# Note: (s*bS) * np.dot(B, aR) + c

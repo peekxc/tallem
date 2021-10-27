@@ -8,6 +8,8 @@ project('tallem', 'cpp', 'fortran', 'cython',
 		'install_umask=002', 'strip=false'
 	]
 )
+# For release: use -02 -fPIC 
+# For benchmarking: consider -03 -march=native
 project_dir = meson.current_source_dir()
 # add_project_arguments('-stdlib=libc++', language: 'c')
 # add_project_arguments('-stdlib=libc++', language: 'cpp')

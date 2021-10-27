@@ -85,7 +85,10 @@ def scatter2D(P, layout = None, figsize=(8,8), **kwargs):
 def scatter3D(P, angles = None, layout = None, figsize=(8,8), **kwargs):
 	import matplotlib.pyplot as plt
 	if isinstance(P, np.ndarray):
+		import numbers
 		if angles is not None:
+			if isinstance(angles, numbers.Integral): 
+				angles = np.linspace(0, 2*np.pi, angles, endpoint=False)
 			assert len(angles) == np.prod(layout)
 			fig, ax = plt.subplots(*layout, figsize=figsize)
 			for i, theta in enumerate(angles):
@@ -97,9 +100,12 @@ def scatter3D(P, angles = None, layout = None, figsize=(8,8), **kwargs):
 			ax = fig.add_subplot(projection='3d')
 			ax.scatter3D(*P.T, **kwargs)
 	elif isinstance(P, Iterable):
+		import numbers
 		assert layout is not None, "missing layout"
 		if angles is None:
 			angles = np.repeat(60, len(P))
+		elif isinstance(angles, numbers.Integral):
+			angles = np.linspace(0, 2*np.pi, len(P), endpoint=False)
 		assert len(angles) == np.prod(layout)
 		fig, ax = plt.subplots(*layout, figsize=figsize)
 		for i, p in enumerate(P):

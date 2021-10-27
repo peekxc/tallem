@@ -14,6 +14,14 @@ from bokeh.layouts import column
 output_notebook()
 
 # Compute hausdorff distance + cmds 
+# from scipy.spatial.distance import directed_hausdorff
+# from itertools import combinations
+# index_set = list(top.cover.keys())
+# d_h1 = np.array([directed_hausdorff(X[top.cover[i],:], X[top.cover[j],:])[0] for i,j in combinations(index_set, 2)])
+# d_h2 = np.array([directed_hausdorff(X[top.cover[j],:], X[top.cover[i],:])[0] for i,j in combinations(index_set, 2)])
+# d_H = np.maximum(d_h1, d_h2)
+# layout = cmds(d_H**2)
+
 
 G = nx.Graph()
 G.add_nodes_from(range(len(top.cover)))
@@ -37,12 +45,12 @@ p = figure(
 edge_x = [v_coords[e,0] for e in G.edges]
 edge_y = [list(v_coords[e,1]) for e in G.edges]
 
-from tallem.color import bin_color, colors_to_hex
+from tallem.color import bin_color, colors_to_hex, linear_gradient
 
 align_edge_color = bin_color(alignment_error, linear_gradient(["gray", "red"], 100)['hex'])
-cocyle_edge_color = bin_color(list(cocycle_error.values()), linear_gradient(["gray", "red"], 100)['hex'])
+frame_edge_color = bin_color(list(frame_error.values()), linear_gradient(["gray", "red"], 100)['hex'])
 
-p.multi_line(edge_x, edge_y, color=cocyle_edge_color, alpha=0.80, line_width=4)
+p.multi_line(edge_x, edge_y, color=frame_edge_color, alpha=0.80, line_width=4)
 
 p.circle(v_coords[:,0], v_coords[:,1], size=v_sizes*0.15, color="navy", alpha=1.0)
 
@@ -50,25 +58,51 @@ p.toolbar.logo = None
 p.toolbar_location = None
 show(p)
 
+
+
 # button = Button(label="Assemble", button_type="primary", width_policy="min")
 # button.on_click(lambda event: print("Assembling frames"))
 
 # gridplot([[s1, s2, s3]], toolbar_location=None)
+## Get notion of how high the procrustes error scales too 
+from scipy.linalg import orthogonal_procrustes
+n = 1000
+X = np.random.uniform(size=(n,2), low = 0.0, high = 10)
+Y = np.random.uniform(size=(n,2), low = 0.0, high = 10)
+
+# Translation
+x_centroid, y_centroid = X.mean(0), Y.mean(0) # centroids
+X, Y = X - x_centroid, Y - y_centroid        # center
+
+# Scaling 
+XS, YS = np.linalg.norm(X), np.linalg.norm(Y)
+X /= XS
+Y /= YS
+
+R, sca = orthogonal_procrustes(X, Y)
+print(np.linalg.norm(X @ R - Y))
+
+
 
 ## Alignment error
 alignment_error = np.array([a['distance'] for a in top.alignments.values()])
+# max here: 2
+
 
 ## Get error between Phiframes 
-cocycle_error = {}
+frame_error = {}
 index_set = list(top.cover.keys())
 for ((j,k), pa) in top.alignments.items():
 	omega_jk = pa['rotation'].T
 	X_jk = np.intersect1d(top.cover[index_set[j]], top.cover[index_set[k]])
-	phi_j = top._stf.generate_frame(j, np.ravel(top.pou[x,:].A))
-	phi_k = top._stf.generate_frame(k, np.ravel(top.pou[x,:].A))
-	cocycle_error[(j,k)] = np.linalg.norm((phi_j @ omega_jk) - phi_k)
+	frame_error[(j,k)] = 0.0
+	for x in X_jk:
+		phi_j = top._stf.generate_frame(j, np.ravel(top.pou[x,:].A))
+		phi_k = top._stf.generate_frame(k, np.ravel(top.pou[x,:].A))
+		frame_error[(j,k)] += np.linalg.norm((phi_j @ omega_jk) - phi_k)
+	frame_error[(j,k)] = frame_error[(j,k)]/len(X_jk)
 
-
+# max here: 2*np.sqrt(2)
 
 # Linked brushing in Bokeh is expressed by sharing data sources between glyph renderers.
 
@@ -151,6 +185,57 @@ scatter3D(embedding, angles=angles, figsize=(16, 8), layout=(2,6), c=polar_coord
 
 
 
-## 
-# mapper = linear_cmap(field_name='alignment', palette=RdGy ,low=min(y) ,high=max(y))
+# %% Detecting the existence of multiple clusters 
+import numpy as np
+import matplotlib.pyplot as plt
+from tallem.dimred import knn_graph
+
+X0 = np.random.multivariate_normal(mean=[0.0, 0.0], cov=np.eye(2)*0.30, size=50)
+X1 = np.random.multivariate_normal(mean=[3.0, 1.0], cov=np.eye(2)*0.025, size=30)
+X2 = np.random.multivariate_normal(mean=[-1.0, 1.0], cov=np.eye(2)*0.025, size=30)
+
+Z = np.vstack((X0, X1, X2))
+plt.scatter(*Z.T)
+
+
+Z = np.vstack((X0, X1))
+G = knn_graph(Z, k = 15)
+
+knn_dist = np.max(G.A, axis = 0)
+knn_dens = (15/Z.shape[0])*(1/(knn_dist**Z.shape[1]))
+
+from scipy.sparse.csgraph import dijkstra
+max_ind = np.argmax(knn_dens)
+d, p = dijkstra(G, directed=False, indices=max_ind, return_predecessors=True)
+
+min_path_density = []
+for v in range(len(p)):
+	path = [v]
+	while p[v] != -9999:
+		path.append(p[v])
+		v = p[v]
+	min_path_density.append(np.min(knn_dens[path]))
+min_path_density = np.array(min_path_density)
+
+r_size = min_path_density/knn_dens
+
+
+plt.scatter(*X0.T, c="red")
+plt.scatter(*X1.T, c="blue")
+plt.scatter(*Z[max_ind,:], c="green")
+
+plt.hist(knn_dens[:50])
+plt.hist(knn_dens[50:])
+
+plt.hist(min_path_density[:50], color="yellow")
+plt.hist(min_path_density[50:], color="yellow")
+
+plt.hist(r_size[:50], color="red")
+plt.hist(r_size[50:], color="red")
+
+## Low average => probably just one cluster 
+np.mean(1.0 - r_size[50:]) 
+
+
+np.mean(1.0 - r_size[:50]) 
 

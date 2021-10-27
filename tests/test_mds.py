@@ -17,6 +17,24 @@ def test_classical_mds():
 	assert np.max(abs(mds1 - mds2)) <= np.finfo(np.float32).eps
 	assert np.max(abs(mds2 - mds3)) <= np.finfo(np.float32).eps
 
+	X = np.random.uniform(size=(100,3))
+	mds1 = cmds(X, 3, method="fortran")
+	mds2 = cmds(X, 3, method="numpy")
+	mds3 = cmds(X, 3, method="scipy")
+	assert np.max(abs(dist(mds1) - dist(mds1))) <= np.finfo(np.float32).eps
+	assert np.max(abs(dist(mds2) - dist(mds3))) <= np.finfo(np.float32).eps
+
+
+def test_pca():
+	import numpy as np
+	from tallem.distance import dist
+	from tallem.dimred import cmds, pca
+	X = np.random.uniform(size=(100,3))
+	Y = pca(X)
+	assert isinstance(Y, np.ndarray)
+	error = abs(dist(Y) - dist(cmds(X)))
+	assert np.max(error) <= np.finfo(np.float32).eps
+
 
 
 # def test_mds_cython():

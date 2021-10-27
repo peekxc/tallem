@@ -3,7 +3,8 @@
 
 import cython
 import numpy as np
-
+from typing import * 
+from numpy.typing import ArrayLike
 from cython cimport view
 from cpython.array cimport array, clone
 from cython.parallel import prange
@@ -58,7 +59,7 @@ cpdef cython_dsyevr_inplace(double[::1,:] D, IL, IU, tolerance, int n, double[:]
 	cdef int[:] IWORK = np.empty((10*n,), np.int32)
 	_dyevr(D, IL, IU, tolerance, W, WORK, IWORK, ISUPPZ, Z)
 
-def cython_dsyevr(x, IL, IU, tolerance):
+def cython_dsyevr(x: ArrayLike, IL: int, IU: int, tolerance: float = -1.0, copy: bool = False):
 	''' 
 	Computes all eigenvalues/vectors in range 1 <= IL <= IU <= N of an (N x N) real symmetric matrix 'x' 
 
@@ -70,7 +71,11 @@ def cython_dsyevr(x, IL, IU, tolerance):
 	'''
 	assert (x.shape[0] == x.shape[1])
 	assert IL <= IU and IL >= 1 and IU <= x.shape[0]
-	x = np.asfortranarray(x.copy())
+	if copy:
+		x = np.asfortranarray(x.copy())
+	else: 
+		if not(x.flags["F_CONTIGUOUS"])
+			x = np.asfortranarray(x)
 	n, m = x.shape[0], abs(IU-IL)+1
 	W = np.empty((n,), np.float64)
 	ISUPPZ = np.empty((2*m,), np.int32) 
@@ -107,15 +112,12 @@ cdef double_center(double[::1, :] D, int n):
 		for j in range(n):
 			D[i,j] = -0.5*(D[i,j] - row_sum_view[i] - col_sum_view[j] + total)
 
-
-FLOAT64 = np.float64
-
 @cython.boundscheck(False)
 @cython.wraparound(False)
 cpdef cython_cmds_fortran_inplace(double[::1, :] D, int d, int n, double[::1, :] Y, int offset):
 	double_center(D, n) # double-center first (n x n submatrix of D)
-	cdef double[:] W = np.empty(n, dtype=FLOAT64)
-	cdef double[::1,:] Z = np.zeros(shape=(n, d), dtype=FLOAT64, order='F')
+	cdef double[:] W = np.empty(n, dtype=np.float64)
+	cdef double[::1,:] Z = np.zeros(shape=(n, d), dtype=np.float64, order='F')
 	cdef double c_eval = 0.0
 	cdef int i, di
 	cython_dsyevr_inplace(D, n-d+1, n, 1e-8, n, W, Z)
@@ -177,44 +179,55 @@ def flatten_list_of_lists(lst_of_lsts):
 		starts[i+1] = cnt  # remember the start of the next list
 	return values, starts
 
-# @cython.boundscheck(False)
-# @cython.wraparound(False)
-# cpdef pdist_matrix_subset(const double[::1, :] X, const int[:] source_ind, double[::1, :] D):
-# 	'''
-# 	Computes (l x n) distances, stored in D
-# 	X := (d x n)
-# 	'''
-# 	n = X.shape[1]
-# 	d = X.shape[0]
-# 	l = source_ind.size
-# 	for j in range(l):
-# 		for i in range(n):
-# 			tmp = 0.0
-# 			for k in range(d):
-# 				diff = X[ind[i], k] - X[ind[j], k]
-# 				tmp = tmp + (diff * diff)
-# 			D[i,j] = 
+@cython.boundscheck(False)
+@cython.wraparound(False)
+cpdef pdist_matrix_subset(const double[::1, :] X, const int[:] s, const int[:] t, double[::1, :] D):
+	'''
+	Computes (l x n) distances, stored in D
+	Parameters: 
+		X := (d x n)
+		s := (k,)-sized vector of indices 
+		t := (m,)-sized vector of indices
+		D := (k*,m*)-sized matrix to store the output 
+	'''
+	cdef int n = X.shape[1]
+	cdef int d = X.shape[0]
+	cdef int k = s.size
+	cdef int m = t.size
+	for i in range(k):
+		for j in range(m):
+			tmp = 0.0
+			for di in range(d):
+				diff = X[s[i], di] - X[t[j], di]
+				tmp = tmp + (diff * diff)
+			D[i,j] = tmp
 		
 
-
+# from tallem.extensions import landmark
 
 # cpdef cython_landmark_mds(const double[::1, :] X, const int d, const int[:] ind_vec, const int[:] ind_len, const int max_n, double[::1, :] output):
 # 	''' 
 # 	Barbones landmark MDS with Cython 
-# 	X := (d,n) matrix [columns-oriented (Fortran-style)] of points 
-# 	ind_vec := (m,) contiguous vector of indices for each subset 
-# 	ind_len := (j+1,) contiguous vector such that ind_vec[ind_len[i]:ind_len[i+1]] represents the i'th subset
-# 	max_n := maximum size of a cover subset
+
+# 	Parameters: 
+# 		X := (D,n) matrix [column-major] of points 
+# 		d := target dimension for mds 
+# 		ind_vec := flat (m,)-sized contiguous vector of indices for all subsets
+# 		ind_len := flat (j+1,)-sized contiguous vector satisfying ind_vec[ind_len[i]:ind_len[i+1]] represents the i'th subset
+# 		max_n := maximum size of any given cover subset
+# 		output := (d, m) matrix [column-major] to store the output embeddings
 # 	'''
 # 	cdef int N = len(ind_vec)
 # 	assert output.shape[0] == d and output.shape[1] == N
 # 	cdef int k = d*3
 # 	cdef double[::1, :] LD_reuse = np.zeros((k,k), dtype=np.float64, order='F') # landmark distance matrix 
 # 	cdef double[::1, :] S_reuse = np.zeros((k, max_n), dtype=np.float64, order='F')
-# 	cdef int i, ni, nj, local_n
+# 	cdef int i, j, ni, nj, local_n
 # 	cdef int J = len(ind_len)-1 # number of subsets
-# 	for i in range(J):
-		
+# 	for j in range(J):
+# 		pdist_matrix_subset( S_reuse)
+# 		a = X[]
+		# indices, radii = landmark.maxmin(a.T, eps, k, False, seed)
 
 	# n = S.shape[1]
 	# evals, evecs = cmds_numba_E(LD, d)

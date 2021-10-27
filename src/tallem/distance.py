@@ -46,19 +46,33 @@ def is_index_like(x: ArrayLike):
 	return(np.all([isinstance(el, numbers.Integral) for el in x]))
 
 def subset_dist(x: ArrayLike, I: Union[ArrayLike, Tuple]):
+	''' 
+	Used for subsetting dist-like objects
+	
+	Parameters: 
+		x := pairwise distances or distance matrix 
+		I := index vector of subset to obtain or tuple of length 2 where each element gives the subsets to choose from.
+
+	Examples:
+		d = dist(np.random.uniform(size=(100,2)))
+		D = subset_dist(d, [0,1,2,5,10]) 			## vector of length 10 containing pairwise distances for subset [0,1,2,5,10]
+		D = subset_dist(d, ([0,1], [2,5,10])) ## matrix of size (2, 3) containing distances from 0 and 1 to 2, 5, and 10
+		
+		d = dist(np.random.uniform(size=(100,2)), as_matrix = True)
+		D = subset_dist(d, [0,1,2,5,10]) 			## matrix of size (5, 5) containing distances for indices [0,1,2,5,10]
+		D = subset_dist(d, ([0,1], [2,5,10])) ## same as the vector example above
+
+	'''
 	from itertools import combinations
 	# assert is unique
 	if is_distance_matrix(x):
-		if isinstance(I, np.ndarray):
-			subset = x[np.ix_(I, I)]
-		else:
-			assert len(I) == 2
+		if isinstance(I, Tuple) and len(I) == 2:
 			subset = x[np.ix_(I[0], I[1])]
+		else: 
+			subset = x[np.ix_(I, I)]
 	elif is_pairwise_distances(x):
 		n = inverse_choose(len(x), 2)
-		if isinstance(I, np.ndarray):
-			subset = np.array([x[rank_comb2(i,j,n)] for i,j in combinations(I, 2)])
-		else:
+		if isinstance(I, Tuple) and len(I) == 2:
 			subset = np.zeros((len(I[0]), len(I[1])))
 			for i, ind0 in enumerate(I[0]):
 				for j, ind1 in enumerate(I[1]):
@@ -66,6 +80,8 @@ def subset_dist(x: ArrayLike, I: Union[ArrayLike, Tuple]):
 						subset[i,j] = 0.0
 					else: 
 						subset[i,j] = x[rank_comb2(ind0,ind1,n)]
+		else: 
+			subset = np.array([x[rank_comb2(i,j,n)] for i,j in combinations(I, 2)])
 	else: 
 		raise ValueError("'x' must be a distance matrix or a set of pairwise distances")
 	return(subset)

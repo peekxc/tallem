@@ -1,6 +1,7 @@
 
 import numpy as np
 from numpy.typing import ArrayLike
+from typing import *
 from .color_constants import COLORS
 # Largely from: https://bsouthga.dev/posts/color-gradients-with-python
 
@@ -76,8 +77,11 @@ def linear_gradient(colors, n):
 				gradient_dict[k] += next[k][1:] # Exclude first point to avoid duplicates
 	return gradient_dict
 
-def bin_color(x: ArrayLike, color_pal):
-	x_min, x_max = np.min(x), np.max(x)
+def bin_color(x: ArrayLike, color_pal: List, min_x = "default", max_x = "default"):
+	x_min = np.min(x) if min_x == "default" else min_x
+	x_max = np.max(x) if max_x == "default" else max_x
+	assert isinstance(x_min, float) and isinstance(x_max, float)
 	ind = np.digitize(x, bins=np.linspace(x_min, x_max, len(color_pal)))
-	ind = np.minimum(ind, len(color_pal)-1)
+	ind = np.minimum(ind, len(color_pal)-1) ## bound from above
+	ind = np.maximum(ind, 0)								## bound from below
 	return(np.asanyarray(color_pal)[ind])

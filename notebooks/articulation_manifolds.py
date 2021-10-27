@@ -18,6 +18,8 @@ emb = top.fit_transform(X, polar_coordinate)
 angles = np.linspace(0, 360, num=12, endpoint=False)
 scatter3D(emb, angles=angles, figsize=(16, 8), layout=(2,6), c=polar_coordinate)
 
+top.plot_nerve(X=X, layout="hausdorff")
+
 
 # %% View isomap of high-dimensional
 from tallem.dimred import isomap
@@ -41,7 +43,7 @@ plot_images(Disks, shape=(25,25), max_val=c, figsize=(18, 4), layout=(2,8))
 Theta = np.random.uniform(size=800, low=0.0, high=2*np.pi)
 Disks = np.vstack([disk(theta) for theta in Theta])
 
-cover = LandmarkCover(Disks, k=8, scale=1.8)
+cover = LandmarkCover(Disks, k=12, scale=1.2)
 # local_map = lambda x: pca(x, d=1)
 top = TALLEM(cover, local_map="pca2", n_components=2)
 emb = top.fit_transform(X=Disks, B=Disks)
@@ -55,6 +57,13 @@ scatter2D(P, layout=(1,3), figsize=(8,3), c = Theta)
 # local_models = [m for m in top.models.values()]
 # scatter2D(local_models, layout=(1,len(local_models)), figsize=(8,3))
 
+top.plot_nerve(X=Disks, layout="hausdorff")
+
+from tallem.dimred import isomap
+Y = top.assemble_high()
+Z = isomap(Y, 2, p = 0.15)
+scatter2D(Z, figsize=(6, 6), c=Theta)
+
 # %% White dot example
 from tallem import TALLEM
 from tallem.cover import LandmarkCover
@@ -67,7 +76,7 @@ ind = np.random.choice(range(samples.shape[0]), size=3*8, replace=False)
 plot_images(samples[ind,:], shape=(17,17), max_val=c, layout=(3,8), figsize=(12,4))
 
 from tallem.samplers import landmarks
-cover = LandmarkCover(samples, k=20, scale=1.8)
+cover = LandmarkCover(samples, k=20, scale=1.0)
 assert(np.all(np.array([len(s) for s in cover.values()]) > 1))
 
 top = TALLEM(cover, local_map="cmds3", n_components=3)
@@ -77,6 +86,14 @@ emb = top.fit_transform(X=samples, B=samples)
 ecc = np.array([np.linalg.norm(p - np.array([0.5, 0.5, 0.0])) for p in params])
 angles = np.linspace(0, 360, num=6, endpoint=False)
 scatter3D(emb, c=ecc, angles=angles, layout=(2, 3), figsize=(18,12))
+
+top.plot_nerve(vertex_scale=10)
+
+from tallem.dimred import isomap
+Y = top.assemble_high()
+Z = isomap(Y, 2, p = 0.15)
+scatter2D(Z, figsize=(6, 6), c=Theta)
+
 
 # %% Josh's rotating strip example 
 from tallem import TALLEM
@@ -99,7 +116,7 @@ Theta = np.random.uniform(size=800, low=0.0, high=np.pi)
 bars = np.vstack([np.ravel(bar(b, theta)).flatten() for b, theta in zip(R, Theta)])
 params = np.vstack([(b, theta) for b, theta in zip(R, Theta)])
 
-cover = LandmarkCover(bars, k=15, scale=1.5)
+cover = LandmarkCover(bars, k=15, scale=1.0)
 assert np.all(np.array([len(s) for s in cover.values()]) > 1)
 assert validate_cover(bars.shape[0], cover)
 
@@ -109,6 +126,14 @@ emb = top.fit_transform(X=bars, B=bars)
 ## Use parameters for color
 angles = np.linspace(0, 360, num=6, endpoint=False)
 scatter3D(emb, c=params[:,0], angles=angles, layout=(2, 3), figsize=(14,10))
+
+top.plot_nerve(vertex_scale=10)
+
+from tallem.dimred import isomap
+Y = top.assemble_high()
+Z = isomap(Y, 3, p = 0.15)
+scatter3D(Z, figsize=(8, 6), c=params[:,0])
+
 
 ## Use circular coordinate
 polar_coordinate = params[:,1]

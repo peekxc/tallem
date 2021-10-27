@@ -13,6 +13,12 @@ def test_can_import_fast_svd():
 	assert fast_svd.__name__ == 'tallem.extensions.fast_svd'
 	assert 'StiefelLoss' in dir(fast_svd)
 
+def test_can_import_mds_cython():
+	from tallem.extensions import mds_cython
+	assert mds_cython is not None
+	assert mds_cython.__name__ == 'tallem.extensions.mds_cython'
+	assert 'cython_dsyevr' in dir(mds_cython)
+	
 def test_can_import_tallem():
 	import tallem
 	assert tallem is not None
