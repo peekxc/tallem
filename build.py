@@ -15,7 +15,7 @@ def build(setup_kwargs):
 	suffix = os.popen('python3-config --extension-suffix').read().rstrip()
 	print(f"Building extensions with suffix: {suffix}")
 	home_dir = os.getcwd()
-	existing_modules = list(expandpath(f"{home_dir}/src/tallem/pbm/*{suffix}"))
+	existing_modules = list(expandpath(f"{home_dir}/src/tallem/extensions/*{suffix}"))
 	if len(existing_modules) > 0:
 		print("Removing existing modules for a clean build")
 	## Remove existing extension modules
