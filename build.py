@@ -66,6 +66,7 @@ def build(setup_kwargs):
 	
 	## Check if build exists, and if it does remove it
 	if os.path.isdir(f"{home_dir}/build"):
+		print(f"\n==== Removing directory {home_dir}/build ====\n")
 		shutil.rmtree(f"{home_dir}/build")
 
 	print("\n==== Starting meson build ====\n")
