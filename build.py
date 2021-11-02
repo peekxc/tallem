@@ -4,6 +4,7 @@ import glob
 import shutil
 from pathlib import Path
 import mesonbuild
+import platform
 
 # From: https://stackoverflow.com/questions/51108256/how-to-take-a-pathname-string-with-wildcards-and-resolve-the-glob-with-pathlib
 def expandpath(path_pattern):
@@ -12,7 +13,15 @@ def expandpath(path_pattern):
 	return Path(p.root).glob(str(Path(*parts)))
 
 def build(setup_kwargs):
-	suffix = os.popen('python3-config --extension-suffix').read().rstrip()
+	# suffix = os.popen('python3-config --extension-suffix').read().rstrip()
+	if platform.system() == "Windows":
+		suffix = ".pyd"
+	else: 
+		suffix = ".so"
+	if len(suffix) == 0:
+		print("ERROR: Extension module suffix not found. ")
+		sys.exit(-1)
+
 	print(f"Building extensions with suffix: {suffix}")
 	home_dir = os.getcwd()
 	existing_modules = list(expandpath(f"{home_dir}/src/tallem/extensions/*{suffix}"))
