@@ -22,6 +22,28 @@ def test_interval_cover_1d():
 	cover = IntervalCover(x, n_sets = 10, overlap = 0.20)
 	assert validate_cover(x.shape[0], cover)
 
+	index_set = list(cover.keys())
+	for index in index_set:
+		d = cover.set_distance(x, index)
+		ind = np.flatnonzero(np.bitwise_and(d >= 0.0, d <= 1.0))
+		assert np.all(cover[index] == ind)
+
+def test_interval_cover_2d():	
+	import numpy as np
+	from tallem.cover import validate_cover
+	from tallem.cover import IntervalCover
+	
+	x = np.random.uniform(size=(100,2), low = 0.0, high = 1.0)
+	cover = IntervalCover(x, n_sets = (5, 5), overlap = (0.20, 0.20))
+	assert validate_cover(x.shape[0], cover)
+
+	## Test set distance method
+	index_set = list(cover.keys())
+	for index in index_set:
+		d = cover.set_distance(x, index)
+		ind = np.flatnonzero(np.bitwise_and(d >= 0.0, d <= 1.0))
+		assert np.all(cover[index] == ind)
+	
 # def test_interval_cover_2d():	
 # 	x = np.random.uniform(size=(100,2), low = 0.0, high = 1.0)
 # 	cover = IntervalCover(x, n_sets = 10, overlap = 0.20)

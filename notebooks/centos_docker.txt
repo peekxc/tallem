@@ -39,11 +39,13 @@ source $HOME/.poetry/env
 cd ~  && git clone https://github.com/peekxc/tallem && cd tallem
 
 ## Install package dependencies 
-poetry install -vvv --no-root
+poetry install --no-root
+
+## Install package itself 
+poetry install -vvv
 
 ## Use pip frontend to trigger a PEP 517-compliant build and subsequent installation of the package.
 pip install . 
-
 
 
 

@@ -52,7 +52,7 @@ def cmds(a: npt.ArrayLike, d: int = 2, coords: bool = True, method="fortran"):
 	else:
 		D_center = D.mean(axis=0)
 		D = -0.50 * (D  - D_center - D_center.reshape((n,1)) + D_center.mean())
-		evals, evecs = mds_cython.cython_dsyevr(D, n-d+1, n, 1e-8)
+		evals, evecs = mds_cython.cython_dsyevr(D, n-d+1, n, 1e-8, False)
 
 	# Compute the coordinates using positive-eigenvalued components only     
 	if coords:               
@@ -277,13 +277,12 @@ def geodesic_dist(a: npt.ArrayLike):
 	return(floyd_warshall(d))
 
 def rnn_graph(a: npt.ArrayLike, r: Optional[float] = None, p = 0.15):
-	# from sklearn.neighbors import radius_neighbors_graph
 	D = dist(a, as_matrix=True) if not(is_distance_matrix(a)) else np.asanyarray(a)
 	if r is None:
+		assert isinstance(p, float) and p >= 0.0
 		cr, er = connected_radius(D), enclosing_radius(D)
 		r = cr + p*(er-cr)
 	return(neighborhood_graph(np.asanyarray(a), radius=r))
-	# radius_neighbors_graph(x, radius = )
 
 def knn_graph(a: npt.ArrayLike, k: Optional[int] = 15):
 	D = dist(a, as_matrix=True) if not(is_distance_matrix(a)) else np.asanyarray(a)

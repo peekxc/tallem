@@ -15,6 +15,12 @@ from .distance import *
 from .utility import find_where, cartesian_product, inverse_choose, rank_comb2, unrank_comb2
 from .dimred import neighborhood_graph, neighborhood_list
 from .samplers import landmarks
+from .polytope import sdist_to_boundary
+
+## Optional tools 
+# from .utility import cartesian_product
+# from shapely.geometry import Polygon, Point
+# from scipy.optimize import golden
 
 ## Type tools 
 from typing import *
@@ -405,37 +411,27 @@ class IntervalCover(Cover):
 			eps = self.base_width/2.0
 			centroid = self.bbox[0:1,:] + (np.array(index) * self.base_width) + eps
 			width = self.set_width/2
-			p = centroid + cartesian_product(np.tile([-1,1], (self.dimension,1)))[[0,1,3,2],:] * width
-			# p = np.array([
-			# 	[centroid[0] - width[0], centroid[1] - width[1]],
-			# 	[centroid[0] - width[0], centroid[1] + width[1]],
-			# 	[centroid[0] + width[0], centroid[1] + width[1]],
-			# 	[centroid[0] + width[0], centroid[1] - width[1]]
-			# ])
-			D = np.zeros(a.shape[0])
-			for i, x in enumerate(a):
-				e, dc = dist_to_boundary(p, x)
-				D[i] = dc/e
-			return(D.flatten())
+			P = centroid + cartesian_product(np.tile([-1,1], (self.dimension,1)))[[0,1,3,2],:] * width
+			D = sdist_to_boundary(a, P).flatten()
+			max_eps = sdist_to_boundary(centroid, P).item()
+			return(D.flatten()/max_eps)
 		else: 
 			raise NotImplementedError("Interval cover only supports dimensions up to 2")
 
 	def construct(self, a: npt.ArrayLike, index: Optional[npt.ArrayLike] = None):
 		if index is not None:
 			centroid = self.bbox[0:1,:] + (np.array(index) * self.base_width) + self.base_width/2.0
-			# diff = self.set_distance(a, centroid)
-			# diff = np.abs(a - centroid)
-			diff = dist(centroid, a, metric=self.metric).flatten()
-			# return(np.ravel(np.where(np.bitwise_and.reduce(diff <= self.set_width/2.0, axis = 1))))
-			# return(np.nonzero(self.set_distance(a, index) <= 1.0)[0])
-			return(np.flatnonzero(diff <= self.set_width/2.0))
+			diff = np.abs(a - centroid)
+			return(np.ravel(np.where(np.bitwise_and.reduce(diff <= self.set_width/2.0, axis = 1))))
+			# # diff = self.set_distance(a, centroid)
+			# diff = dist(centroid, a, metric=self.metric).flatten()
+
+			# # return(np.nonzero(self.set_distance(a, index) <= 1.0)[0])
+			# return(np.flatnonzero(diff <= self.set_width/2.0))
 		else:
 			cover_sets = { index : self.construct(a, index) for index in self.keys() }
 			return(cover_sets)
 
-from .utility import cartesian_product
-from shapely.geometry import Polygon, Point
-from scipy.optimize import golden
 ## A partition of unity can be constructed on:
 ## 	1. a set of balls within a metric space of arbitrary dimension, all w/ some fixed radius
 ##  2. a set of balls within a metric space of arbitrary dimension, each w/ a ball-specific radius
@@ -463,25 +459,27 @@ def dist_to_balls(a: ArrayLike, B: ArrayLike, R: ArrayLike, metric: str = "eucli
 
 def dist_to_boundary(P: npt.ArrayLike, x: npt.ArrayLike):
 	''' Given ordered vertices constituting polygon boundary and a point 'x', determines distance from 'x' to polygon boundary on ray emenating from centroid '''
-	B = Polygon(P)
-	c = B.centroid
 	
-	## direction away from centroid 
-	v = np.array(x) - np.array(c.coords) 
-	v = v / np.linalg.norm(v)
+	return(sdist_to_boundary(x, P))
+	# B = Polygon(P)
+	# c = B.centroid
 	
-	## max possible distance away 
-	xx, yy = B.minimum_rotated_rectangle.exterior.coords.xy
-	max_diam = np.max(np.abs(np.array(xx) - np.array(yy)))
+	# ## direction away from centroid 
+	# v = np.array(x) - np.array(c.coords) 
+	# v = v / np.linalg.norm(v)
+	
+	# ## max possible distance away 
+	# xx, yy = B.minimum_rotated_rectangle.exterior.coords.xy
+	# max_diam = np.max(np.abs(np.array(xx) - np.array(yy)))
 
-	## minimize convex function w/ golden section search 
-	dB = lambda y: B.boundary.distance(Point(np.ravel(c + y*v)))
-	y_opt = golden(dB, brack=(0, max_diam))
+	# ## minimize convex function w/ golden section search 
+	# dB = lambda y: B.boundary.distance(Point(np.ravel(c + y*v)))
+	# y_opt = golden(dB, brack=(0, max_diam))
 
-	## return final distance
-	eps = np.linalg.norm(np.array(c.coords) - np.ravel(c + y_opt*v))
-	dc = np.linalg.norm(np.array(x) - np.array(c.coords))
-	return(eps, dc)
+	# ## return final distance
+	# eps = np.linalg.norm(np.array(c.coords) - np.ravel(c + y_opt*v))
+	# dc = np.linalg.norm(np.array(x) - np.array(c.coords))
+	# return(eps, dc)
 
 
 
