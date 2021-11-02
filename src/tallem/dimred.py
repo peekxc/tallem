@@ -17,15 +17,18 @@ from scipy.sparse import csc_matrix, csr_matrix
 from scipy.sparse.csgraph import minimum_spanning_tree, connected_components
 
 # %%  Dimensionality reduction definitions
-def pca(x: npt.ArrayLike, d: int = 2, center: bool = False) -> npt.ArrayLike:
+def pca(x: npt.ArrayLike, d: int = 2, center: bool = False, coords: bool = True) -> npt.ArrayLike:
 	''' PCA embedding '''
 	if is_pairwise_distances(x) or is_distance_matrix(x):
 		return(cmds(x, d))
 	assert is_point_cloud(x), "Input should be a point cloud, not a distance matrix."
 	if center: x -= x.mean(axis = 0)
-	ew, ev = np.linalg.eigh(np.cov(x, rowvar=False))
-	idx = np.argsort(ew)[::-1] # descending order to pick the largest components first 
-	return(np.dot(x, ev[:,idx[range(d)]]))
+	evals, evecs = np.linalg.eigh(np.cov(x, rowvar=False))
+	idx = np.argsort(evals)[::-1] # descending order to pick the largest components first 
+	if coords:
+		return(np.dot(x, evecs[:,idx[range(d)]]))
+	else: 
+		return(np.flip(evals), np.fliplr(evecs))
 
 ## Classical MDS 
 def cmds(a: npt.ArrayLike, d: int = 2, coords: bool = True, method="fortran"):
@@ -206,7 +209,7 @@ def neighborhood_list(centers: npt.ArrayLike, a: npt.ArrayLike, k: Optional[int]
 			neighbors = tree.query_ball_point(centers, r=radius, p=p)
 			r = np.array(np.hstack(neighbors), dtype=np.int32)
 			c = np.repeat(range(m), repeats=[len(idx) for idx in neighbors])
-			d = dist(a[r,:], b[c,:], pairwise=True, metric=metric)
+			d = dist(a[r,:], centers[c,:], pairwise=True, metric=metric)
 			# for i, nn_idx in enumerate(tree.query_ball_point(a, r=radius, p=p)):
 			# 	G[i,nn_idx] = dist(a[[i],:], b[nn_idx,:], metric=metric)
 		else:

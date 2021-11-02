@@ -1,5 +1,7 @@
 import os 
 import sys 
+import glob
+import shutil
 from pathlib import Path
 import mesonbuild
 
@@ -23,7 +25,6 @@ def build(setup_kwargs):
 	import numpy as np
 	print("\n==== NUMPY INCLUDES ====\n")
 	print(f"{np.get_include()}")
-
 
 	# Use cython -a *.pyx
 	import Cython.Compiler.Options
@@ -62,11 +63,15 @@ def build(setup_kwargs):
 	print("\n==== Printing compiler version ====\n")
 	os.system("c++ --version")
 	print("\n==== Starting meson build ====\n")
-	os.system("meson setup build")
-	os.system("meson compile -vC build")
+	os.system("python3 -m mesonbuild.mesonmain build")
+	# os.system("meson setup build")
+	# os.system("meson compile -vC build")
 	target_path = next(expandpath(f"{home_dir}/src/tallem/extensions/")).resolve()
 	print(f"\n==== Extension module install path: {target_path} ====\n")
-	os.system(f"sudo cp build/*{suffix} {target_path}")
+	for file in glob.glob(f"build/*{suffix}"):
+		shutil.copy(file, target_path)
+	# os.system(f"cp build/*{suffix} {target_path}")
+
 	print("\n==== Finished meson build ====\n")
 	
 	# os.system("meson install -C build")

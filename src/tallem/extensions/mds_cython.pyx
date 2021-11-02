@@ -1,5 +1,5 @@
 # cython: profile=True, linetrace=True, binding=True
-# distutils: define_macros=CYTHON_TRACE_NOGIL=1
+# distutils: define_macros=CYTHON_TRACE_NOGIL=1, language = c++
 
 import cython
 import numpy as np
@@ -13,9 +13,50 @@ from libc.math cimport sqrt
 
 # from scipy.spatial.distance import squareform, pdist # for validation
 
+from libcpp.vector cimport vector
+
+## TODO: try this in C++ from pybind! 
 @cython.boundscheck(False)
 @cython.wraparound(False)
-cpdef void _dyevr(double[::1, :] A, int IL, int IU, double ABS_TOL, double[:] W, double[:] WORK, int[:] IWORK, int[:] ISUPPZ, double[::1, :] Z):
+cdef public void cython_dsyevr_cpp(double* A, double* W, double* Z, int n, int IL, int IU, double tolerance):
+	''' 
+	Computes all eigenvalues/vectors in range 1 <= IL <= IU <= N of an (N x N) real symmetric matrix 'x' 
+
+	Calls underlying LAPACK procedure 'dyevr'
+
+	Returns a tuple (evals, evecs) where: 
+		evals := a (d,)-shaped array of requested eigenvalues, in ascending order, where d = IU-IL+1
+		evecs := a (n, d)-shaped array of the requested eigenvectors corresponding in order to 'evals'
+	'''
+	cdef int N = n
+	cdef int M = IU-IL+1
+	cdef char* JOBVS = 'V'
+	cdef char* RNG = 'I'
+	cdef char* UPLO = 'U'
+	cdef int LDA = N
+	cdef int LDZ = N
+	cdef double VL = 0.0 
+	cdef double VU = 0.0
+	cdef int INFO = 0
+	cdef int N_EVALS_FOUND = 0
+	cdef int LIWORK = 10*n
+	cdef int LWORK = 26*n
+	cdef vector[int] IWORK
+	cdef vector[double] WORK
+	cdef vector[int] ISUPPZ
+	IWORK.resize(LIWORK)
+	WORK.resize(LWORK)
+	ISUPPZ.resize(2*M)
+	dsyevr(
+		JOBVS,RNG,UPLO,&N,A,
+		&LDA,&VL,&VU,&IL,&IU,&tolerance,
+		&N_EVALS_FOUND,W,Z,
+		&LDZ, ISUPPZ.data(),WORK.data(),&LWORK,IWORK.data(),&LIWORK,&INFO
+	)
+
+@cython.boundscheck(False)
+@cython.wraparound(False)
+cdef public void _dyevr(double[::1, :] A, int IL, int IU, double ABS_TOL, double[:] W, double[:] WORK, int[:] IWORK, int[:] ISUPPZ, double[::1, :] Z):
 	cdef int N = A.shape[0]
 	cdef int M = IU-IL+1
 	cdef char* JOBVS = 'V'
@@ -59,7 +100,7 @@ cpdef cython_dsyevr_inplace(double[::1,:] D, IL, IU, tolerance, int n, double[:]
 	cdef int[:] IWORK = np.empty((10*n,), np.int32)
 	_dyevr(D, IL, IU, tolerance, W, WORK, IWORK, ISUPPZ, Z)
 
-def cython_dsyevr(x: ArrayLike, IL: int, IU: int, tolerance: float = -1.0, copy: bool = False):
+cpdef public cython_dsyevr(x: ArrayLike, IL: int, IU: int, tolerance: float, copy: bool):
 	''' 
 	Computes all eigenvalues/vectors in range 1 <= IL <= IU <= N of an (N x N) real symmetric matrix 'x' 
 
@@ -74,7 +115,7 @@ def cython_dsyevr(x: ArrayLike, IL: int, IU: int, tolerance: float = -1.0, copy:
 	if copy:
 		x = np.asfortranarray(x.copy())
 	else: 
-		if not(x.flags["F_CONTIGUOUS"])
+		if not(x.flags["F_CONTIGUOUS"]):
 			x = np.asfortranarray(x)
 	n, m = x.shape[0], abs(IU-IL)+1
 	W = np.empty((n,), np.float64)

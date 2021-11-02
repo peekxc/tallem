@@ -88,16 +88,22 @@ def scatter3D(P, angles = None, layout = None, figsize=(8,8), **kwargs):
 		import numbers
 		if angles is not None:
 			if isinstance(angles, numbers.Integral): 
-				angles = np.linspace(0, 2*np.pi, angles, endpoint=False)
+				angles = np.linspace(0, 360, angles, endpoint=False)
 			assert len(angles) == np.prod(layout)
-			fig, ax = plt.subplots(*layout, figsize=figsize)
+			if "fig" in kwargs.keys() and "ax" in kwargs.keys():
+				fig, ax = kwargs["fig"], kwargs["ax"]
+			else: 
+				fig, ax = plt.subplots(*layout, figsize=figsize)
 			for i, theta in enumerate(angles):
 				ax = fig.add_subplot(layout[0], layout[1], i+1, projection='3d')
 				ax.scatter3D(*P.T, **kwargs) 
 				ax.view_init(30, theta)
 		else: 
-			fig = plt.figure(figsize=figsize)
-			ax = fig.add_subplot(projection='3d')
+			if "fig" in kwargs.keys() and "ax" in kwargs.keys():
+				fig, ax = kwargs["fig"], kwargs["ax"]
+			else: 
+				fig = plt.figure(figsize=figsize)
+				ax = fig.add_subplot(projection='3d')
 			ax.scatter3D(*P.T, **kwargs)
 	elif isinstance(P, Iterable):
 		import numbers
@@ -107,11 +113,15 @@ def scatter3D(P, angles = None, layout = None, figsize=(8,8), **kwargs):
 		elif isinstance(angles, numbers.Integral):
 			angles = np.linspace(0, 2*np.pi, len(P), endpoint=False)
 		assert len(angles) == np.prod(layout)
-		fig, ax = plt.subplots(*layout, figsize=figsize)
+		if "fig" in kwargs.keys() and "ax" in kwargs.keys():
+			fig, ax = kwargs["fig"], kwargs["ax"]
+		else:
+			fig, ax = plt.subplots(*layout, figsize=figsize)
 		for i, p in enumerate(P):
 			ax = fig.add_subplot(layout[0], layout[1], i+1, projection='3d')
 			ax.scatter3D(*p.T, **kwargs) 
 			ax.view_init(30, angles[i])
+	plt.setp(plt.gcf().get_axes(), xticks=[], yticks=[]);
 	return(fig, ax)
 
 def rotating_disk(n_pixels: int, r: float, sigma: float = 1.0):

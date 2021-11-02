@@ -1,0 +1,51 @@
+yum update
+yum install gcc openssl-devel bzip2-devel libffi-devel -y
+curl -O https://www.python.org/ftp/python/3.8.1/Python-3.8.1.tgz
+tar -xzf Python-3.8.1.tgz
+cd Python-3.8.1/
+./configure --enable-optimizations
+make altinstall
+alternatives --install /usr/bin/python python /usr/bin/python2 50
+alternatives --install /usr/bin/python python /usr/local/bin/python3.8 60
+
+
+
+yum update
+yum install gcc openssl-devel bzip2-devel libffi-devel hdf5 -y
+
+## Get Python3 and virtual env from yum 
+yum install python3 
+yum install python3-pip -y
+cd ~ 
+python3 -m venv .
+source bin/activate
+
+## Basic dependencies 
+yum install gcc openssl-devel bzip2-devel libffi-devel hdf5 -y
+
+## Install BLAS/LAPACK
+yum install blas blas-devel lapack lapack-devel
+
+## Activate virtualenv for 3.8 (python3.8 already installed)
+cd ~ 
+python3.8 -m venv .
+source bin/activate
+
+## Install Poetry 
+curl -sSL https://raw.githubusercontent.com/python-poetry/poetry/master/get-poetry.py | python -
+source $HOME/.poetry/env
+
+## Clone TALLEM 
+cd ~ 
+git clone https://github.com/peekxc/tallem
+cd tallem
+
+## Install package dependencies 
+poetry install -vvv --no-root
+
+## Use pip frontend to trigger a PEP 517-compliant build and subsequent installation of the package.
+pip install . 
+
+
+
+
