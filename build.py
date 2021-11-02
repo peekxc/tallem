@@ -64,8 +64,12 @@ def build(setup_kwargs):
 	print("\n==== Printing compiler version ====\n")
 	os.system("c++ --version")
 	
+	## Check if build exists, and if it does remove it
+	if os.path.isdir(f"{home_dir}/build"):
+		shutil.rmtree(f"{home_dir}/build")
+
 	print("\n==== Starting meson build ====\n")
-	os.system("python3 -m mesonbuild.mesonmain build --reconfigure")
+	os.system("python3 -m mesonbuild.mesonmain build")
 	os.system("python3 -m mesonbuild.mesonmain compile -vC build")
 	os.system("python3 -m mesonbuild.mesonmain install -C build")
 
@@ -81,5 +85,5 @@ def build(setup_kwargs):
 	if num_so > 0:
 		return(0)
 	else: 
-		print("Did not detect native python extensions; Exiting build")
+		print("ERROR: Did not detect native python extensions; Exiting build")
 		sys.exit(-1)

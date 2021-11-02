@@ -32,8 +32,7 @@ yum install blas blas-devel lapack lapack-devel
 cd ~  && python3.8 -m venv . && source bin/activate
 
 ## Install Poetry 
-curl -sSL https://raw.githubusercontent.com/python-poetry/poetry/master/get-poetry.py | python -
-source $HOME/.poetry/env
+curl -sSL https://raw.githubusercontent.com/python-poetry/poetry/master/get-poetry.py | python - && source $HOME/.poetry/env
 
 ## Clone TALLEM 
 cd ~  && git clone https://github.com/peekxc/tallem && cd tallem

@@ -3,7 +3,7 @@ name: Build distribution
 on: [pull_request, push, workflow_dispatch]
 
 jobs:
-  Poetry-Build: 
+  manual_build: 
     runs-on: "ubuntu-latest"
     steps:
       - name: Checkout source
@@ -134,6 +134,13 @@ jobs:
       
       # on mac: Group dependencies w/ delocate!
       # sudo delocate-listdeps /Users/mpiekenbrock/tallem/dist/tallem-0.1.4-cp39-cp39-macosx_10_15_x86_64.whl && delocate-wheel --require-archs x86_64 -w /Users/mpiekenbrock/tallem/repaired/ /Users/mpiekenbrock/tallem/dist/tallem-0.1.4-cp39-cp39-macosx_10_15_x86_64.whl 
+  build_poetry_iso:
+    runs-on: "ubuntu-latest"
+    steps:  
+      - name: Install Poetry Action
+        uses: snok/install-poetry@v1.2.1
+      - name: Poetry install 
+        run: poetry install && poetry build
 
   build_ciwheels: 
     runs-on: "ubuntu-latest"  
