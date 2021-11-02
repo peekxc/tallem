@@ -23,8 +23,9 @@ from .polytope import sdist_to_boundary
 # from scipy.optimize import golden
 
 ## Type tools 
-from typing import *
+## NOTE: put collections first before typing!
 from collections.abc import * 
+from typing import *
 from itertools import combinations, product
 
 ## --- Cover protocol type (its structural subtype) --- 
