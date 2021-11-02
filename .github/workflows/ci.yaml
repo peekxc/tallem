@@ -148,7 +148,7 @@ jobs:
       CIBW_TEST_REQUIRES: pytest
       CIBW_TEST_COMMAND: "pytest {project}/tests"
       CIBW_BUILD_FRONTEND: "build"
-      CIBW_BEFORE_ALL_LINUX: "sudo apt-get install python3 python3-pip python3-setuptools python3-wheel ninja-build"
+      CIBW_BEFORE_ALL_LINUX: "apt-get install python3 python3-pip python3-setuptools python3-wheel ninja-build"
     steps:
     - uses: actions/checkout@v2
 

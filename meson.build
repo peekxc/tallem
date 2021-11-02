@@ -120,9 +120,7 @@ py_mod.extension_module('fast_svd',
 	dependencies : [py_dep, arma], 
 	include_directories : [numpy_include, carma_includes, pybind11_include],
 	install : true, 
-	install_dir : project_dir / 'src' / 'tallem' / 'extensions',
-	override_options :'-stdlib=libc++',
-	cpp_args : '-stdlib=libc++'
+	install_dir : project_dir / 'src' / 'tallem' / 'extensions'
 )
 
 py_mod.extension_module('landmark', 
@@ -130,9 +128,7 @@ py_mod.extension_module('landmark',
 	dependencies : [py_dep, arma], 
 	include_directories : [numpy_include, carma_includes, pybind11_include], 
 	install : true, 
-	install_dir : project_dir / 'src' / 'tallem' / 'extensions', 
-	cpp_args : '-stdlib=libc++',
-	override_options :'-stdlib=libc++'
+	install_dir : project_dir / 'src' / 'tallem' / 'extensions'
 )
 
 cython = find_program('cython')
