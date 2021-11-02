@@ -20,6 +20,8 @@ cd ~
 python3 -m venv .
 source bin/activate
 
+
+
 ## Basic dependencies 
 yum install gcc openssl-devel bzip2-devel libffi-devel hdf5 -y
 
@@ -27,18 +29,14 @@ yum install gcc openssl-devel bzip2-devel libffi-devel hdf5 -y
 yum install blas blas-devel lapack lapack-devel
 
 ## Activate virtualenv for 3.8 (python3.8 already installed)
-cd ~ 
-python3.8 -m venv .
-source bin/activate
+cd ~  && python3.8 -m venv . && source bin/activate
 
 ## Install Poetry 
 curl -sSL https://raw.githubusercontent.com/python-poetry/poetry/master/get-poetry.py | python -
 source $HOME/.poetry/env
 
 ## Clone TALLEM 
-cd ~ 
-git clone https://github.com/peekxc/tallem
-cd tallem
+cd ~  && git clone https://github.com/peekxc/tallem && cd tallem
 
 ## Install package dependencies 
 poetry install -vvv --no-root

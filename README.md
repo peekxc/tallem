@@ -8,7 +8,20 @@ TODO: describe TALLEM more
 
 ## Installing + Dependencies 
 
-`tallem` requires _Python >= 3.8.0_. As a a [PEP 517](https://www.python.org/dev/peps/pep-0517/)-compliant package, the rest of the build requirements are listed in [pyproject.toml](https://github.com/peekxc/tallem/blob/main/pyproject.toml). These are automatically downloaded and installed via `pip` using the installation procedure given below.
+`tallem`'s run-time dependencies are fairly minimal. They include:  
+
+1. _Python >= 3.8.0_ 
+2. *NumPy (>= 1.20)* and *SciPy* *(>=1.6)*
+
+The details of the rest of package requirements are listed in [pyproject.toml](https://github.com/peekxc/tallem/blob/main/pyproject.toml). These are automatically downloaded and installed via `pip`: 
+
+
+
+Some functions which extend TALLEM's core functionality require additional dependencies to be called---they include *autograd*, *pymanopt*, *scikit-learn*, and *bokeh*. These  packages are completely optional, i.e. they are not needed to get the resulting embedding. Nonetheless, if you would like these package as well, use: 
+
+
+
+
 
 ###Installing from cibuildwheels
 

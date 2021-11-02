@@ -58,23 +58,23 @@ def build(setup_kwargs):
 	# 	),
 	# 	'cmdclass': {'build_ext': build_ext}
 	# })
+	# os.system("meson setup build")
 
 	## Recompile
 	print("\n==== Printing compiler version ====\n")
 	os.system("c++ --version")
+	
 	print("\n==== Starting meson build ====\n")
-	os.system("python3 -m mesonbuild.mesonmain build")
-	# os.system("meson setup build")
-	# os.system("meson compile -vC build")
+	os.system("python3 -m mesonbuild.mesonmain build --reconfigure")
+	os.system("python3 -m mesonbuild.mesonmain compile -vC build")
+	os.system("python3 -m mesonbuild.mesonmain install -C build")
+
 	target_path = next(expandpath(f"{home_dir}/src/tallem/extensions/")).resolve()
 	print(f"\n==== Extension module install path: {target_path} ====\n")
 	for file in glob.glob(f"build/*{suffix}"):
 		shutil.copy(file, target_path)
-	# os.system(f"cp build/*{suffix} {target_path}")
 
 	print("\n==== Finished meson build ====\n")
-	
-	# os.system("meson install -C build")
 
 	## Check if they now exist
 	num_so = len([p.name for p in expandpath(f"{home_dir}/src/tallem/extensions/*{suffix}")])
