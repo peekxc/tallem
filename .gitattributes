@@ -1,5 +1,9 @@
-.html .lprof .ipynb .md linguist-detectable=false
-
 *.md linguist-documentation
 *.ipynb linguist-documentation
 ignore/ linguist-vendored=true
+notebooks/ linguist-vendored=true
+
+*.c linguist-detectable=false  
+*.html linguist-detectable=false  
+*.meson linguist-detectable=false  
+*.cmake linguist-detectable=false  
