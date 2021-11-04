@@ -132,8 +132,8 @@ jobs:
 
       - name: Poetry install 
         run: poetry install -vvv
-
-     - name: Build package with pip 
+        
+      - name: Build package with pip 
         run: pip install .
         
       - name: Run tests with pytest
