@@ -21,6 +21,9 @@ python3 -m venv .
 source bin/activate
 
 
+## NOTE: pip install alone with not work! MUST build the extension modules with poetry first like below before invoking 
+## PEP 517 compliant build with pip.  
+
 
 ## Basic dependencies 
 yum install gcc openssl-devel bzip2-devel libffi-devel hdf5 -y
@@ -40,10 +43,10 @@ cd ~  && git clone https://github.com/peekxc/tallem && cd tallem
 ## Install package dependencies 
 poetry install --no-root
 
-## Install package itself 
+## Build and install package itself -- this includes building the extension modules
 poetry install -vvv
 
-## Use pip frontend to trigger a PEP 517-compliant build and subsequent installation of the package.
+## Use pip frontend to trigger a PEP 517-compliant build and subsequent installation of the wheel.
 pip install . 
 
 

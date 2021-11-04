@@ -27,6 +27,7 @@ def build(setup_kwargs):
 	existing_modules = list(expandpath(f"{home_dir}/src/tallem/extensions/*{suffix}"))
 	if len(existing_modules) > 0:
 		print("Removing existing modules for a clean build")
+		
 	## Remove existing extension modules
 	for m in existing_modules:
 		os.remove(m)

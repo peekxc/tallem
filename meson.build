@@ -4,7 +4,7 @@ project('tallem', 'cpp', 'fortran', 'cython',
   default_options : [
 		'cpp_std=c++17', 'warning_level=3',
 		# 'buildtype=debug', 'optimization=0', 'debug=true', 
-		'buildtype=release', 'optimization=2', 'debug=false'
+		'buildtype=release', 'optimization=2', 'debug=false',
 		'b_lto_mode=default', 'b_pie=true', 'b_sanitize=none',
 		'install_umask=002', 'strip=false'
 	]
