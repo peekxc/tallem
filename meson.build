@@ -54,15 +54,16 @@ py_dep = py_mod.dependency(version:'>=3.8.0', components:['Interpreter', 'Develo
 
 ## Detect numpy
 numpy = run_command(py_mod,'-c','import numpy;print(numpy.get_include())')
-if numpy.returncode()==0
-	message ('Numpy found: '+ numpy.stdout())
-	numpy_include = include_directories(numpy.stdout().strip())
-else
-	numpy_include_dir = py_mod.get_path('purelib') / 'numpy' / 'core' / 'include'
-	message('Using NumPy includes from: ' + numpy_include_dir)
-	numpy_include = include_directories(numpy_include_dir)
-endif
-
+numpy_include = include_directories(numpy.stdout().strip())
+# if numpy.returncode()==0
+# 	message ('Numpy found: '+ numpy.stdout())
+# 	numpy_include = include_directories(numpy.stdout().strip())
+# else
+# 	numpy_include_dir = py_mod.get_path('purelib') / 'numpy' / 'core' / 'include'
+# 	message('Using NumPy includes from: ' + numpy_include_dir)
+# 	numpy_include = include_directories(numpy_include_dir)
+# endif
+message(numpy.stdout().strip())
 
 # np = py_mod.get_path('numpy')
 # print(np)
