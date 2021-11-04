@@ -28,7 +28,7 @@ def pca(x: npt.ArrayLike, d: int = 2, center: bool = False, coords: bool = True)
 	if coords:
 		return(np.dot(x, evecs[:,idx[range(d)]]))
 	else: 
-		return(np.flip(evals), np.fliplr(evecs))
+		return(np.flip(evals)[range(d)], np.fliplr(evecs)[:,range(d)])
 
 ## Classical MDS 
 def cmds(a: npt.ArrayLike, d: int = 2, coords: bool = True, method="fortran"):

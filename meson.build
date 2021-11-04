@@ -3,7 +3,8 @@ project('tallem', 'cpp', 'fortran', 'cython',
 	version: '0.1.1',
   default_options : [
 		'cpp_std=c++17', 'warning_level=3',
-		'buildtype=release', 'optimization=0', 'debug=false', 
+		# 'buildtype=debug', 'optimization=0', 'debug=true', 
+		'buildtype=release', 'optimization=2', 'debug=false'
 		'b_lto_mode=default', 'b_pie=true', 'b_sanitize=none',
 		'install_umask=002', 'strip=false'
 	]
@@ -72,8 +73,6 @@ endif
 # py_mod.get_path('numpy')
 # message('Detected numpy include from: ' + pybind_inc)
 
-
-
 ## Find armadillo, and if not found install it via subproject wrap
 arma = dependency('armadillo', version: '>=10.5.2', required: false)
 if not(arma.found())
@@ -135,9 +134,12 @@ cython = find_program('cython')
 mds_cython_cpp = custom_target('mds_cython',
   output : 'mds_cython.cpp',
   input : 'src' / 'tallem' / 'extensions' / 'mds_cython.pyx',
-  command : 
-		[cython, '@INPUT@', '--cplus', '-3', '--line-directives', '-X', 'profile=True', '-X', 'linetrace=True', '-X', 'binding=True', # for profiling only
-		'-o', '@OUTPUT@'],
+  command : [	
+		cython, '@INPUT@', 
+		'--cplus', '-3', '--line-directives', '-X', 'profile=True', '-X', 'linetrace=True', '-X', 'binding=True', '--annotate', # for debugging/profiling only
+		# '--cplus', '-3', '-Wextra', # for release mode
+		'-o', '@OUTPUT@'
+	]
 )
 
 py_mod.extension_module('mds_cython',

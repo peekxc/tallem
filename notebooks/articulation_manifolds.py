@@ -387,6 +387,60 @@ tangent_error = np.array(subset_weights)
 
 ## TODO: try weighted Greedy solution
 # http://pages.cs.wisc.edu/~shuchi/courses/880-S07/scribe-notes/lecture03.pdf
+from tallem.cover import LandmarkCover
+from tallem.dimred import rnn_graph
+import numpy as np
+x = np.random.uniform(size=(100,2))
+
+G = rnn_graph(x, p=0.05)
+
+def greedy_weighted_set_cover(n, S, W):
+	''' 
+	Computes a set of indices I \in [m] whose subsets S[I] = { S_1, S_2, ..., S_k }
+	yield an approximation to the minimal weighted set cover, i.e.
+
+		S* = argmin_{I \subseteq [m]} \sum_{i \in I} W[i]
+				 such that S_1 \cup ... \cup S_k covers [n]
+	
+	Parameters: 
+		n: int := The number of points the subsets must cover 
+		S: (n x J) sparsematrix := A sparse matrix whose non-zero elements indicate the subsets (one subset per column-wise)
+		W: ndarray(J,1) := weights for each subset 
+
+	Returns: 
+		C: ndarray(k,1) := set of indices of which subsets form a minimal cover 
+	'''
+	assert issparse(S)
+	assert S.shape[0] == n and S.shape[1] == len(W)
+	J = S.shape[1]
+
+	def covered(I):
+		membership = np.zeros(n, dtype=bool)
+		for j in I: membership[np.flatnonzero(S[:,j].A)] = True
+		return(membership)
+
+	C = []
+	membership = covered(C)
+	while not(np.all(membership)):
+		not_covered = np.flatnonzero(np.logical_not(membership))
+		cost_effectiveness = []
+		for j in range(J):
+			S_j = np.flatnonzero(G[:,j].A)
+			size_uncovered = len(np.intersect1d(S_j, not_covered))
+			cost_effectiveness.append(size_uncovered/W[j])
+		C.append(np.argmax(cost_effectiveness))
+		membership = covered(C)
+	
+	## Return the greedy cover
+	return(np.array(C))
+
+## Estimate tangent spacees 
+
+
+
+
+
+
 
 
 ## TODO: try out randomized LP solution 
@@ -433,15 +487,301 @@ tangent_error = np.array(subset_weights)
 
 
 def proj_subspace(X: ArrayLike, U: ArrayLike):
-	''' Projects a vector 'v' orthogonally onto the subspace spanned by the columns of U '''
+	''' Projects a set of points 'X' (row-wise) orthogonally onto the subspace spanned by the columns of U '''
 	assert X.ndim == 2 and X.shape[0] == U.shape[0]
 	return(U @ (U.T @ X))
 
+# https://arxiv.org/pdf/1208.1065.pdf
+# "we are interested in the mapping that orthogonally projects the manifold points in a neighborhood"
 
 
-# %% 
-import mayavi
-from mayavi.mlab import points3d
+from tallem.color import linear_gradient, bin_color
+col_pal = linear_gradient(["blue", "yellow", "orange", "red"], 100)['hex']
+pt_col = bin_color(w, col_pal)
+scatter3D(x, c=pt_col)
 
 
-points3d(X)
+
+from numpy.typing import ArrayLike
+from typing import Iterable
+def tangent_spaces(X: ArrayLike, d: int, S: Iterable, S_len: int = "infer"):
+	'''
+		Given a set of points X in R^D representing samples in the vicinity of a d-dimensional embedded submanifold in D-dimensional 
+		Euclidean space and an set of subsets S of X, this function constructs a set basis vectors spanning the optimal d-dimensional 
+		linear subspaces approximating the tangent spaces for each subset s_i \in S. The vectors spanning the tangent spaces are given 
+		as the first d eigenvectors of the covariance matrix of each subset of X, which are computed via PCA. See [1] for convergence 
+		analysis and discussion. 
+
+		Parameters: 
+			X : ndarray(n,D) := set of points in R^D
+			d : int := embedding dimension
+			S : Iterable := iterable of subsets of 'X'. Each value must be a subset of { 1, 2, ..., n }
+
+		Returns: 
+			vectors : ndarray(|S|, D, d) := tangent space estimates
+			error 	: ndarray(|S|) := sum of reconstruction errors for each tangent space estimate. 
+		References:
+			1. Tyagi, Hemant, Elıf Vural, and Pascal Frossard. "Tangent space estimation for smooth embeddings of Riemannian manifolds®." Information and Inference: A Journal of the IMA 2.1 (2013): 69-114.
+	'''
+	assert isinstance(X, np.ndarray) and X.ndim == 2
+	normalize = lambda x: (x / np.linalg.norm(x))
+	J = len(list(S)) if S_len == "infer" else S_len
+	D = X.shape[1]
+	vectors = np.empty(shape=(J, D, d))
+	error = np.empty(J)
+	for j, N in enumerate(S):
+		## Get mapping from ambient dimension to embedded dimension 
+		N_neig = X[N,:]
+		s, U = pca(N_neig, d=d, center = True, coords=False)
+		# N_neig = np.vstack([v - X[j,:] for v in N_neig])
+		N_neig = N_neig - N_neig.mean(axis = 0)
+
+		## Orthogonally project onto d-dimensional subspace 
+		N_proj = np.vstack([(U @ (U.T @ np.r_['c', v])).T for v in N_neig])
+		reconstruct_error = np.mean([np.sqrt(np.sum(np.power((x - x_proj), 2))) for x, x_proj in zip(N_neig, N_proj)])
+
+		## Store vectors
+		vectors[j,:,:] = U
+		error[j] = reconstruct_error # s[0] #np.sum(np.abs(s))# reconstruct_error
+	return(vectors, error)
+
+
+#%% 'Auto'-cover using the best locally linear subsets
+import numpy as np
+import matplotlib.pyplot as plt
+from sklearn.datasets import make_s_curve
+from tallem.dimred import rnn_graph, pca
+from tallem.datasets import scatter3D
+from tallem.samplers import landmarks
+
+x, p = make_s_curve(2525, noise=0.00)
+L_ind, L_rad = landmarks(x, k = 1000)
+x = x[L_ind,:]
+G = rnn_graph(x, p=0.20)
+
+## Estimate tangent space
+subsets = (np.flatnonzero(G[:,j].A) for j in range(G.shape[1]))
+# V, w = tangent_spaces(x, 2, subsets, G.shape[1])
+
+W = []
+for i in range(G.shape[0]):
+	ind = np.flatnonzero(G[:,i].A)
+	Z, w = estimate_tangent(x[i,:], x[ind,:], 2)
+	d = np.array([np.linalg.norm(d) for d in (x[i,:] - x[ind,:])])
+	w = w/(d**2)
+	W.append(np.sum(w))
+W = np.array(W)
+
+## Color by tangent space error
+from tallem.color import linear_gradient, bin_color
+col_pal = linear_gradient(["blue", "green", "yellow", "orange", "red"], 100)['hex']
+pt_col = bin_color(W, col_pal)
+fig, ax = scatter3D(x, c=pt_col)
+
+## Pick a point. Then draw its tangent space projection 
+for i in range(6):
+	ind = np.flatnonzero(G[:,i].A)
+	Z, w = estimate_tangent(x[i,:], x[ind,:], 2)
+	fig, ax = scatter3D(x[i,:], c="black", s=50, fig=fig, ax=ax)
+	fig, ax = scatter3D(Z, c="purple", fig=fig, ax=ax, s=45)
+	for z, xi in zip(Z, x[ind,:]):
+		line = np.vstack((z, xi)).T
+		ax.plot3D(np.ravel(line[0]), np.ravel(line[1]), np.ravel(line[2]), 'gray')
+	ax.text(x[i,0], x[i,1], x[i,2], size=20, zorder=1, s=f"Point: {i}")
+
+np.sum(np.array([np.linalg.norm(d) for d in (Z - x[ind,:])])**2)
+
+## 
+T_ind = greedy_weighted_set_cover(x.shape[0], G, w)
+
+%matplotlib
+fig, ax = scatter3D(x, c=p)
+scatter3D(x[T_ind,:], c="red", s=150, fig=fig, ax=ax)
+
+
+
+# np.sum([1 for i, x in enumerate(subsets)])
+
+fig, ax = scatter3D(x, c=p)
+ax.add_collection3d(Poly3DCollection(
+	verts, facecolors='cyan', linewidths=1, edgecolors='r', alpha=.25)
+
+
+# %% Geomstats 
+from geomstats.geometry.hypersphere import Hypersphere
+import matplotlib.pyplot as plt
+import geomstats.backend as gs
+import geomstats.visualization as visualization
+from geomstats.learning.frechet_mean import FrechetMean
+from geomstats.learning.pca import TangentPCA
+
+sphere = Hypersphere(dim=2)
+data = sphere.random_von_mises_fisher(kappa=15, n_samples=140)
+
+mean = FrechetMean(metric=sphere.metric)
+mean.fit(data)
+
+fig = plt.figure(figsize=(8, 8))
+ax = visualization.plot(data, space='S2', color='black', alpha=0.7, label='Data points')
+ax = visualization.plot(mean.estimate_, space='S2', color='red', ax=ax, s=200, label='Fréchet mean')
+ax.set_box_aspect([1, 1, 1])
+ax.legend()
+
+tpca = TangentPCA(metric=sphere.metric, n_components=2)
+tpca = tpca.fit(data, base_point=mean.estimate_)
+tangent_projected_data = tpca.transform(data)
+tangent_3d = np.hstack((tangent_projected_data, np.repeat(0.0, data.shape[0])[:,None]))
+
+from tallem.alignment import opa
+pro = opa(data, tangent_3d, transform=True)
+
+R, ss = orthogonal_procrustes(data, tangent_3d)
+
+Q = (data @ R) + pro['translation']
+
+
+
+
+R, ss = orthogonal_procrustes(tangent_3d, data)
+Y = (tangent_3d - pro['translation']) @ R
+
+## get distances
+w = np.array([np.sqrt(np.sum(np.power(a-b, 2))) for a,b in zip(data, Y)])
+col_pal = linear_gradient(["green", "yellow", "orange", "red"], 100)['hex']
+
+
+
+fig = plt.figure(figsize=(8, 8))
+ax = visualization.plot(data, space='S2', color='black', alpha=0.7, label='Data points')
+# ax = visualization.plot(mean.estimate_, space='S2', color='red', ax=ax, s=200, label='Fréchet mean')
+# ax.scatter3D(*tangent_3d.T, c = "green")
+# ax.scatter3D(*pro['coordinates'].T, c="purple")
+# ax.scatter3D(*data.T, c="orange")
+# ax.scatter3D(*Q.T, c="orange")
+ax.scatter3D(*Y.T, c=bin_color(w, col_pal), s=30)
+ax.set_box_aspect([1, 1, 1])
+ax.legend()
+
+
+# %% Geomstats tangent at basepoint 
+import numpy as np
+from scipy.linalg import orthogonal_procrustes
+sphere = Hypersphere(dim=2)
+data = sphere.random_von_mises_fisher(kappa=15, n_samples=140)
+idx = np.argmin(np.array([np.linalg.norm(z - FrechetMean(metric=sphere.metric).fit(data).estimate_) for z in data]))
+%matplotlib
+
+from geomstats.geometry.euclidean import EuclideanMetric as em
+e_metric = em(dim = 3, default_point_type="vector")
+
+# tpca = TangentPCA(metric=sphere.metric, n_components=2)
+tpca = TangentPCA(metric=e_metric, n_components=2)
+tpca = tpca.fit(data, base_point=data[idx,:])
+tangent_projected_data = tpca.transform(data)
+tangent_3d = np.hstack((tangent_projected_data, np.repeat(0.0, data.shape[0])[:,None]))
+
+R, ss = orthogonal_procrustes(tangent_3d, data)
+Y = (tangent_3d @ R) + data[idx,:]
+# w = np.array([np.linalg.norm(a - b) for a,b in zip(Y, data)])
+
+
+def estimate_tangent(basepoint, points, d: int = 2, coords: bool = True):
+	''' 
+		Projects points onto the d-dimensional tangent plane centered at the given basepoint 
+	'''
+	from tallem.dimred import pca
+	s, U = pca(points, d=d, center=False, coords=False)
+	Z = np.vstack([(U @ (U.T @ np.r_['c', v])).T for v in (points-basepoint)])+basepoint
+	w = np.array([np.linalg.norm(p-q) for p,q in zip(points, Z)])
+	return(Z, w)
+
+
+s, U = pca(data, d=2, center = False, coords=False)
+Z = np.vstack([(U @ (U.T @ np.r_['c', v])).T for v in (data-data[idx,:])])
+Z = Z + data[idx,:]
+
+Z @ U
+
+# R, ss = orthogonal_procrustes(Z, data)
+# Z = (Z @ R)
+
+fig = plt.figure(figsize=(8, 8))
+ax = visualization.plot(data, space='S2', color='black', alpha=0.4, s=10, label='Data points')
+ax.scatter3D(*data[idx,:], c="blue", s=50, alpha=0.8)
+# ax.scatter3D(*Y.T, c=bin_color(w, col_pal), alpha=0.6, s=15)
+# ax.scatter3D(*tangent_3d.T, c=bin_color(w, col_pal), alpha=0.6, s=15)
+
+# for y, x in zip(Y, data):
+# 	line = np.vstack((y, x)).T
+# 	ax.plot3D(np.ravel(line[0]), np.ravel(line[1]), np.ravel(line[2]), 'gray')
+# ax.scatter3D(*Y.T, c="green", alpha=0.6, s=15)
+
+for z, x in zip(Z, data):
+	line = np.vstack((z, x)).T
+	ax.plot3D(np.ravel(line[0]), np.ravel(line[1]), np.ravel(line[2]), 'gray')
+ax.scatter3D(*Z.T, c="red", s=15, alpha=0.6)
+
+X = Z - data[idx,:]
+XX = data - data[idx,:]
+ax.scatter3D(*X.T, c="orange", s=15, alpha=0.8)
+ax.scatter3D(*XX.T, c="green", s=15, alpha=0.8)
+for z, x in zip(X, XX):
+	line = np.vstack((z, x)).T
+	ax.plot3D(np.ravel(line[0]), np.ravel(line[1]), np.ravel(line[2]), 'gray')
+
+
+for z, x in zip(data, X):
+	line = np.vstack((z, x)).T
+	ax.plot3D(np.ravel(line[0]), np.ravel(line[1]), np.ravel(line[2]), 'blue', alpha = 0.20)
+
+# A = np.array([np.ravel((U_proj@y[:,None]).T) for y in data]) + data[idx,:]
+# [(U_proj @ a[:,None]).T for a in A]
+# ax.scatter3D(*A.T, c="purple", alpha=0.6, s=15)
+
+ax.set_box_aspect([1, 1, 1])
+ax.legend()
+
+
+y1 = np.ravel(Y[0,:][None,:] @ U_proj)
+y2 = np.ravel(y1[None,:] @ U_proj)
+y3 = np.ravel(y2[None,:] @ U_proj)
+
+z = Y[0,:] - y1
+z[None,:] @ U
+
+Z = np.array([np.ravel(y[None,:] @ U_proj) for y in data]) + data[idx,:]
+
+from tallem.distance import dist
+
+U_proj = U @ U.T
+
+# R, ss = orthogonal_procrustes(Z, data)
+# Z = (Z @ R)
+
+# %% Kernel functions 
+from scipy.signal import hann
+from scipy.signal import convolve
+phi = lambda x: np.exp(-1/(1-x**2)) # mollifier 
+uni = lambda x: np.array([0.5 if abs(u) <= 1.0 else 0.0 for u in x])
+epi = lambda x: (3/4)*(1 - x**2)
+
+
+import matplotlib.pyplot as plt
+x = np.linspace(-1.0, 1.0, 100)
+plt.plot(x, phi(x), c="red")
+plt.plot(x, phi(uni(x)), c="orange")
+plt.plot(x, uni(x), c="blue")
+plt.plot(x, epi(x), c="green")
+plt.plot(x, convolve(uni(x), phi(x), mode="same")/np.sum(phi(x)), c="purple") 
+
+## TODO: squeeze support to [-1,1]
+## https://docs.scipy.org/doc/scipy/reference/generated/scipy.signal.convolve.html#scipy.signal.convolve
+# plt.plot(x, hann(100))
+# win = hann(25)
+# plt.plot(x, convolve(uni(x), win, mode="same")/np.sum(win)) 
+
+# %% Gauss curvature 
+import scipy.optimize
+
+
+

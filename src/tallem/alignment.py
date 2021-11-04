@@ -70,6 +70,9 @@ def opa(a: npt.ArrayLike, b: npt.ArrayLike, transform=False, rotation_only=True)
 	A /= aS 
 	B /= bS
 
+	from scipy.linalg import orthogonal_procrustes
+	
+
 	# Rotation / Reflection
 	U, Sigma, Vt = np.linalg.svd(A.T @ B, full_matrices=False)
 	R = U @ Vt
@@ -92,5 +95,5 @@ def opa(a: npt.ArrayLike, b: npt.ArrayLike, transform=False, rotation_only=True)
 	# The transformed/superimposed coordinates
 	# Note: (s*bS) * np.dot(B, aR) + c
 	output = { "rotation": R, "scaling": s, "translation": t, "distance": d }
-	if transform: output["coordinates"] = z
+	if transform: output["coordinates"] = s * a @ R + t
 	return(output)

@@ -92,6 +92,8 @@ def scatter3D(P, angles = None, layout = None, figsize=(8,8), **kwargs):
 			assert len(angles) == np.prod(layout)
 			if "fig" in kwargs.keys() and "ax" in kwargs.keys():
 				fig, ax = kwargs["fig"], kwargs["ax"]
+				kwargs.pop('fig', None)
+				kwargs.pop('ax', None)
 			else: 
 				fig, ax = plt.subplots(*layout, figsize=figsize)
 			for i, theta in enumerate(angles):
@@ -101,6 +103,8 @@ def scatter3D(P, angles = None, layout = None, figsize=(8,8), **kwargs):
 		else: 
 			if "fig" in kwargs.keys() and "ax" in kwargs.keys():
 				fig, ax = kwargs["fig"], kwargs["ax"]
+				kwargs.pop('fig', None)
+				kwargs.pop('ax', None)
 			else: 
 				fig = plt.figure(figsize=figsize)
 				ax = fig.add_subplot(projection='3d')
@@ -115,6 +119,8 @@ def scatter3D(P, angles = None, layout = None, figsize=(8,8), **kwargs):
 		assert len(angles) == np.prod(layout)
 		if "fig" in kwargs.keys() and "ax" in kwargs.keys():
 			fig, ax = kwargs["fig"], kwargs["ax"]
+			kwargs.pop('fig', None)
+			kwargs.pop('ax', None)
 		else:
 			fig, ax = plt.subplots(*layout, figsize=figsize)
 		for i, p in enumerate(P):
