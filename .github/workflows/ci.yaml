@@ -126,24 +126,16 @@ jobs:
         uses: jwlawson/actions-setup-cmake@v1.9
         with:
           cmake-version: '3.16.x'
-      
-      - name: Build package with pip 
-        run: |
-          pip install .
-      
-      - name: Run tests with pytest
-        run: |
-          sudo -H pip install pytest
-          pip install pytest
-          python -m pip install pytest 
-          pytest tests/
 
       - name: Install Poetry Action
         uses: snok/install-poetry@v1.2.1
 
       - name: Poetry install 
-        run: poetry install -vvv && poetry build -vvv
+        run: poetry install -vvv
 
+     - name: Build package with pip 
+        run: pip install .
+        
       - name: Run tests with pytest
         run: |
           sudo -H pip install pytest
@@ -163,8 +155,13 @@ jobs:
       CIBW_BUILD_FRONTEND: "pip"
       CIBW_BUILD: "cp38-manylinux_x86_64 cp38-macosx_x86_64"
       CIBW_ARCHS_LINUX: "x86_64"
-      CIBW_BUILD_VERBOSITY: 2
-      CIBW_BEFORE_ALL_LINUX: "yum install gcc openssl-devel bzip2-devel libffi-devel hdf5 blas blas-devel lapack lapack-devel Cython -y"
+      CIBW_BUILD_VERBOSITY: 1
+      CIBW_BEFORE_ALL_LINUX: "
+      yum install gcc openssl-devel bzip2-devel libffi-devel hdf5 blas blas-devel lapack lapack-devel Cython -y && 
+      curl -sSL https://raw.githubusercontent.com/python-poetry/poetry/master/get-poetry.py | python - && source $HOME/.poetry/env
+      poetry install --no-root && 
+      poetry install -vvv
+      "
     steps:
     - uses: actions/checkout@v2
 
