@@ -88,6 +88,7 @@ def build(setup_kwargs):
 	target_path = next(expandpath(f"{home_dir}/src/tallem/extensions/")).resolve()
 	print(f"\n==== Extension module install path: {target_path} ====\n")
 	for file in glob.glob(f"build/*{suffix}"):
+		print(f"Installing {file} to: {target_path} \n")
 		shutil.copy(file, target_path)
 
 	print("\n==== Finished meson build ====\n")
