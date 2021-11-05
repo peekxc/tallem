@@ -27,7 +27,7 @@ def build(setup_kwargs):
 	existing_modules = list(expandpath(f"{home_dir}/src/tallem/extensions/*{suffix}"))
 	if len(existing_modules) > 0:
 		print("Removing existing modules for a clean build")
-		
+
 	## Remove existing extension modules
 	for m in existing_modules:
 		os.remove(m)
@@ -82,8 +82,9 @@ def build(setup_kwargs):
 	print("\n==== Starting meson build ====\n")
 	os.system("python3 -m mesonbuild.mesonmain build")
 	os.system("python3 -m mesonbuild.mesonmain compile -vC build")
-	os.system("python3 -m mesonbuild.mesonmain install -C build")
-
+	
+	## Linux CI servers raise tty exception on meson install, so do manual copy instead
+	# os.system("python3 -m mesonbuild.mesonmain install -C build")
 	target_path = next(expandpath(f"{home_dir}/src/tallem/extensions/")).resolve()
 	print(f"\n==== Extension module install path: {target_path} ====\n")
 	for file in glob.glob(f"build/*{suffix}"):

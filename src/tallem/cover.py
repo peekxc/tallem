@@ -43,23 +43,24 @@ from itertools import combinations, product
 # 	 1. d(x,T) >= 0.0  <=> (non-negative)
 # 	 2. d(x,T) <= 1.0  <=> (x is contained within set T)  
 # The set_distance function is only needed is the partition of unity if one is not explicitly provided.
+IndexArray = Union[Sequence, ArrayLike]
 
 T = TypeVar('T')
 @runtime_checkable
-class CoverLike(Collection[Tuple[T, Union[Sequence, ArrayLike]]], Protocol): 
-	def __getitem__(self, key: T) -> Union[Sequence, ArrayLike]: ...
+class CoverLike(Collection[Tuple[T, IndexArray]], Protocol): 
+	def __getitem__(self, key: T) -> IndexArray: ...
 	def __iter__(self): ...
 	def __len__(self) -> int: ...
 	def __contains__(self, key: T) -> bool: ...
 	def keys(self) -> Iterator[T] : ...
-	def values(self) -> Iterator[Union[Sequence, ArrayLike]] : ...
-	def items(self) -> Iterator[Tuple[T, Union[Sequence, ArrayLike]]]: ...
+	def values(self) -> Iterator[IndexArray] : ...
+	def items(self) -> Iterator[Tuple[T, IndexArray]]: ...
 	def set_contains(self, X: ArrayLike, index: T): ...
 	# def set_distance(self, X: ArrayLike, index: T): ...
 
 ## Minimally, one must implement keys(), __getitem__(), and set_distance()		 
 class Cover(CoverLike):
-	def __getitem__(self, key: T) -> Union[Sequence, ArrayLike]: ...
+	def __getitem__(self, key: T) -> IndexArray: ...
 	def __iter__(self): 
 		return(iter(self.keys()))
 	def __len__(self) -> int: 
@@ -67,10 +68,10 @@ class Cover(CoverLike):
 	def __contains__(self, key: T) -> bool: 
 		return(list(self.keys()).contains(key))
 	def keys(self) -> Iterator[T] : ...
-	def values(self) -> Iterator[Union[Sequence, ArrayLike]] : 
+	def values(self) -> Iterator[IndexArray] : 
 		for j in self.keys(): 
 			yield self[j]
-	def items(self) -> Iterator[Tuple[T, Union[Sequence, ArrayLike]]]: 
+	def items(self) -> Iterator[Tuple[T, IndexArray]]: 
 		return(zip(self.keys(), self.values()))
 	def set_distance(self, X: ArrayLike, index: T): 
 		raise NotImplementedError("This cover has not defined a set distance function.")
@@ -509,7 +510,7 @@ def dist_to_boundary(P: npt.ArrayLike, x: npt.ArrayLike):
 ## cover := CoverLike (supports set_contains, values)
 ## similarity := string or Callable 
 ## weights := not implemented
-def partition_of_unity(B: npt.ArrayLike, cover: CoverLike, similarity: Union[str, Callable[npt.ArrayLike, npt.ArrayLike]] = "triangular", weights: Optional[npt.ArrayLike] = None, check_subordinate=False) -> csc_matrix:
+def partition_of_unity(B: npt.ArrayLike, cover: CoverLike, similarity: Union[str, Callable] = "triangular", weights: Optional[npt.ArrayLike] = None, check_subordinate=False) -> csc_matrix:
 	if (B.ndim != 2): raise ValueError("Error: filter must be matrix.")
 # assert B.shape[1] == cover.dimension, "Dimension of point set given to PoU differs from cover dimension."
 	assert similarity is not None, "similarity map must be a real-valued function, or a string indicating one of the precomputed ones."
