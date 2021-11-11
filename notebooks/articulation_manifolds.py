@@ -65,29 +65,35 @@ Z = isomap(Y, 2, p = 0.15)
 scatter2D(Z, figsize=(6, 6), c=Theta)
 
 # %% White dot example
+import numpy as np
 from tallem import TALLEM
 from tallem.cover import LandmarkCover
 from tallem.datasets import *
-import numpy as np
+from tallem.samplers import landmarks
 
 ## Sample images
-samples, params, blob, c = white_dot(n_pixels=17, r=0.35, n=(600, 100), method="random")
-ind = np.random.choice(range(samples.shape[0]), size=3*8, replace=False)
-plot_images(samples[ind,:], shape=(17,17), max_val=c, layout=(3,8), figsize=(12,4))
+samples, params, blob, c = white_dot(n_pixels=17, r=0.35, n=(6500, 250), method="grid")
+# ind = np.random.choice(range(samples.shape[0]), size=3*8, replace=False)
+# plot_images(samples[ind,:], shape=(17,17), max_val=c, layout=(3,8), figsize=(12,4))
+Lind, Lrad = landmarks(samples, k = 2500)
+X = np.vstack((samples[Lind,:], samples[-250:,]))
 
 from tallem.samplers import landmarks
-cover = LandmarkCover(samples, k=20, scale=1.0)
+cover = LandmarkCover(X, k=20, scale=1.2)
 assert(np.all(np.array([len(s) for s in cover.values()]) > 1))
 
-top = TALLEM(cover, local_map="cmds3", n_components=3)
-emb = top.fit_transform(X=samples, B=samples)
+top = TALLEM(cover, local_map="pca3", n_components=3)
+emb = top.fit_transform(X=X, B=X)
+
+
+emb = pca(X, d=3)
 
 ## Eccentricity for color
-ecc = np.array([np.linalg.norm(p - np.array([0.5, 0.5, 0.0])) for p in params])
-angles = np.linspace(0, 360, num=6, endpoint=False)
-scatter3D(emb, c=ecc, angles=angles, layout=(2, 3), figsize=(18,12))
+# ecc = np.array([np.linalg.norm(p - np.array([0.5, 0.5, 0.0])) for p in params])
+# angles = np.linspace(0, 360, num=6, endpoint=False)
+# scatter3D(emb, c=ecc, angles=angles, layout=(2, 3), figsize=(18,12))
 
-top.plot_nerve(vertex_scale=10)
+# top.plot_nerve(vertex_scale=10)
 
 from tallem.dimred import isomap
 Y = top.assemble_high()
@@ -95,11 +101,76 @@ Z = isomap(Y, 2, p = 0.15)
 scatter2D(Z, figsize=(6, 6), c=Theta)
 
 
+## holoviews 
+import holoviews as hv
+from holoviews import dim, opts
+from holoviews.operation.datashader import datashade, shade, dynspread, spread, rasterize
+hv.extension('matplotlib')
+
+## 
+opts.defaults(
+	opts.Image(cmap="gray_r", axiswise=True),
+	opts.Points(cmap="bwr", edgecolors='k', s=50, alpha=1.0), # Remove color_index=2
+	opts.RGB(bgcolor="white", show_grid=False),
+	opts.Scatter3D(color='z', fig_size=250, cmap='fire', edgecolor='k', s=25, alpha=0.80)
+)
+import colorcet as cc
+from tallem.distance import dist
+from tallem.color import bin_color
+d = dist(np.zeros_like(X[0,:]), X)
+# d = dist(emb, np.array([40.0, -40.0, -40.0]))
+pt_color = list(bin_color(hist_equalize(d, number_bins=100), cc.bmy).flatten())
+scatter_opts = opts.Scatter3D(azimuth=-50, elevation=25, cmap='fire', s=18, alpha = 1.00, edgecolor='none')
+
+# q = np.quantile(d, np.linspace(0.0, 1.0, 100))
+# from skimage.exposure import equalize_hist
+
+def hist_equalize(x, scale=1000, number_bins=100000):
+	h, bins = np.histogram(x.flatten(), number_bins, density=True)
+	cdf = h.cumsum() # cumulative distribution function
+	cdf = np.max(x) * cdf / cdf[-1] # normalize
+	return(np.interp(x.flatten(), bins[:-1], cdf))
+
+pc = hv.Table({'x': emb[:,0], 'y': emb[:,1], 'z': emb[:,2], 'd': hist_equalize(d) }, kdims=["x", "y", "z"], vdims=["d"])
+hv.Scatter3D(pc).opts(scatter_opts(color='d', cmap="viridis", s=16, edgecolor='gray',linewidth=0.30))
+
+# hv.plotting.util.list_cmaps(records=True)
+
+
+
+from tallem.color import linear_gradient
+
+
+from tallem.dimred import cmds
+hv.Scatter(cmds(X, d = 2))
+
+from tallem.dimred import isomap
+iso_emb = isomap(X, d=3, p=0.15)
+
+wut = hv.Scatter3D(iso_emb).opts(cmap=cc.bmy)
+
+from holoviews.operation.datashader import datashade, shade, dynspread, spread, rasterize
+from holoviews.operation import decimate
+
+import colorcet as cc
+# relevent color maps (from: https://colorcet.holoviz.org/user_guide/index.html)
+# cc.fire := black -> dark red -> red -> orange -> yellow 
+# cc.isolum := light blue -> light green -> light yellow -> light orange 
+# cc.kbc := dark blue -> royal blue -> sky blue -> light blue 
+# cc.bmy := dark blue -> purple -> pink -> orange -> yellow 
+# cc.CET_L17 := lighter version of bmy 
+# cc.CET_L18 := lighter version of fire
+# cc.rainbow 
+# cc.colorwheel
+# cc.coolwarm := blue -> white -> red
+
+
+
 # %% Josh's rotating strip example 
 from tallem import TALLEM
 from tallem.cover import *
 from tallem.datasets import *
-bar, c = mobius_bars(n_pixels=25, r=0.25, sigma=2.2)
+bar, c = mobius_bars(n_pixels=25, r=0.14, sigma=2.25)
 
 ## Show grid of simples
 samples = []
@@ -107,46 +178,87 @@ for b in np.linspace(1.0, 0.0, num=9):
 	for theta in np.linspace(0, np.pi, num=11, endpoint=False):
 		samples.append(np.ravel(bar(b, theta)).flatten())
 samples = np.vstack(samples)
-plot_images(samples, shape=(25,25), max_val=c, layout=(9,11))
+fig, ax = plot_images(samples, shape=(25,25), max_val=c, layout=(9,11))
 
-R = np.random.uniform(size=800, low=0.0, high=1.0)
-Theta = np.random.uniform(size=800, low=0.0, high=np.pi)
+R = np.random.uniform(size=5000, low=0.0, high=1.0)
+Theta = np.random.uniform(size=5000, low=0.0, high=np.pi)
 
-## Dimensionality reduction
+## Generate the data 
 bars = np.vstack([np.ravel(bar(b, theta)).flatten() for b, theta in zip(R, Theta)])
 params = np.vstack([(b, theta) for b, theta in zip(R, Theta)])
 
-cover = LandmarkCover(bars, k=15, scale=1.0)
-assert np.all(np.array([len(s) for s in cover.values()]) > 1)
-assert validate_cover(bars.shape[0], cover)
+## Landmark to get a nice sampling 
+from tallem.samplers import landmarks
+Lind, Lrad = landmarks(bars, 1200)
+X = bars[Lind,:]
+p = params[Lind,:]
 
-top = TALLEM(cover, local_map="cmds3", n_components=3)
-emb = top.fit_transform(X=bars, B=bars)
+## Draw random samples
+idx = np.random.choice(X.shape[0], size=25*25, replace=False)
+fig, ax = plot_images(X[idx,:], shape=(25,25), max_val=c, layout=(9,11))
+
+cover = LandmarkCover(X, k=20, scale=1.1)
+assert np.all(np.array([len(s) for s in cover.values()]) > 1)
+assert validate_cover(X.shape[0], cover)
+
+top = TALLEM(cover, local_map="iso3", n_components=3)
+emb = top.fit_transform(X=X, B=X)
+
+scatter3D(emb, c=p[:,1])
 
 ## Use parameters for color
-angles = np.linspace(0, 360, num=6, endpoint=False)
-scatter3D(emb, c=params[:,0], angles=angles, layout=(2, 3), figsize=(14,10))
+# angles = np.linspace(0, 360, num=6, endpoint=False)
+# scatter3D(emb, c=params[:,0], angles=angles, layout=(2, 3), figsize=(14,10))
 
-top.plot_nerve(vertex_scale=10)
+from bokeh.io import output_notebook
+output_notebook()
+top.plot_nerve(vertex_scale=10, layout="hausdorff", edge_color="frame")
 
 from tallem.dimred import isomap
 Y = top.assemble_high()
 Z = isomap(Y, 3, p = 0.15)
-scatter3D(Z, figsize=(8, 6), c=params[:,0])
+scatter3D(Z, figsize=(8, 6), c=p[:,1])
 
+scatter3D(isomap(X, 3, p = 0.15), figsize=(8, 6), c=p[:,1])
+best_iso = isomap(X, 3, p = 0.15)
+scatter3D(best_iso, c=p[:,1])
 
 ## Use circular coordinate
-polar_coordinate = params[:,1]
+polar_coordinate = p[:,1]
 m_dist = lambda x,y: np.minimum(abs(x - y), (np.pi) - abs(x - y))
-cover = IntervalCover(polar_coordinate, n_sets=16, overlap=0.40, metric=m_dist, space=[0, np.pi])
+cover = IntervalCover(polar_coordinate, n_sets=12, overlap=0.60, metric=m_dist, space=[0, np.pi])
 
+np.array([len(s) for s in cover.values()])
 assert np.all(np.array([len(s) for s in cover.values()]) > 0)
 
-top = TALLEM(cover, local_map="cmds2", n_components=3, pou="triangular")
-emb = top.fit_transform(X=bars, B=polar_coordinate)
+top = TALLEM(cover, local_map="iso3", n_components=3, pou="triangular")
+emb = top.fit_transform(X=X, B=polar_coordinate)
 
-angles = np.linspace(0, 360, num=6, endpoint=False)
-scatter3D(emb, c=params[:,0], angles=angles, layout=(2, 3), figsize=(14,10))
+# angles = np.linspace(0, 360, num=6, endpoint=False)
+# scatter3D(emb, c=params[:,0], angles=angles, layout=(2, 3), figsize=(14,10))
+fig, ax = scatter3D(emb, c=p[:,1])
+# import matplotlib.pyplot as plt
+# plt.imshow(X[0,:].reshape((25,25)), aspect='auto')
+# https://stackoverflow.com/questions/13570287/image-overlay-in-3d-plot-using-python
+# plt.plot_surface()
+
+from bokeh.io import output_notebook
+output_notebook()
+top.plot_nerve(vertex_scale=10, layout="hausdorff", edge_color="frame")
+
+
+## Factorial design to try to find a good embedding 
+from tallem.alignment import opa
+error = {}
+for k in range(10, 25):
+	for lm in ["pca1", "pca2", "pca3", "iso2", "iso3"]:
+		for scale in np.linspace(1.0, 1.8, 10):
+			cover = LandmarkCover(X, k=k, scale=scale)
+			top = TALLEM(cover, local_map=lm, n_components=3, pou="triangular")
+			emb = top.fit_transform(X=X, B=polar_coordinate)
+			error[(k,lm,scale)] = opa(emb, best_iso)['distance']
+	print(k)
+			
 
 # %% 2-sphere example 
 import numpy as np
@@ -784,4 +896,110 @@ plt.plot(x, convolve(uni(x), phi(x), mode="same")/np.sum(phi(x)), c="purple")
 import scipy.optimize
 
 
+
+
+
+
+
+
+
+# %% Frey faces 
+import pickle
+import pathlib
+import scipy.io as sio
+mat = sio.loadmat(pathlib.Path('~/Downloads/frey_faces.mat').expanduser().resolve())
+# pickle.dump(mat['ff'], open('/Users/mpiekenbrock/tallem/data/frey_faces.pickle', 'wb'))
+ff = pickle.load(open('/Users/mpiekenbrock/tallem/data/frey_faces.pickle', "rb")).T # 20 x 28
+
+from tallem import TALLEM
+from tallem.dimred import *
+from tallem.cover import *
+from tallem.distance import dist 
+
+cover = LandmarkCover(ff, k=25, scale=1.1)
+top = TALLEM(cover, local_map="iso3", n_components=2)
+emb = top.fit_transform(X=ff, B=ff)
+
+s = 0.02*np.max(dist(emb))
+
+import matplotlib.pyplot as plt
+fig, ax = scatter2D(emb, alpha=0.20, s=10)
+
+
+from tallem.samplers import landmarks
+Lind, Lrad = landmarks(emb, k = 120)
+for i in Lind: 
+	bbox = np.array([emb[i,0] + s*np.array([-1.0, 1.0]), emb[i,1] + s*np.array([-1.0, 1.0])]).flatten()
+	face_im = ax.imshow(ff[i,:].reshape((28,20)), origin='upper', extent=bbox, cmap='gray', vmin=0, vmax=255)
+	face_im.set_zorder(20)
+ax.set_xlim(left=np.min(emb[:,0]), right=np.max(emb[:,0]))
+ax.set_ylim(bottom=np.min(emb[:,1]), top=np.max(emb[:,1]))
+
+
+from tallem.dimred import pca
+emb = pca(ff, 2)
+Lind, Lrad = landmarks(emb, k = 120)
+
+s = 0.02*np.max(dist(emb))
+fig, ax = scatter2D(emb, alpha=0.20, s=10)
+for i in Lind: 
+	bbox = np.array([emb[i,0] + s*np.array([-1.0, 1.0]), emb[i,1] + s*np.array([-1.0, 1.0])]).flatten()
+	face_im = ax.imshow(ff[i,:].reshape((28,20)), origin='upper', extent=bbox, cmap='gray', vmin=0, vmax=255, aspect ='auto')
+	face_im.set_zorder(20)
+ax.set_xlim(left=np.min(emb[:,0]), right=np.max(emb[:,0]))
+ax.set_ylim(bottom=np.min(emb[:,1]), top=np.max(emb[:,1]))
+
+
+# %% MNIST 
+import pickle
+import pathlib
+import scipy.io as sio
+# pickle.dump(mat['ff'], open('/Users/mpiekenbrock/tallem/data/frey_faces.pickle', 'wb'))
+mn = pickle.load(open('/Users/mpiekenbrock/tallem/data/mnist_eights.pickle', "rb")).T # 28 x 28
+rotate = lambda x: np.fliplr(x.T)
+mn = np.array([rotate(mn[:,:,i]).flatten() for i in range(mn.shape[2])])
+# pickle.dump(mn, open('/Users/mpiekenbrock/tallem/data/mnist_eights.pickle', 'wb'))
+# mn = np.array([mn[:,:,i].flatten() for i in range(mn.shape[2])])
+
+from tallem import TALLEM
+from tallem.dimred import *
+from tallem.cover import *
+from tallem.distance import dist 
+
+cover = LandmarkCover(mn, k=15)
+top = TALLEM(cover, local_map="pca2", n_components=2)
+emb = top.fit_transform(X=mn, B=mn)
+
+s = 0.02*np.max(dist(emb))
+
+import matplotlib.pyplot as plt
+fig, ax = scatter2D(emb, alpha=0.20, s=10)
+
+
+from tallem.samplers import landmarks
+Lind, Lrad = landmarks(emb, k = 120)
+for i in Lind: 
+	bbox = np.array([emb[i,0] + s*np.array([-1.0, 1.0]), emb[i,1] + s*np.array([-1.0, 1.0])]).flatten()
+	face_im = ax.imshow(mn[i,:].reshape((28,28)), origin='upper', extent=bbox, cmap='gray', vmin=0, vmax=255)
+	face_im.set_zorder(20)
+ax.set_xlim(left=np.min(emb[:,0]), right=np.max(emb[:,0]))
+ax.set_ylim(bottom=np.min(emb[:,1]), top=np.max(emb[:,1]))
+
+
+
+
+from tallem.dimred import pca
+emb = pca(mn, 2)
+Lind, Lrad = landmarks(emb, k = 120)
+
+fig, ax = scatter2D(emb, alpha=0.20, s=10)
+for i in Lind: 
+	bbox = np.array([emb[i,0] + s*np.array([-1.0, 1.0]), emb[i,1] + s*np.array([-1.0, 1.0])]).flatten()
+	face_im = ax.imshow(mn[i,:].reshape((28,28)), origin='upper', extent=bbox, cmap='gray', vmin=0, vmax=255, aspect ='auto')
+	face_im.set_zorder(20)
+ax.set_xlim(left=np.min(emb[:,0]), right=np.max(emb[:,0]))
+ax.set_ylim(bottom=np.min(emb[:,1]), top=np.max(emb[:,1]))
+
+
+# plt.imshow(rotate(mn[0,:].reshape((28,28))), cmap='gray', vmin=0, vmax=255)
 

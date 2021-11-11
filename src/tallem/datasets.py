@@ -50,6 +50,10 @@ def plot_image(P, figsize=(8,8), max_val = "default"):
 	fig.gca().axes.get_yaxis().set_visible(False)
 
 def plot_images(P, shape, max_val = "default", figsize=(8,8), layout = None):
+	''' 
+		P := numpy array where each row is a grayscale image
+		shape := the shape to reshape each row of P prior to plotting
+	'''
 	import matplotlib.pyplot as plt
 	if max_val == "default": 
 		max_val = np.max(P)
@@ -58,29 +62,44 @@ def plot_images(P, shape, max_val = "default", figsize=(8,8), layout = None):
 		plt.imshow(P.reshape(shape), cmap='gray', vmin=0, vmax=max_val)
 		fig.gca().axes.get_xaxis().set_visible(False)
 		fig.gca().axes.get_yaxis().set_visible(False)
+		return(fig, ax)
 	else:
 		assert layout is not None, "missing layout"
-		fig, ax = plt.subplots(*layout, figsize=figsize)
-		for i, p in enumerate(P):
-			fig.add_subplot(layout[0], layout[1], i+1)
-			plt.imshow(P[i,:].reshape(shape), cmap='gray', vmin=0, vmax=max_val)
-			fig.gca().axes.get_xaxis().set_visible(False)
-			fig.gca().axes.get_yaxis().set_visible(False)
-			plt.subplots_adjust(left=None, bottom=None, right=None, top=None, wspace=None, hspace=None)
+		fig, axs = plt.subplots(*layout, figsize=figsize)
+		axs = axs.flatten()
+		for i, (img, ax) in enumerate(zip(P, axs)):
+			#fig.add_subplot(layout[0], layout[1], i+1)
+			plt.axis("off")
+			ax.imshow(P[i,:].reshape(shape), cmap='gray', vmin=0, vmax=max_val, aspect='auto')
+			ax.axes.xaxis.set_visible(False)
+			ax.axes.yaxis.set_visible(False)
+		plt.subplots_adjust(left=None, bottom=None, right=None, top=None, wspace=0.1, hspace=0.1)
+		return(fig, axs)
 
 def scatter2D(P, layout = None, figsize=(8,8), **kwargs):
 	import matplotlib.pyplot as plt
 	if isinstance(P, np.ndarray):
-		fig = plt.figure(figsize=figsize)
-		ax = fig.add_subplot()
+		if "fig" in kwargs.keys() and "ax" in kwargs.keys():
+			fig, ax = kwargs["fig"], kwargs["ax"]
+			kwargs.pop('fig', None)
+			kwargs.pop('ax', None)
+		else:
+			fig = plt.figure(figsize=figsize)
+			ax = fig.add_subplot()
 		ax.scatter(*P.T, **kwargs)
+		return(fig, ax)
 	elif isinstance(P, Iterable):
 		assert layout is not None, "missing layout"
 		assert len(P) == np.prod(layout)
-		fig = plt.figure(figsize=figsize)
+		if "fig" in kwargs.keys() and "ax" in kwargs.keys():
+			fig, ax = kwargs["fig"], kwargs["ax"]
+			kwargs.pop('fig', None)
+		else:
+			fig = plt.figure(figsize=figsize)
 		for i, p in enumerate(P):
 			ax = fig.add_subplot(layout[0], layout[1], i+1)
 			ax.scatter(*p.T, **kwargs) 
+		return(fig, ax)
 
 def scatter3D(P, angles = None, layout = None, figsize=(8,8), **kwargs):
 	import matplotlib.pyplot as plt
@@ -154,6 +173,9 @@ def mobius_bars(n_pixels: int, r: float, sigma: float = 1.0):
 		n_pixels := number of pixels to make square image
 		r := constant between [0,1] indicating how wide to make the bar 
 		sigma := kernel parameter for gaussian blur
+	Return:
+		bar := closure w/ parameters y_offset in [0, 1] and theta in [0, pi]
+		c := normalizing constant for plotting
 	'''
 	from scipy.ndimage import gaussian_filter
 	import numpy as np
@@ -161,16 +183,45 @@ def mobius_bars(n_pixels: int, r: float, sigma: float = 1.0):
 	p = np.linspace(0, 1, n_pixels, False) + 1/(2*n_pixels) # center locations of pixels, in normalized space
 	x,y = np.meshgrid(p,p)
 	def bar(y_offset: float, theta: float):
-		z = np.array([0.5, y_offset]) # intercept
-		dist_to_line = np.cos(theta)*(z[1] - y) - np.sin(theta)*(z[0]-x)
+		assert y_offset >= 0.0 and y_offset <= 1.0 
+		assert theta >= 0.0 and theta <= np.pi
+		# z = np.array([0.5, y_offset]) # intercept
+		# dist_to_line = np.cos(theta)*(z[1] - y) - np.sin(theta)*(z[0]-x)
 		# dist_to_line = ((y - y_offset)/np.tan(theta))*np.sin(theta)
-		I = np.flipud(abs(dist_to_line))
-		I = np.sqrt(2)*(I/np.max(I))
-		I[I <= w] = -1.0
-		I[I > w] = 0.0
-		I[I == -1.0] = 1.0
+		# Z = np.array([np.array([xi,yi]) for xi,yi in zip(x.flatten(),y.flatten())])
+		# fig,ax = scatter2D(Z, c="blue")
+		# fig,ax = scatter2D(np.array(P), c="red", fig=fig, ax=ax)
+		# fig,ax = scatter2D(np.array([0.5, 0.5]), c="green", fig=fig, ax=ax)
+		# fig,ax = scatter2D(np.c_[x.flatten(), x.flatten()*m + b], c="purple", fig=fig, ax=ax)
+		
+		m, b = np.tan(theta), y_offset
+		#pt = np.array([1.0, m + b])
+		z1 = np.array([0.50, b])
+		z2 = np.array([1.0, 1.0*m + b])
+		pt = z2 - z1
+		d = []
+		P = []
+		for xi,yi in zip(x.flatten(),y.flatten()):
+			u = pt / np.linalg.norm(pt)
+			v = np.array([xi,yi])
+			z = u*np.dot(v-np.array([0.5, b]), u)+np.array([0.5, b])
+			d.append(np.linalg.norm(z-v))
+			P.append(z)
+		dist_to_line = np.array(d)
+		# fig, ax = scatter2D(np.array(P))
+
+		I = abs(dist_to_line.reshape((n_pixels, n_pixels)))
+		I = np.flipud(I)
+		# I = (np.sqrt(2)/2)*(I/np.max(I))
+		I[I > w] = np.sqrt(2)
+		I = np.sqrt(2) - I ## invert intensity 
+		# I[I < (np.sqrt(2) - w)] = 0.0
+		# B = I.copy()
+		# I[I <= w] = -1.0
+		# I[I > w] = 0.0
+		# I[I == -1.0] = np.max(B[B <= w]) - B[B <= w] # 1.0 
 		return(gaussian_filter(I, sigma=sigma))
-	c = np.max(bar(0.50, 0.0))
+	c = np.max(bar(0.0, 0.0))
 	return(bar, c)
 
 # def _gaussian_pixel(d, n_pixels):
@@ -202,6 +253,19 @@ def white_dot(n_pixels: int, r: float, n: Optional[int], method: Optional[str] =
 	using a multivariate normal density whose standard deviation sigma (in both directions) is sigma=d/3.
 	If 'n' is specified, then 'n' samples are generated from a larger space s([-d, 1+d]^2) where s(*)
 	denotes the scaling of the interval [-d,1+d] by 'n_pixels'. 
+
+	Parameters: 
+		n_pixels := number of pixels wide/tall to make the resulting images 
+		r := relative radius of dot (in (0, 1])
+		n := (optional) number of samples desired 
+		method := (optional) how to generate samples in the parameter space. Can be either "grid" or "random".
+		mu := (optional) locations of dot centers to generate the dots at
+	
+	Returns: 
+		samples := generated image samples 
+		params	:= (x,y,i) parameters associated with each sample,
+		f 			:= closure for generating more samples. See gaussian_blob() for more details. 
+		c 			:= normalizing constant. See gaussian_blob() for more details. 
 	'''
 	assert r > 0 and r <= 1.0, "r must be in the range 0 < r <= 1.0"
 	assert isinstance(n, int) or isinstance(n, tuple), "n must be integer of tuple of integers"

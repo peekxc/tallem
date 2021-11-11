@@ -3,7 +3,7 @@
 requires-python = ">=3.8,<3.10"
 
 [build-system]
-requires = ["setuptools>=42", "build", "wheel", "poetry>=1.0.10", "meson>=0.59.0", "ninja", "cmake", "Cython", "numpy"]
+requires = ["setuptools>=42", "build", "wheel", "poetry>=1.0.10", "meson>=0.59.0", "ninja", "cmake", "Cython", "numpy", "scipy>=1.6"]
 build-backend = "poetry.masonry.api" # build backends for pip to use to building the wheel
 
 [tool.poetry]
@@ -27,6 +27,7 @@ packages = [
 ]
 include = [
 	{ path = "src/**/*.so", format = "wheel" },
+	{ path = "src/**/*.pyd", format = "wheel" },
 	"README.md"
 ] # TODO: configure this to add/remove things
 
@@ -53,7 +54,7 @@ numpy = "^1.21.3"
 [tool.poetry.extras]
 autograd = ["autograd"]
 pymanopt = ["pymanopt"]
-sklearn = ["sklearn"]
+scikit-learn = ["scikit-learn"]
 
 [tool.cibuildwheel]
 test-requires = "pytest"
@@ -61,7 +62,7 @@ test-command = "pytest {project}/tests"
 archs = "x86_64" 
 build = "cp38-manylinux_x86_64" #"cp36-win32" "cp36-manylinux* cp38-macosx_x86_64"
 build-frontend = "pip"
-build-verbosity = 2
+build-verbosity = 1
 
 [tool.cibuildwheel.linux]
 archs = ["auto64"] # "aarch64"

@@ -434,6 +434,30 @@ class IntervalCover(Cover):
 			cover_sets = { index : self.construct(a, index) for index in self.keys() }
 			return(cover_sets)
 
+def CircleCover(IntervalCover, Cover):
+	# m_dist = lambda x,y: np.minimum(abs(x - y), (np.pi) - abs(x - y))
+	def __init__(a: ArrayLike, n_sets: int, overlap: float, lb = 0.0, ub = 2*np.pi):
+		assert a.ndim == 1
+		self.lb = lb
+		self.ub = ub 
+		super().__init__(a, n_sets=n_sets, overlap=overlap)
+		self.sets = self.construct(self._data)
+	
+	def set_distance(self, a: npt.ArrayLike, index: Tuple) -> ArrayLike:
+		eps = self.base_width/2.0
+		centroid = self.bbox[0:1,:] + (np.array(index) * self.base_width) + eps
+		diff = np.minimum(np.abs(a - centroid), self.ub-np.abs(a - centroid)) / (self.set_width/2.0)
+		return(diff.flatten()) ## must be flattened array
+
+	def construct(self, a: npt.ArrayLike, index: Optional[npt.ArrayLike] = None):
+		if index is not None:
+			centroid = self.bbox[0:1,:] + (np.array(index) * self.base_width) + self.base_width/2.0
+			diff = np.minimum(np.abs(a - centroid), (2*np.pi)-np.abs(a - centroid))
+			return(np.ravel(np.where(np.bitwise_and.reduce(diff <= self.set_width/2.0, axis = 1))))
+		else:
+			cover_sets = { index : self.construct(a, index) for index in self.keys() }
+			return(cover_sets)
+
 ## A partition of unity can be constructed on:
 ## 	1. a set of balls within a metric space of arbitrary dimension, all w/ some fixed radius
 ##  2. a set of balls within a metric space of arbitrary dimension, each w/ a ball-specific radius

@@ -46,7 +46,7 @@ poetry install --no-root
 ## Build and install package itself -- this includes building the extension modules
 poetry install -vvv
 
-## Use pip frontend to trigger a PEP 517-compliant build and subsequent installation of the wheel.
+## Use pip frontend to trigger a PEP 517-compliant build and subsequent installation of the wheel	.
 pip install . 
 
 

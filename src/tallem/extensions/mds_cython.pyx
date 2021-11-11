@@ -112,11 +112,11 @@ cpdef public cython_dsyevr(x: ArrayLike, IL: int, IU: int, tolerance: float, cop
 	'''
 	assert (x.shape[0] == x.shape[1])
 	assert IL <= IU and IL >= 1 and IU <= x.shape[0]
-	if copy:
-		x = np.asfortranarray(x.copy())
-	else: 
-		if not(x.flags["F_CONTIGUOUS"]):
-			x = np.asfortranarray(x)
+	if not((x.flags["F_CONTIGUOUS"]) and (x.dtype == np.float64)):
+		x = x.astype(dtype=np.float64, order='F', copy=True)
+		copy = False
+	if copy: 
+		x = x.copy()
 	n, m = x.shape[0], abs(IU-IL)+1
 	W = np.empty((n,), np.float64)
 	ISUPPZ = np.empty((2*m,), np.int32) 

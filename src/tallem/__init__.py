@@ -163,7 +163,9 @@ class TALLEM():
 		X: Optional[ArrayLike] = None, 
 		layout=["hausdorff", "spring"], edge_color=["alignment", "frame"], 
 		vertex_scale: float = 5.0, edge_scale: float = 4.0,
-		toolbar = False
+		toolbar = False, 
+		notebook=True,
+		**kwargs
 	):
 		from bokeh.plotting import figure, show, from_networkx
 		from bokeh.models import GraphRenderer, Ellipse, Range1d, Circle, ColumnDataSource, MultiLine, Label, LabelSet, Button
@@ -172,6 +174,7 @@ class TALLEM():
 		from bokeh.io import output_notebook, show, save
 		from bokeh.transform import linear_cmap
 		from bokeh.layouts import column
+		if (notebook): output_notebook()
 		G = self.nerve_graph()
 		ec = np.ones((len(G.edges),), dtype=float)
 		if (isinstance(edge_color, Iterable) and edge_color == ["alignment", "frame"]) or (isinstance(edge_color, str) and edge_color == "alignment"):
@@ -224,7 +227,8 @@ class TALLEM():
 			active_scroll='wheel_zoom',
 			x_range=x_rng, 
 			y_range=y_rng, 
-			title="TALLEM Nerve complex"
+			title="TALLEM Nerve complex", 
+			**kwargs
 		)
 		edge_x = [layout[e,0] for e in G.edges]
 		edge_y = [list(layout[e,1]) for e in G.edges]
