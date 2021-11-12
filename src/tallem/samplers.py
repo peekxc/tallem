@@ -3,7 +3,7 @@ import numpy as np
 import itertools as it
 from numpy.typing import ArrayLike
 from typing import *
-from .distance import dist, is_distance_matrix, is_pairwise_distances
+from .distance import *
 from .utility import find_points
 
 ## Import the specific extensions module we need
@@ -36,25 +36,19 @@ def landmarks(a: ArrayLike, k: Optional[int] = 15, eps: Optional[float] = -1.0, 
 	The maxmin method yields a logarithmic approximation to the geometric set cover problem.
 
 	'''
-	is_pairwise = is_pairwise_distances(a)
 	a = np.asanyarray(a)
 	k = 0 if k is None else int(k)
 	eps = -1.0 if eps is None else float(eps)
 	seed = int(seed)
-	
-	if is_pairwise:
+	if is_dist_like(a):
 		indices, radii = landmark.maxmin(a, eps, k, True, seed)
-	elif metric == "euclidean" and not(is_distance_matrix(a)):
+	elif metric == "euclidean" and is_point_cloud(a):
 		indices, radii = landmark.maxmin(a.T, eps, k, False, seed)
 		radii = np.sqrt(radii)
-	elif is_distance_matrix(a):
-		D = a[np.triu_indices(n=a.shape[0], k = 1)]
-		indices, radii = landmark.maxmin(D, eps, k, True, seed)
 	else:
 		raise ValueError("Unknown input type detected. Must be a matrix of points, a distance matrix, or a set of pairwise distances.")
 	
 	## Check is a valid cover 
-	#is_monotone = np.all(np.argsort(-np.array(radii)) == np.array(range(len(radii))))
 	is_monotone = np.all(np.diff(-np.array(radii)) >= 0.0)
 	assert is_monotone, "Invalid metric: non-monotonically decreasing radii found."
 

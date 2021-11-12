@@ -1,9 +1,4 @@
-## Plan: 
-## Cover -> divides data into subsets, satisfying covering property, retains underlyign neighbor structures + metric (if any)  
-## Local euclidean model -> just transforms each subset from the cover ; separate from cover and PoU! 
-## PoU -> Takes a cover as input, a set of weights for each point, and a function yielding a set of real values indicating 
-## how "close" each point is to each cover subset; if not supplied, this is inferred from the metric, otherwise a tent function 
-## or something is used. Ultimately returns an (n x J) sparse matrix where each row is normalized to sum to 1. 
+## cover.py
 import array
 import numpy as np
 import numpy.typing as npt
@@ -12,15 +7,11 @@ from numpy.typing import ArrayLike
 from scipy.sparse import csc_matrix, diags
 from scipy.sparse.csgraph import minimum_spanning_tree,connected_components 
 from .distance import *
+from .distance import is_dist_like
 from .utility import find_where, cartesian_product, inverse_choose, rank_comb2, unrank_comb2
 from .dimred import neighborhood_graph, neighborhood_list
 from .samplers import landmarks
 from .polytope import sdist_to_boundary
-
-## Optional tools 
-# from .utility import cartesian_product
-# from shapely.geometry import Polygon, Point
-# from scipy.optimize import golden
 
 ## Type tools 
 ## NOTE: put collections first before typing!
@@ -38,11 +29,11 @@ from itertools import combinations, product
 # A cover has the postcondition that, upon finishing its initialization from __init__(...), it must be a *valid* cover, i.e.
 # if the space covers *n* points, then *validate_cover(n, cover)* must be true. 
 # 
-# To support constructing generic partitions of unity via bump functions, covers must also have the function:
-# [cover].set_distance(X: ArrayLike, index: T) -> yields *normalized* distance of X to set T, such that 
+# To support constructing generic partitions of unity via bump functions, covers can optionally support bump functions
+# [cover].bump(X: ArrayLike, index: T) -> yields *normalized* distance of X to set T, such that 
 # 	 1. d(x,T) >= 0.0  <=> (non-negative)
 # 	 2. d(x,T) <= 1.0  <=> (x is contained within set T)  
-# The set_distance function is only needed is the partition of unity if one is not explicitly provided.
+# The bump function is only needed is the partition of unity if one is not explicitly provided as a sparse matrix.
 IndexArray = Union[Sequence, ArrayLike]
 
 T = TypeVar('T')
@@ -58,7 +49,8 @@ class CoverLike(Collection[Tuple[T, IndexArray]], Protocol):
 	def set_contains(self, X: ArrayLike, index: T): ...
 	# def set_distance(self, X: ArrayLike, index: T): ...
 
-## Minimally, one must implement keys(), __getitem__(), and set_distance()		 
+## Minimally, one must implement keys(), __getitem__()
+## Must implement set_distance or set_barycenter....
 class Cover(CoverLike):
 	def __getitem__(self, key: T) -> IndexArray: ...
 	def __iter__(self): 
@@ -76,44 +68,50 @@ class Cover(CoverLike):
 	def set_distance(self, X: ArrayLike, index: T): 
 		raise NotImplementedError("This cover has not defined a set distance function.")
 
-def bump(similarity: float, method: Optional[str] = "triangular", **kwargs):
-	''' Applies a bump function to weight a given similarity measure using a variety of bump functions '''
-	assert np.all(similarity <= 1.0), "Similarity must be non-negative."
-	similarity = np.maximum(similarity, 0.0)
-	if method == "triangular" or method == "linear": 
-		s = similarity
+def mollify(x: float, method: Optional[str] = "identity"):
+	''' 
+	Applies a mollifier to modify the shape of 'x' (typically the result of a bump function). 
+	This method sets all negative values, if they exist, in 'x' to 0. Choices for 'method' include: 
+	
+	method \in ['identity', 'quadratic', 'cubic', 'quartic', 'quintic', 'gaussian', 'logarithmic']
+
+	Alternatively, 'method' may be an arbitrary Callable. 
+	
+	Note that all negative entries of 'x' are always set to 0, even if a Callable is given. 
+	'''
+	assert np.all(x <= 1.0), "Similarity must be non-negative."
+	x = np.maximum(x, 0.0) # truncate to only be positive!
+	if method == "triangular" or method == "linear" or method == "identity": 
+		s = x
 	elif method == "quadratic":
-		s = similarity**2
+		s = x**2
 	elif method == "cubic":
-		s = similarity**3
+		s = x**3
 	elif method == "quartic":
-		s = similarity**4
+		s = x**4
 	elif method == "quintic":
-		s = similarity**5
-	elif method == "polynomial":
-		p = kwargs["p"] if kwargs.has_key("p") else 2.0
-		s = similarity**p
+		s = x**5
 	elif method == "gaussian":
-		s = np.array([np.exp(-1.0/(d**2)) if d > 0.0 else 0.0 for d in similarity])
+		s = np.array([np.exp(-1.0/(d**2)) if d > 0.0 else 0.0 for d in x])
 	elif method == "logarithmic":
-		s = np.log(1+similarity)
+		s = np.log(1.0+x)
 	elif isinstance(method, Callable):
-		s = method(similarity)
+		s = method(x)
 	else: 
 		raise ValueError("Invalid bump function specified.")
 	return(s)
 
 class BallCover(Cover):
-	def __init__(self, x: npt.ArrayLike, radii: Union[float, npt.ArrayLike], metric = "euclidean", space: Optional[Union[npt.ArrayLike, str]] = "union"):
+	def __init__(self, balls: npt.ArrayLike, radii: Union[float, npt.ArrayLike], metric = "euclidean", space: Optional[Union[npt.ArrayLike, str]] = "union"):
 		''' 
-		x := either (c x d) matrix of *c* points in *d* dimensions giving the centers of balls w.r.t *metric*, or a (c x n) matrix giving the 
+		balls := either (c x d) matrix of *c* points in *d* dimensions giving the centers of balls w.r.t *metric*, or a (c x n) matrix giving the 
 			   precomputed distances between the *c* balls and the *n* points in the space. See details. 
 		radii := scalar, or *c*-length array giving the radii associated with every ball.
 		metric := string of a common metric to use, a pairwise distance function, or the string "precomputed" if *x* is a (c x n) precomputed distance matrix.
 		space := the space the balls are meant to cover. If *x* is a set of ball centers, this should be an (n x d) matrix of points to cover. 
 						 If the metric is "precomputed" and *x* is a (c x n) matrix of ball distances, this need not be supplied. 
 		'''
-
+		x = balls
 		if metric == "precomputed":
 			assert isinstance(x, np.ndarray) and x.ndim == 2
 			c, n = x.shape
@@ -134,6 +132,9 @@ class BallCover(Cover):
 			cols = np.frombuffer(C, dtype=np.int32)
 			data = np.frombuffer(D, dtype=np.float32)
 			self._neighbors = sp.coo_matrix((data, (rows, cols)), shape=(n, c)).tocsc()
+			self.metric = "precomputed"
+			# metric == "precomputed" => x is (c x n) matrix of type LD
+			self._x = None 
 		else: 
 			assert isinstance(x, np.ndarray) and isinstance(space, np.ndarray)
 			assert x.shape[1] == space.shape[1]
@@ -145,62 +146,10 @@ class BallCover(Cover):
 				self.radii = radii
 			assert isinstance(radii, np.ndarray) and len(radii) == c
 			self._neighbors = neighborhood_list(centers=x, a=space, radius=radii, metric=metric).tocsc()
-
-		# ## Detect the space, if different 
-		# if space != "union" and not(space is None):
-		# 	if space is str: raise NotImplementedError("Haven't implemented parsing of special spaces")
-		# 	self.bounds = space
-
-		# ## Assign attributes
-		# self.centers = np.asanyarray(centers)
-		# self.radii = radii 
-		# self.metric = metric
-
-		# ## Default empty cover
-		# # self._neighbors = csc_matrix((0, len(self.centers)))
-
-		# ## Detect if distances were given or points
-		# if is_distance_matrix(space) or is_pairwise_distances(space):
-		# 	D = space[np.triu_indices(space.shape[0], 1)] if is_distance_matrix(space) else space
-		# 	n, J = inverse_choose(len(space), 2), len(L)
+			self.metric = metric
+			# space of type P => x is (c x d) matrix of type P representing ball centers
+			self._x = x 	
 			
-		# 	for i in range(n):
-		# 		for j, index in enumerate(self.landmarks):
-		# 			if i == index:
-		# 				x.append(10*np.finfo(float).eps)
-		# 				ri.append(i)
-		# 				ci.append(j)
-		# 			else:
-		# 				d_ij = space[rank_comb2(i,index,n)]
-		# 				if d_ij <= self.cover_radius:
-		# 					x.append(d_ij)
-		# 					ri.append(i)
-		# 					ci.append(j)
-		# 	self._neighbors = csc_matrix((x, (ri,ci)), shape=(n, J))
-		# elif is_distance_matrix(space):
-		# 	D = space[np.triu_indices(space.shape[0], 1)]
-		# 	n, J = inverse_choose(len(D), 2), len(self.landmarks)
-		# 	x, ri, ci = [], [], []
-		# 	for i in range(n):
-		# 		for j, index in enumerate(self.landmarks):
-		# 			if i == index:
-		# 				x.append(10*np.finfo(float).eps)
-		# 				ri.append(i)
-		# 				ci.append(j)
-		# 			else:
-		# 				d_ij = D[rank_comb2(i,index,n)]
-		# 				if d_ij <= self.cover_radius:
-		# 					x.append(d_ij)
-		# 					ri.append(i)
-		# 					ci.append(j)
-		# 	self._neighbors = csc_matrix((x, (ri,ci)), shape=(n, J))
-		# elif is_point_cloud(space):
-		# 	space = np.asanyarray(space)
-		# 	centers = space[np.array(self.landmarks),:]
-		# 	super().construct(space) ## Postcondition: the cover must be constructed!
-		# else: 
-		# 	raise ValueError("Unknown input to 'space' supplied; expecting a point cloud matrix, distance matrix, or set of pairwise distances")
-		
 	def radius(self, index: int):
 		assert index >= 0 and index < len(self), "Invalid index given."
 		return(self.radii if isinstance(self.radii, float) else self.radii[index])
@@ -216,28 +165,31 @@ class BallCover(Cover):
 	def __len__(self) -> int:
 		return(self._neighbors.shape[1])
 	
-	## TODO: make efficient/demand arbitrary metrics behave in a vectorized fashion
-	def set_distance(self, a: npt.ArrayLike, index: int):
+	def bump(self, a: npt.ArrayLike, index: int, normalize: bool = False):
 		''' Returns normalized distance  such that (d(a, index) <= 1.0) -> a is within closure(cover[index]) '''
-		#dx = dist(a, self.centers[[index], :], metric=self.metric)
 		if is_index_like(a):
 			dx = self._neighbors[a, index].A
+			return(self.radius(index) - dx)
+		elif is_point_cloud(a) and is_point_cloud(self._x):
+			dx = dist(self._x[index,:], a, metric=self.metric)
+			return(self.radius(index) - dx)
 		else:
-			raise NotImplementedError("Haven't implemented querying yet")
-		return(dx / self.radius(index))
+			raise NotImplementedError("Unknown distance/point combination passed.")
+		return(dx / self.radius(index) if normalize else dx)
 
 ## This is just a specialized ball cover w/ a fixed radius
 class LandmarkCover(BallCover):
-	def __init__(self, space: npt.ArrayLike, k: int, scale: float = 1.0, metric = "euclidean", **kwargs): 
+	def __init__(self, space: npt.ArrayLike, n_sets: int, scale: float = 1.0, metric = "euclidean", **kwargs): 
 		''' 
-		k := the number of landmark points to use
-		space := the space the balls are meant to cover. Either be an (n x d) matrix representing a point set in R^d, a (c x n) set of distances. 
+		space := the space the balls are meant to cover. Either be an (n x d) matrix representing a point set in R^d or a distance-like object. 
+		n_sets := the number of sets in the cover. Equivalently, the number of landmark points to use.
+		scale := relative scaling of cover sets. Must be >= 1.0.
 		metric := string or Callable indicating the type of metric distance to use in defining the landmarks. 
 		... := additional keyword arguments are passed to the landmarks(...) function. 
 		'''
-		assert k >= 2, "Number of landmarks must be at least 2."
+		assert n_sets >= 2, "Number of landmarks must be at least 2."
 		assert scale >= 1.0, "Scale must be >= 1"
-		L, R  = landmarks(space, k, metric=metric, **kwargs) # here space can be dist_like or point cloud
+		L, R  = landmarks(space, n_sets, metric=metric, **kwargs) # here space can be dist_like or point cloud
 		self.landmarks = L
 		if is_dist_like(space):
 			n = space.shape[0] if is_distance_matrix(space) else inverse_choose(len(space), 2)
@@ -245,101 +197,67 @@ class LandmarkCover(BallCover):
 			super().__init__(LD, radii=np.min(R)*scale, metric="precomputed")
 		else:
 			assert is_point_cloud(space)
-			super().__init__(x=space[L,:], radii=np.min(R)*scale, metric=metric, space=space)
+			super().__init__(space[L,:], radii=np.min(R)*scale, metric=metric, space=space)
 		
 	def __len__(self) -> int:
 		return(len(self.landmarks))
-
-	# def set_distance(self, a: npt.ArrayLike, index: int):
-	# 	''' Returns normalized distance  such that (d(a, index) <= 1.0) -> a is within closure(cover[index]) '''
-	# 	dx = dist(a, self.centers[[index], :], metric=self.metric)
-	# 	return(dx / self.cover_radius)
 
 class IntervalCover(Cover):
 	'''
 	A Cover is *CoverLike*
 	Cover -> divides data into subsets, satisfying covering property, retains underlying neighbor structures + metric (if any) 
 	Parameters: 
-		space := the type of space to construct a cover on. Can be a point set, a set of intervals (per column) indicating the domain of the cover, 
-						 or a string indicating a common configuration space. 
+		a := 
 		n_sets := number of cover elements to use to create the cover 
-		overlap := proportion of overlap between adjacent sets per dimension, as a number in [0,1). It is recommended, but not required, to keep this parameter below 0.5. 
+		scale := 
+		bounds := (optional) bounds indicating the domain of the cover. Can be given as a set of intervals (per column). Otherwise the bounding box is inferred from 'a'.  
 		implicit := optional, whether to store all the subsets in a precomputed dictionary, or construct them on-demand. Defaults to the former.
 	'''
-	def __init__(self, a: ArrayLike, n_sets: List[int], overlap: List[float], metric: str = "euclidean", implicit: bool = False, space: Optional[Union[npt.ArrayLike, str]] = None, **kwargs):
+	def __init__(self, a: ArrayLike, n_sets: List[int], scale: List[float], implicit: bool = False, bounds: Optional[Union[npt.ArrayLike, str]] = None, **kwargs):
 
 		## Reshape a to always be a matrix of points, even if 1-dimensional
 		a = np.asanyarray(a)
 		if a.ndim == 1: a = a.reshape((len(a), 1))
 
-		## If space is specified, check inputs
-		if not(space is None):
-			if space is str: raise NotImplementedError("Haven't implemented parsing of special spaces")
-			space = np.asanyarray(space)
-			if space.ndim == 1: space = np.reshape(space, (len(space), 1))
-			if space.ndim != 2: raise ValueError("Invalid data shape. Must be a matrix.")
-			self.dimension = space.shape[1]
-			self.bbox = space
+		## If bounds is specified, check inputs
+		if not(bounds is None):
+			if bounds is str: raise NotImplementedError("Haven't implemented parsing of special spaces")
+			bounds = np.asanyarray(bounds)
+			if bounds.ndim == 1: bounds = np.reshape(bounds, (len(bounds), 1))
+			if bounds.ndim != 2: raise ValueError("Invalid data shape. Must be a matrix.")
+			self.dimension = bounds.shape[1]
+			self.bbox = bounds
 			self._data = a
-			# if space.shape[0] == 2: 
-			# 	self.bbox = space
-			# 	self._data = a
-			# else: 
-			# 	self.bbox = np.vstack((np.amin(space, axis=0), np.amax(space, axis=0)))
-			# 	self._data = space
 		else: 
 			nsets = 1 if isinstance(n_sets, int) else len(n_sets)
-			nover = 1 if isinstance(overlap, float) else len(overlap)
+			nover = 1 if isinstance(scale, float) else len(scale)
 			self.dimension = np.max([nsets, nover, a.shape[1]])
 			self.bbox = np.vstack((np.amin(a, axis=0), np.amax(a, axis=0)))
-			# self.bbox = np.repeat([0,1], self.dimension, axis=0).reshape((2, self.dimension))
 			self._data = a
 
 		## Set intrinsic properties of the cover
-		self.metric = metric
 		self.implicit = implicit
 		self.n_sets = np.repeat(n_sets, self.dimension) if (isinstance(n_sets, int) or len(n_sets) == 1) else np.array(n_sets)
-		self.overlap = np.repeat(overlap, self.dimension) if (isinstance(overlap, float) or len(overlap) == 1) else np.array(overlap)
-		assert np.all([self.overlap[i] < 1.0 for i in range(self.dimension)]), "Proportion overlap must be < 1.0"
+		self.scale = np.repeat(scale, self.dimension) if (isinstance(scale, float) or len(scale) == 1) else np.array(scale)
+		# self.overlap = np.repeat(overlap, self.dimension) if (isinstance(overlap, float) or len(overlap) == 1) else np.array(overlap)
+		# assert np.all([self.overlap[i] < 1.0 for i in range(self.dimension)]), "Proportion overlap must be < 1.0"
 
 		## Assert these parameters match the dimension of the cover prior to assignment
-		if len(self.n_sets) != self.dimension or len(self.overlap) != self.dimension:
-			raise ValueError("Dimensions mismatch: supplied set or overlap arity does not match dimension of the cover.")
+		if len(self.n_sets) != self.dimension or len(self.scale) != self.dimension:
+			raise ValueError("Dimensions mismatch: supplied set or scale arity does not match dimension of the cover.")
 		self.base_width = np.diff(self.bbox, axis = 0)/self.n_sets
-		self.set_width = self.base_width + (self.base_width*self.overlap)/(1.0 - self.overlap)
-		
-		## Choose how to handle edge orientations
-		# self.gluing = np.repeat(Gluing.NONE, self.dimension) if gluing is None else gluing
-		# if len(self.gluing) != self.dimension:
-		# 	raise ValueError("Invalid gluing vector given. Must match the dimension of the cover.")
+		self.set_width = self.base_width*self.scale
+		# self.set_width = self.base_width + (self.base_width*self.overlap)/(1.0 - self.overlap)
 		
 		## If implicit = False, then construct the sets and store them
 		## otherwise, they must be constructed on demand via __call__
 		if not(self.implicit) and not(self._data is None): 
 			self.sets = self.construct(self._data)
-
-	# def _diff_to(self, x: npt.ArrayLike, point: npt.ArrayLike):
-	# 	i_dist = np.zeros(x.shape)
-	# 	for d_i in range(self.dimension):
-	# 		diff = abs(x[:,d_i] - point[:,d_i])
-	# 		if self.gluing[d_i] == 0:
-	# 			i_dist[:,d_i] = diff
-	# 		elif self.gluing[d_i] == 1:
-	# 			rng = abs(self.bbox[1:2,d_i] - self.bbox[0:1,d_i])
-	# 			i_dist[:,d_i] = np.minimum(diff, abs(rng - diff))
-	# 		elif self.gluing[d_i] == -1:
-	# 			rng = abs(self.bbox[1:2,d_i] - self.bbox[0:1,d_i])
-	# 			coords = self.bbox[1:2,d_i] - x[:,d_i] # Assume inside the box
-	# 			diff = abs(coords - point[d_i])
-	# 			i_dist[:,d_i] = np.minimum(diff, abs(rng - coords))
-	# 		else:
-	# 			raise ValueError("Invalid value for gluing parameter")
-	# 	return(i_dist)
-
 	
 	def keys(self):
 		return(np.ndindex(*self.n_sets))
 
+	# This is custom to allow the representation to be implicit
 	def values(self):
 		if self.implicit:
 			for index in self.keys():
@@ -348,6 +266,7 @@ class IntervalCover(Cover):
 			for ind in self.sets.values():
 				yield ind
 
+	# This is custom to allow the representation to be implicit
 	def __getitem__(self, index):
 		if isinstance(index, tuple):
 			return(self.construct(self._data, index) if self.implicit else self.sets[index])
@@ -362,7 +281,7 @@ class IntervalCover(Cover):
 
 	def __repr__(self) -> str:
 		domain_str = " x ".join(np.apply_along_axis("{}".format, axis=0, arr=self.bbox))
-		return("Interval Cover with {} sets and {} overlap over the domain {}".format(self.n_sets, self.overlap, domain_str))
+		return("Interval Cover with {} sets and {} scale over the domain {}".format(self.n_sets, self.scale, domain_str))
 	
 	def plot(self):
 		if self.dimension == 1:
@@ -381,42 +300,34 @@ class IntervalCover(Cover):
 				rect = patches.Rectangle(anchor, self.set_width, 1.0, linewidth=0.5, edgecolor='black', facecolor='#BEBEBE33')
 				ax.add_patch(rect)
 			plt.eventplot(np.ravel(self._data), orientation = "horizontal", linewidths=0.05, lineoffsets=0)
-
-
-	@property
-	def data(self):
-		return(self._data)
 	
 	def set_contains(self, a: npt.ArrayLike, index: Tuple) -> ArrayLike:
 		membership = np.zeros(a.shape[0], dtype="bool")
 		membership[self.construct(a, index)] = True 
 		return(membership)
-		# eps = self.base_width/2.0
-		# centroid = self.bbox[0:1,:] + (np.array(index) * self.base_width) + eps
-		# C = np.zeros(a.shape[0], dtype="bool")
-		# for i, x in enumerate(a): 
-		# 	inside = np.array([(xj >= centroid[j]-eps[j]) and (xj <= centroid[j]+eps[j]) for j, xj in enumerate(x)])
-		# 	C[i] = np.all(inside)
-		# return(C)
 
-	def set_distance(self, a: npt.ArrayLike, index: Tuple) -> ArrayLike:
+	def bump(self, a: npt.ArrayLike, index: Tuple, normalize=False) -> ArrayLike:
 		assert index in list(self.keys()), "Invalid index given"
 		a = np.asanyarray(a)
 		if self.dimension == 1:
 			eps = self.base_width/2.0
 			centroid = self.bbox[0:1,:] + (np.array(index) * self.base_width) + eps
-			# diff = self._diff_to(np.asanyarray(a), centroid)
-			# return(diff / eps)
-			diff = np.ravel(dist(a, centroid, metric=self.metric)) / (self.set_width/2.0)
-			return(diff.flatten()) ## must be flattened array
-		elif self.dimension == 2: 
+			lb = centroid - self.set_width/2.0
+			ub = centroid + self.set_width/2.0
+			diff = np.minimum(abs(a-lb), abs(a-ub)).flatten()
+			diff = diff * np.array([1.0 if x else -1.0 for x in np.bitwise_and(a >= lb, a <= ub)])
+			return(diff/(abs(self.set_width/2.0)) if normalize else diff)
+		elif self.dimension == 2:
 			eps = self.base_width/2.0
 			centroid = self.bbox[0:1,:] + (np.array(index) * self.base_width) + eps
 			width = self.set_width/2
 			P = centroid + cartesian_product(np.tile([-1,1], (self.dimension,1)))[[0,1,3,2],:] * width
 			D = sdist_to_boundary(a, P).flatten()
-			max_eps = sdist_to_boundary(centroid, P).item()
-			return(D.flatten()/max_eps)
+			if not(normalize):
+				return(D.flatten())
+			else: 
+				max_eps = sdist_to_boundary(centroid, P).item()
+				return(D.flatten()/max_eps)
 		else: 
 			raise NotImplementedError("Interval cover only supports dimensions up to 2")
 
@@ -434,54 +345,70 @@ class IntervalCover(Cover):
 			cover_sets = { index : self.construct(a, index) for index in self.keys() }
 			return(cover_sets)
 
-def CircleCover(IntervalCover, Cover):
-	# m_dist = lambda x,y: np.minimum(abs(x - y), (np.pi) - abs(x - y))
-	def __init__(a: ArrayLike, n_sets: int, overlap: float, lb = 0.0, ub = 2*np.pi):
-		assert a.ndim == 1
+# class AutoCover:
+# 	def __init__(self):
+# 		self.x = "x"
+
+
+## Minimally, one must implement keys(), __getitem__(), and set_distance()	
+class CircleCover(Cover):
+	''' 
+	1-dimensional circular cover over the interval [lb, ub] (defaults to [0, 2*pi]) 
+	This cover computes distances modulo the givens bounds  
+	'''
+	def __init__(self, a: ArrayLike, n_sets: int, scale: float, lb = 0.0, ub = 2*np.pi):
+		if not(isinstance(a, np.ndarray)):
+			a = np.asanyarray(a)
+		assert a.ndim == 1 or (len(a) == np.prod(a.shape))
+		assert lb < ub
+		assert scale >= 1.0
 		self.lb = lb
 		self.ub = ub 
-		super().__init__(a, n_sets=n_sets, overlap=overlap)
-		self.sets = self.construct(self._data)
+		self.n_sets = n_sets
+		self.scale = scale
+		self.base_width = abs(ub-lb)/n_sets
+		self.set_width = self.base_width*scale
+		self.sets = self.construct(a)
+		self._x = a # save points
 	
-	def set_distance(self, a: npt.ArrayLike, index: Tuple) -> ArrayLike:
-		eps = self.base_width/2.0
-		centroid = self.bbox[0:1,:] + (np.array(index) * self.base_width) + eps
-		diff = np.minimum(np.abs(a - centroid), self.ub-np.abs(a - centroid)) / (self.set_width/2.0)
-		return(diff.flatten()) ## must be flattened array
+	def keys(self) -> Iterable: 
+		return(range(self.n_sets))
+	
+	def __len__(self) -> int: 
+		return(self.n_sets)
 
-	def construct(self, a: npt.ArrayLike, index: Optional[npt.ArrayLike] = None):
+	def __getitem__(self, index: int): 
+		return(self.sets[index])
+
+	def bump(self, a: npt.ArrayLike, index: int, normalize: bool = False) -> ArrayLike:
+		assert index in self.sets.keys()
+		if is_index_like(a):
+			return(self.bump(self._x[a,:], index, normalize))
+		elif is_point_cloud(a) or (isinstance(a, np.ndarray) and a.ndim == 1):
+			a = np.reshape(a, (len(a), 1))
+			eps = self.base_width/2.0
+			centroid = self.lb + (index * self.base_width) + self.base_width/2.0
+			diff = np.minimum(np.abs(a - centroid), self.ub-np.abs(a - centroid)).flatten()
+			sgn = np.array([1.0 if x else -1.0 for x in (diff <= self.set_width/2.0)])
+			diff = diff * sgn
+			return(diff/(self.set_width/2.0) if normalize else diff)
+		else: 
+			raise NotImplementedError("Unsupported input type for bump function")
+
+	def construct(self, a: npt.ArrayLike, index: int = None):
 		if index is not None:
-			centroid = self.bbox[0:1,:] + (np.array(index) * self.base_width) + self.base_width/2.0
-			diff = np.minimum(np.abs(a - centroid), (2*np.pi)-np.abs(a - centroid))
-			return(np.ravel(np.where(np.bitwise_and.reduce(diff <= self.set_width/2.0, axis = 1))))
+			centroid = self.lb + (index * self.base_width) + self.base_width/2.0
+			diff = np.minimum(np.abs(a - centroid), self.ub - np.abs(a - centroid))
+			return(np.flatnonzero(diff <= self.set_width/2.0))
 		else:
 			cover_sets = { index : self.construct(a, index) for index in self.keys() }
 			return(cover_sets)
-
-## A partition of unity can be constructed on:
-## 	1. a set of balls within a metric space of arbitrary dimension, all w/ some fixed radius
-##  2. a set of balls within a metric space of arbitrary dimension, each w/ a ball-specific radius
-##  3. a set of convex polytopes within a metric space of arbitrary dimension
-##  4. a set of polygons (possibly non-convex) /within a metric space (2D only)
-##  5. a set of arbitrary geometries within a metric space (user-supplied)
-
 
 def validate_cover(m, cover):
 	membership = np.zeros(m, dtype=bool)
 	for ind in cover.values(): 
 		membership[ind] = True
 	return(np.all(membership == True))
-
-
-def dist_to_balls(a: ArrayLike, B: ArrayLike, R: ArrayLike, metric: str = "euclidean"):
-	a, B = np.asanyarray(a), np.asanyarray(B)
-	if isinstance(R, float) or len(R) == 1:
-		## Case 1
-		return(dist(a, B, metric=metric)/R)
-	else:
-		## Case 2 
-		return(dist(a, B, metric=metric)/R) # broadcast?
-
 
 def dist_to_boundary(P: npt.ArrayLike, x: npt.ArrayLike):
 	''' Given ordered vertices constituting polygon boundary and a point 'x', determines distance from 'x' to polygon boundary on ray emenating from centroid '''
@@ -529,79 +456,45 @@ def dist_to_boundary(P: npt.ArrayLike, x: npt.ArrayLike):
 
 
 ## A Partition of unity is 
-## B := point cloud from some topological space
 ## phi := function mapping a subset of m points to (m x J) matrix 
-## cover := CoverLike (supports set_contains, values)
-## similarity := string or Callable 
+## cover := CoverLike that has a .bump() function
+## mollifer := string or Callable indicating the choice of mollifier
 ## weights := not implemented
-def partition_of_unity(B: npt.ArrayLike, cover: CoverLike, similarity: Union[str, Callable] = "triangular", weights: Optional[npt.ArrayLike] = None, check_subordinate=False) -> csc_matrix:
-	if (B.ndim != 2): raise ValueError("Error: filter must be matrix.")
-# assert B.shape[1] == cover.dimension, "Dimension of point set given to PoU differs from cover dimension."
-	assert similarity is not None, "similarity map must be a real-valued function, or a string indicating one of the precomputed ones."
+## normalize := whether to request the bump functions normalize their output. Defaults to true. 
+def partition_of_unity(cover: CoverLike, mollifier: Union[str, Callable] = "identity", weights: Optional[npt.ArrayLike] = None, check_subordinate=False, normalize=True) -> csc_matrix:
+	assert mollifier is not None, "mollifier must be a real-valued function, or a string indicating one of the precomputed ones."
 	assert isinstance(cover, CoverLike), "cover must be CoverLike"
-	assert "set_distance" in dir(cover), "cover must be set_distance() function to construct a partition of unity."
+	assert "bump" in dir(cover), "cover must be bump() function to construct a partition of unity with a mollifier."
 
 	# Apply the phi map to each subset, collecting the results into lists
 	J = len(cover)
-	row_indices, beta_image = [], []
+	row_ind, col_ind, phi_image = array.array('I'), array.array('I'), array.array('f') 
 	for i, (index, subset) in enumerate(cover.items()): 
-		## Use normalized set distance to construct partition of unity
-		# dx = cover.set_distance(B[np.array(subset),:], index)
-		if isinstance(cover, IntervalCover):
-			dx = cover.set_distance(B[np.array(subset),:], index)
-		else:
-			dx = cover.set_distance(subset, index)
-		sd = np.maximum(0.0, 1.0 - dx) ## todo: fix w/ bump functions
+		## Use mollified-bump function to construct "default" partition of unity
+		dx = cover.bump(subset, index, normalize) # every cover should support index-like bump functionality
+		dx = mollify(dx, mollifier)
 
 		## Record non-zero row indices + the function values themselves
-		ind = np.nonzero(sd)[0]
-		row_indices.append(subset[ind])
-		beta_image.append(np.ravel(sd[ind]).flatten())
+		ind = np.flatnonzero(dx >= 0.0)
+		row_ind.extend(subset[ind])
+		col_ind.extend(np.repeat(i, len(subset)))
+		phi_image.extend(np.ravel(dx[ind]).flatten())
 
 	## Use a CSC-sparse matrix to represent the partition of unity
-	row_ind = np.hstack(row_indices)
-	col_ind = np.repeat(range(J), [len(subset) for subset in row_indices])
-	pou = csc_matrix((np.hstack(beta_image), (row_ind, col_ind)))
+	R, C = np.frombuffer(row_ind, dtype=np.int32), np.frombuffer(col_ind, dtype=np.int32)
+	P = np.frombuffer(phi_image, dtype=np.float32)
+	pou = csc_matrix((P, (R, C)))
 	pou = csc_matrix(pou / pou.sum(axis=1)) 
 
 	## This checks the support(pou) \subseteq closure(cover) property
 	## Only run this when not profiling
-	if check_subordinate:
-		for j, index in enumerate(cover.keys()):
-			j_membership = np.where(pou[:,j].todense() > 0)[0]
-			ind = find_where(j_membership, cover[index])
-			if (np.any(ind == None)):
-				raise ValueError("The partition of unity must be supported on the closure of the cover elements.")
+	# if check_subordinate:
+	# 	for j, index in enumerate(cover.keys()):
+	# 		pou.getcol(j) == 
+	# 		j_membership = np.flatnonzero(pou[:,j] > 0)
+	# 		ind = cover[index])
+	# 		if (np.any(ind == None)):
+	# 			raise ValueError("The partition of unity must be supported on the closure of the cover elements.")
 
 	## Return both the partition of unity and the iota (argmax) bijection 
 	return(pou)
-
-
-		# if isinstance(pou, str):
-		# 	## In this case, cover must have a set_distance(...) function!
-		# 	## This is where the coordinates of B are needed!
-		# 	self.pou = partition_of_unity(B, cover = self.cover, similarity = pou) 
-		# elif issparse(pou): 
-		# 	if pou.shape[1] != len(self.cover):
-		# 		raise ValueError("Partition of unity must have one column per element of the cover")
-		# 	for j, index in enumerate(self.cover.keys()):
-		# 		pou_nonzero = np.where(pou[:,j].todense() > 0)[0]
-		# 		is_invalid_pou = np.any(find_where(pou_nonzero, self.cover[index]) is None)
-		# 		if (is_invalid_pou):
-		# 			raise ValueError("The partition of unity must be supported on the closure of the cover elements.")
-		# else: 
-		# 	raise ValueError("Invalid partition of unity supplied. Must be either a string or a csc_matrix")
-
-		# 	## In this case, cover must have a set_distance(...) function!
-		# 	## This is where the coordinates of B are needed!
-		# 	 = 
-		# elif issparse(pou): 
-		# 	if pou.shape[1] != len(self.cover):
-		# 		raise ValueError("Partition of unity must have one column per element of the cover")
-		# 	for j, index in enumerate(self.cover.keys()):
-		# 		pou_nonzero = np.where(pou[:,j].todense() > 0)[0]
-		# 		is_invalid_pou = np.any(find_where(pou_nonzero, self.cover[index]) is None)
-		# 		if (is_invalid_pou):
-		# 			raise ValueError("The partition of unity must be supported on the closure of the cover elements.")
-		# else: 
-		# 	raise ValueError("Invalid partition of unity supplied. Must be either a string or a csc_matrix")

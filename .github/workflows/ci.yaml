@@ -153,14 +153,13 @@ jobs:
       CIBW_TEST_REQUIRES: pytest
       CIBW_TEST_COMMAND: "pytest {project}/tests"
       CIBW_BUILD_FRONTEND: "pip"
-      CIBW_BUILD: "cp38-manylinux_x86_64 cp38-macosx_x86_64"
+      CIBW_BUILD: "cp38-manylinux_x86_64" # cp38-macosx_x86_64
       CIBW_ARCHS_LINUX: "x86_64"
       CIBW_BUILD_VERBOSITY: 1
       CIBW_BEFORE_ALL_LINUX: "
       yum install gcc openssl-devel bzip2-devel libffi-devel hdf5 blas blas-devel lapack lapack-devel Cython -y && 
-      curl -sSL https://raw.githubusercontent.com/python-poetry/poetry/master/get-poetry.py | python - && source $HOME/.poetry/env
-      poetry install --no-root && 
-      poetry install -vvv
+      curl -sSL https://raw.githubusercontent.com/python-poetry/poetry/master/get-poetry.py | python - && 
+      source $HOME/.poetry/env
       "
     steps:
     - uses: actions/checkout@v2
@@ -174,11 +173,11 @@ jobs:
         python -m pip install --upgrade pip
         pip install build
 
-    - name: Install Poetry Action
-      uses: snok/install-poetry@v1.2.1
+    # - name: Install Poetry Action
+    #   uses: snok/install-poetry@v1.2.1
 
-    - name: Poetry install 
-      run: poetry install -vvv
+    # - name: Install dependencies with poetry
+    #   run: poetry install -vvv --no-root
 
     - uses: pypa/cibuildwheel@v1.12.0
       

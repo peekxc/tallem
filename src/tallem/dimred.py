@@ -333,8 +333,14 @@ def nmds(a: npt.ArrayLike, d: int = 2, **kwargs):
 	embedding = MDS(n_components=d, metric=False, random_state=0, **kwargs)
 	return(embedding.fit_transform(a))
 
-def fit_local_models(f, X, cover, n_cores=1): #os.cpu_count()
-	models = { index : f(X[np.array(subset),:]) for index, subset in cover.items() }
+# Do not require cover to be CoverLike
+def fit_local_models(f: Callable, X: ArrayLike, cover, n_cores=1): #os.cpu_count()
+	if is_dist_like(X):
+		models = { index : f(subset_dist(X, subset)) for index, subset in cover.items() }
+	elif is_point_cloud(X):
+		models = { index : f(X[np.array(subset),:]) for index, subset in cover.items() }
+	else: 
+		raise NotImplementedError("Unknown input type given for 'X'. ")
 	# if n_cores == 1:
 	# 	
 	# else:

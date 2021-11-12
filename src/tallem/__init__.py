@@ -34,10 +34,10 @@ class TALLEM():
 	'''
 	TALLEM: Topological Assembly of Locally Euclidean Models
 
-	__init__(cover, local_map, n_components, pou) -> (TALLEM instance): 
+	__init__(cover, local_map, D, pou) -> (TALLEM instance): 
 		cover := CoverLike iterable of length J that covers some topological space B, where B is the image of some map f : X -> B
 		local_map := a callable mapping (m x p) subsets of X to some (m x d) space, where d < p, which approximately preserves the metric on X. 
-		n_components := target embedding dimension
+		D := target embedding dimension
 		pou := partition of unity, either one of ['triangular', 'quadratic'], or an (n x J) ArrayLike object whose rows
 					 yield weights indicating the strength of membership of that point with each set in the cover.
 
@@ -54,11 +54,11 @@ class TALLEM():
 
 	'''
 	
-	def __init__(self, cover: CoverLike, local_map: Union[str, Callable[npt.ArrayLike, npt.ArrayLike]], n_components: int = 2, pou: Union[str, csc_matrix] = "triangular"):
+	def __init__(self, cover: CoverLike, local_map: Union[str, Callable[npt.ArrayLike, npt.ArrayLike]], D: int = 2, pou: Union[str, csc_matrix] = "default"):
 		assert isinstance(cover, CoverLike), "cover argument must be an CoverLike."
 		
 		## Store callable as part of the cover's initialization
-		self.D = n_components ## Target dimension of the embedding (D) 
+		self.D = D ## Target dimension of the embedding 
 
 		## If string supplied to shortcut dim. reduction step, parse that, otherwise expect it to be a callable
 		if isinstance(local_map, str):
@@ -78,24 +78,20 @@ class TALLEM():
 
 		## Validate the partition of unity respects the closure condition relative to the cover 
 		if isinstance(pou, csc_matrix): assert pou.shape[1] == len(self.cover), "Partition of unity must have one column per element of the cover"
-		self.pou = pou
+		self.pou = "identity" if (isinstance(pou, str) and pou == "default") else pou
 
-	def fit(self, X: npt.ArrayLike, B: Optional[npt.ArrayLike] = None, pou: Optional[Union[str, csc_matrix]] = None, **kwargs):
-		X = np.asanyarray(X) 
-		if B is None: B = X
-		if X.shape[0] != B.shape[0]: raise ValueError("X and B must have the same number of rows.")
-		if X.ndim == 1: X = X.reshape((len(X), 1))
-		if B.ndim == 1: B = B.reshape((len(B), 1))
+	def fit(self, X: ArrayLike, pou: Optional[Union[str, csc_matrix]] = None, **kwargs):
 		if pou is None: pou = self.pou
 		
-		## Validate cover 
-		assert validate_cover(X.shape[0], self.cover), "Supplied cover invalid: the union of the values does not contain all of B as a subset."
+		## Validate cover
+		self.n = inverse_choose(len(X), 2) if is_pairwise_distances(X) else X.shape[0]
+		assert validate_cover(self.n, self.cover), "Supplied cover invalid. Must contain all of X."
 
 		## Map the local euclidean models (in parallel)
 		self.models = fit_local_models(self.local_map, X, self.cover)
 
 		## Construct a partition of unity
-		self.pou = pou if issparse(pou) else partition_of_unity(B, cover = self.cover, similarity = pou)
+		self.pou = pou if issparse(pou) else partition_of_unity(cover = self.cover, mollifier = pou)
 		assert issparse(self.pou), "partition of unity must be a sparse matrix"
 
 		## Align the local reference frames using Procrustes
@@ -112,11 +108,25 @@ class TALLEM():
 		self.embedding_ = assembly_fast(self._stf, self.A, self.cover, self.pou, self.models, self.translations)
 		
 		## Save useful information
-		self.n, self.d, self.D = X.shape[0], self._stf.d, self.A0.shape[1]
+		self.d, self.D = self._stf.d, self.A0.shape[1]
 		return(self)
 
+
+	## TODO: somehow extend everything to support arbitrary inputs for out-of-sample extension
+	## Idea: Iterables.... instead of covers... or as optional arguments on top of covers...
+	## Cover should probably support operator(..., index) as a set_contains 
+	# def transform(self, B: ArrayLike, pou: Optional[csc_matrix] = None, D_frame: Optional[npt.ArrayLike] = None) -> ArrayLike:
+	# 	## Map new data points in 'B' based on the existing cover and local map
+	# 	extend_models = fit_local_models(self.local_map, B, self.cover)
+	# 	extend_pou = pou if issparse(pou) else partition_of_unity(cover = self.cover, mollifier = pou, points...)
+	# 	assert issparse(pou), "partition of unity must be a sparse matrix"
+	# 	extend_alignments = align_models(self.cover, self.models, points...)
+	# 	extend_translations = global_translations(self.cover, self.alignments, points...)
+	# 	self.assemble(extend_pou, self.A)
+
+	## Here, B would have to match the elements the cover was constructed on
 	def fit_transform(self, X: npt.ArrayLike, B: Optional[npt.ArrayLike] = None, **fit_params) -> npt.ArrayLike:		
-		self.fit(X, B, **fit_params)
+		self.fit(X, **fit_params)
 		return(self.embedding_)
 
 	def __repr__(self) -> str:
@@ -158,6 +168,13 @@ class TALLEM():
 		G.add_nodes_from(range(len(self.cover)))
 		G.add_edges_from(self.alignments.keys())
 		return(G)
+
+	def build_nerve(self, build_local_models: bool = False):
+		if build_local_models:
+			self.models = fit_local_models(self.local_map, X, self.cover)
+		assert self.models is not None and len(self.models) > 0
+		self.alignments = align_models(self.cover, self.models)
+		self.translations = global_translations(self.cover, self.alignments)
 
 	def plot_nerve(self, 
 		X: Optional[ArrayLike] = None, 
@@ -224,7 +241,8 @@ class TALLEM():
 		y_rng = np.array([np.min(layout[:,1]), np.max(layout[:,1])])*[0.90, 1.10]
 		p = figure(
 			tools="pan,wheel_zoom,save,reset", 
-			active_scroll='wheel_zoom',
+			active_scroll=None,
+			active_drag="auto",
 			x_range=x_rng, 
 			y_range=y_rng, 
 			title="TALLEM Nerve complex", 
