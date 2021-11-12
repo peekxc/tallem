@@ -1,4 +1,7 @@
---- 
+name: "Build distribution"
+true: 
+  - push
+  - workflow_dispatch 
 jobs: 
   build_ciwheels: 
     env: 
@@ -105,7 +108,4 @@ jobs:
         uses: actions/upload-artifact@v2
         with: 
           path: ./dist/tallem-*.whl
-name: "Build distribution"
-true: 
-  - push
-  - workflow_dispatch
+
