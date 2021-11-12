@@ -49,7 +49,7 @@ home_dir = fs.expanduser('~')
 
 ## Find Python 3.8+ for Protocol classes
 py = import('python')
-py_mod = py.find_installation('python3', required:true)
+py_mod = py.find_installation('python3', modules:['numpy'], required:true) # modules:['numpy'] needed for ubuntu
 py_dep = py_mod.dependency(version:'>=3.8.0', components:['Interpreter', 'Development', 'NumPy'])
 
 ## Detect numpy
