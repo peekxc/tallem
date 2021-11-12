@@ -34,12 +34,12 @@ jobs:
           python-version: 3.9
       - name: "Setup linux APT dependencies"
         run: |
-            sudo add-apt-repository universe
-            sudo apt-get update
-            sudo apt-get install python3 python3-pip python3-setuptools python3-wheel ninja-build
+            apt-get update
+            apt-get install gcc openssl bzip2 libffi-dev libhdf5-dev
+            apt-get install --yes python3-dev
+            apt-get install --yes python3 python3-pip python3-setuptools python3-wheel ninja-build
+            apt install --yes --no-install-recommends ninja-build gfortran liblapack-dev liblapacke-dev
             pip install --upgrade pip
-            sudo apt install -yq --no-install-recommends ninja-build gfortran liblapack-dev liblapacke-dev
-            sudo ldconfig
       - name: "Setup cmake"
         uses: jwlawson/actions-setup-cmake@v1.9
         with: 
@@ -68,10 +68,10 @@ jobs:
           python-version: 3.9
       - run: |
             apt-get update
-            apt-get install gcc openssl bzip2 libffi-dev libhdf5-dev
-            apt-get install libblas-dev liblapack-dev gfortran 
-            apt-get install python3 python3-pip python3-setuptools python3-wheel
-            apt-get install python3-dev cmake meson ninja-build
+            apt-get install --yes gcc openssl bzip2 libffi-dev libhdf5-dev
+            apt-get install --yes libblas-dev liblapack-dev gfortran 
+            apt-get install --yes python3 python3-pip python3-setuptools python3-wheel
+            apt-get install --yes python3-dev cmake meson ninja-build
             python -m pip install --upgrade pip
             sudo -H pip install pytest
       - run: "pip install tallem"
@@ -90,7 +90,7 @@ jobs:
           python-version: 3.9
       - run: |
           yum install gcc openssl-devel bzip2-devel libffi-devel hdf5 -y
-          yum install blas blas-devel lapack lapack-devel
+          yum install blas blas-devel lapack lapack-devel -y
           cd ~  && python3.8 -m venv . && source bin/activate
           python -m pip install --upgrade pip
       - run: "pip install tallem"

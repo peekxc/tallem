@@ -8,7 +8,7 @@ packages = \
 ['tallem', 'tallem.extensions']
 
 package_data = \
-{'': ['*']}
+{'': ['*'], 'tallem.extensions': ['*.so', '*.pyd', 'extensions/*.so', 'extensions/*.pyd'] }
 
 install_requires = \
 ['numpy>=1.21.3,<2.0.0', 'scipy>=1.6']
