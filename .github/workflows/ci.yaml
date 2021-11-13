@@ -34,7 +34,7 @@ jobs:
           python-version: 3.9
       - name: "Setup linux APT dependencies"
         run: |
-            apt-get update
+            sudo apt-get update
             apt-get install gcc openssl bzip2 libffi-dev libhdf5-dev
             apt-get install --yes python3-dev
             apt-get install --yes python3 python3-pip python3-setuptools python3-wheel ninja-build
@@ -73,7 +73,7 @@ jobs:
             apt-get install --yes python3 python3-pip python3-setuptools python3-wheel
             apt-get install --yes python3-dev cmake meson ninja-build
             python -m pip install --upgrade pip
-            sudo -H pip install pytest
+            pip install pytest
       - run: "pip install tallem"
       - run: "pytest tests/"
       - uses: actions/upload-artifact@v2
@@ -83,7 +83,6 @@ jobs:
     container: dockcross/manylinux2014-x64
     runs-on: ubuntu-latest
     steps: 
-      - uses: actions/checkout@v2
       - uses: actions/setup-python@v2
         with: 
           architecture: x64
@@ -91,8 +90,10 @@ jobs:
       - run: |
           yum install gcc openssl-devel bzip2-devel libffi-devel hdf5 -y
           yum install blas blas-devel lapack lapack-devel -y
-          cd ~  && python3.8 -m venv . && source bin/activate
+          cd ~ && python3.8 -m venv . && source bin/activate
           python -m pip install --upgrade pip
+      - uses: actions/checkout@v2
+      - run: "ls"
       - run: "pip install tallem"
       - run: "pytest tests/"
       - uses: actions/upload-artifact@v2
