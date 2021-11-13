@@ -1,10 +1,49 @@
 # pyproject.toml
 [project]
-requires-python = ">=3.8,<3.10"
+name = "tallem"
+repository = "https://github.com/peekxc/tallem"
 
 [build-system]
 requires = ["setuptools>=42", "build", "wheel", "poetry>=1.0.10", "meson>=0.59.0", "ninja", "cmake", "Cython", "numpy", "scipy>=1.6"]
 build-backend = "poetry.masonry.api" # build backends for pip to use to building the wheel
+# requires = ["mesonpep517", "build", "wheel", "meson>=0.59.0", "ninja", "cmake", "Cython", "numpy", "scipy>=1.6"]
+# build-backend = "mesonpep517.buildapi"
+
+# [tool.mesonpep517.metadata]
+# platforms = "any"
+# summary = "Topological Assembly of Locally Euclidean Model"
+# author = "Matt Piekenbrock"
+# author-email = "matt.piekenbrock@gmail.com"
+# # authors = ["Matt Piekenbrock <matt.piekenbrock@gmail.com>"]
+# # authors = [
+# # 	name = "Matt Piekenbrock",
+# # 	email = "matt.piekenbrock@gmail.com"
+# # ]
+# # description = "Topological Assembly of Locally Euclidean Models"
+# description-file = "README.md"
+# # license = "Apache-2.0"
+# # readme = "README.md"
+# classifiers = [
+# 	"Development Status :: 3 - Alpha", 
+# 	"License :: OSI Approved :: Apache Software License", 
+# 	"Operating System :: OS Independent",
+# 	"Programming Language :: Python :: 3",
+# 	"Intended Audience :: Science/Research"
+# ]
+# requires-python = ">=3.8,<3.10"
+# requires = [
+#   "scipy >= 1.6", 
+# 	"numpy >= 1.20"
+# ]
+# version = "0.2.0"
+
+
+# [tool.mesonpep517.entry-points]
+# console_scripts = [
+#   'build = build:build'
+# ]
+
+
 
 [tool.poetry]
 name = "tallem"
