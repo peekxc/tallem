@@ -1,5 +1,5 @@
 ## TALLEM needs C++17 or higher 
-project('tallem', 'cpp', 'fortran', 'cython',
+project('tallem', 'cpp', 'cython', # 'fortran'
 	version: '0.1.1',
   default_options : [
 		'cpp_std=c++17', 'warning_level=3',

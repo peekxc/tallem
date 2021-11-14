@@ -1003,3 +1003,8 @@ ax.set_ylim(bottom=np.min(emb[:,1]), top=np.max(emb[:,1]))
 
 # plt.imshow(rotate(mn[0,:].reshape((28,28))), cmap='gray', vmin=0, vmax=255)
 
+
+import numpy as np
+x = np.random.uniform(size=(100,2))
+y = np.random.uniform(size=(100,2))
+

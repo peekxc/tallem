@@ -50,4 +50,6 @@ poetry install -vvv
 pip install . 
 
 
+export CIBW_BUILD=cp38-manylinux_x86_64
+
 

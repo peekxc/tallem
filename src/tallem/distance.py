@@ -107,6 +107,8 @@ def dist(x: npt.ArrayLike, y: Optional[npt.ArrayLike] = None, pairwise = False, 
 	The supplied 'metric' can be either a string or a real-valued binary distance function. Both the 
 	metric and the additional keyword arguments are passed to 'pdist' or 'cdist', respectively. 
 	See for reference the scipy.spatial.distance documentation, https://docs.scipy.org/doc/scipy/reference/generated/scipy.spatial.distance.pdist.html#scipy.spatial.distance.pdist, for details.
+	
+	TODO: remove as_matrix, use only pairwise flag, and set default pairwise=False (simplifies (3-4) if default is false)
 	'''
 	x = np.asanyarray(x) ## needs to be numpy array
 	if (x.shape[0] == 1 or x.ndim == 1) and y is None: 
