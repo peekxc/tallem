@@ -68,6 +68,13 @@ class Cover(CoverLike):
 	def set_distance(self, X: ArrayLike, index: T): 
 		raise NotImplementedError("This cover has not defined a set distance function.")
 
+def is_uniform(cover):
+	## It happens enough that cover's are poorly constructed. This does a simple check on that. 
+	open_sizes = np.array([len(subset) for subset in cover.values()])
+	_p = open_sizes / np.sum(open_sizes)
+	_p_entropy = -np.sum(_p*np.log(_p))
+	return(_p_entropy >= 1.0 or np.all(open_sizes > 2))
+
 def mollify(x: float, method: Optional[str] = "identity"):
 	''' 
 	Applies a mollifier to modify the shape of 'x' (typically the result of a bump function). 
@@ -79,7 +86,6 @@ def mollify(x: float, method: Optional[str] = "identity"):
 	
 	Note that all negative entries of 'x' are always set to 0, even if a Callable is given. 
 	'''
-	assert np.all(x <= 1.0), "Similarity must be non-negative."
 	x = np.maximum(x, 0.0) # truncate to only be positive!
 	if method == "triangular" or method == "linear" or method == "identity": 
 		s = x
@@ -383,7 +389,7 @@ class CircleCover(Cover):
 	def bump(self, a: npt.ArrayLike, index: int, normalize: bool = False) -> ArrayLike:
 		assert index in self.sets.keys()
 		if is_index_like(a):
-			return(self.bump(self._x[a,:], index, normalize))
+			return(self.bump(self._x[a], index, normalize))
 		elif is_point_cloud(a) or (isinstance(a, np.ndarray) and a.ndim == 1):
 			a = np.reshape(a, (len(a), 1))
 			eps = self.base_width/2.0

@@ -33,6 +33,7 @@ yum install blas blas-devel lapack lapack-devel
 
 ## Activate virtualenv for 3.8 (python3.8 already installed)
 cd ~  && python3.8 -m venv . && source bin/activate
+cd tallem && git pull
 
 ## Install Poetry 
 curl -sSL https://raw.githubusercontent.com/python-poetry/poetry/master/get-poetry.py | python - && source $HOME/.poetry/env
@@ -52,4 +53,8 @@ pip install .
 
 export CIBW_BUILD=cp38-manylinux_x86_64
 
+## preloaded 
+cd ~  && python3.8 -m venv . && source bin/activate && cd tallem && git pull
+pip install build
+python -m build --wheel .
 

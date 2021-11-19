@@ -23,7 +23,7 @@ import tallem.extensions
 from .utility import find_where
 from .sc import delta0D
 from .distance import dist
-from .cover import CoverLike, IntervalCover, partition_of_unity, validate_cover
+from .cover import CoverLike, IntervalCover, partition_of_unity, validate_cover, is_uniform
 from .alignment import opa, align_models, global_translations
 from .samplers import uniform_sampler
 from .dimred import *
@@ -85,7 +85,10 @@ class TALLEM():
 		
 		## Validate cover
 		self.n = inverse_choose(len(X), 2) if is_pairwise_distances(X) else X.shape[0]
-		assert validate_cover(self.n, self.cover), "Supplied cover invalid. Must contain all of X."
+		assert validate_cover(self.n, self.cover), "Invalid cover -- does not fully cover X."
+		if not(is_uniform(self.cover)):
+			import warnings
+			warnings.warn('Cover subsets appear to be highly non-uniform or sparse -- embedding may be low quality.', RuntimeWarning)
 
 		## Map the local euclidean models (in parallel)
 		self.models = fit_local_models(self.local_map, X, self.cover)
@@ -95,7 +98,7 @@ class TALLEM():
 		assert issparse(self.pou), "partition of unity must be a sparse matrix"
 
 		## Align the local reference frames using Procrustes
-		self.alignments = align_models(self.cover, self.models)
+		self.alignments = align_models(self.cover, self.models, **kwargs)
 		
 		## Get global translation vectors using cocyle condition
 		self.translations = global_translations(self.cover, self.alignments)
@@ -125,8 +128,8 @@ class TALLEM():
 	# 	self.assemble(extend_pou, self.A)
 
 	## Here, B would have to match the elements the cover was constructed on
-	def fit_transform(self, X: npt.ArrayLike, B: Optional[npt.ArrayLike] = None, **fit_params) -> npt.ArrayLike:		
-		self.fit(X, **fit_params)
+	def fit_transform(self, X: npt.ArrayLike, **kwargs) -> npt.ArrayLike:		
+		self.fit(X, self.pou, **kwargs)
 		return(self.embedding_)
 
 	def __repr__(self) -> str:
@@ -179,7 +182,7 @@ class TALLEM():
 	def plot_nerve(self, 
 		X: Optional[ArrayLike] = None, 
 		layout=["hausdorff", "spring"], edge_color=["alignment", "frame"], 
-		vertex_scale: float = 5.0, edge_scale: float = 4.0,
+		vertex_scale: float = 5.0, edge_scale: float = 8.0,
 		toolbar = False, 
 		notebook=True,
 		**kwargs

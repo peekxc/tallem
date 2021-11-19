@@ -167,13 +167,15 @@ def rotating_disk(n_pixels: int, r: float, sigma: float = 1.0):
 		return(np.ravel(gaussian_filter(D, sigma=1.0)).flatten())
 	return(disk_image, 1.0)
 
-def mobius_bars(n_pixels: int, r: float, sigma: float = 1.0):
+def white_bars(n_pixels: int, r: float, sigma: float = 1.0):
 	''' 
-	White bands on a mobius band 
+	Returns a parameterization that yields a white vertical bar at various orientations in an image. 
+
+	Fixed parameters: 
 		n_pixels := number of pixels to make square image
 		r := constant between [0,1] indicating how wide to make the bar 
 		sigma := kernel parameter for gaussian blur
-	Return:
+	Returns:
 		bar := closure w/ parameters y_offset in [0, 1] and theta in [0, pi]
 		c := normalizing constant for plotting
 	'''
@@ -211,7 +213,7 @@ def mobius_bars(n_pixels: int, r: float, sigma: float = 1.0):
 		# fig, ax = scatter2D(np.array(P))
 
 		I = abs(dist_to_line.reshape((n_pixels, n_pixels)))
-		I = np.flipud(I)
+		I = np.flipud(I) # make origin lower-left, not top-left 
 		# I = (np.sqrt(2)/2)*(I/np.max(I))
 		I[I > w] = np.sqrt(2)
 		I = np.sqrt(2) - I ## invert intensity 

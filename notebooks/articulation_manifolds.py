@@ -9,15 +9,19 @@ X, B = mobius_band()
 polar_coordinate = B[:,[1]]
 
 ## Run TALLEM on interval cover using polar coordinate information
-m_dist = lambda x,y: np.minimum(abs(x - y), (2*np.pi) - abs(x - y))
-cover = IntervalCover(polar_coordinate, n_sets = 15, overlap = 0.40, space = [0, 2*np.pi], metric = m_dist)
-top = TALLEM(cover, local_map="pca2", n_components=3)
-emb = top.fit_transform(X, polar_coordinate)
+cover = CircleCover(polar_coordinate, n_sets=15, scale=1.50)
+top = TALLEM(cover, local_map="pca3", D=3)
+emb = top.fit_transform(X, fit="best", scale=True)
+
+# %matplotlib
+# scatter3D(emb, c=polar_coordinate)
 
 ## Rotate and view
 angles = np.linspace(0, 360, num=12, endpoint=False)
 scatter3D(emb, angles=angles, figsize=(16, 8), layout=(2,6), c=polar_coordinate)
 
+# top.plot_nerve(X=X, layout="hausdorff")
+# %% 
 top.plot_nerve(X=X, layout="hausdorff")
 
 
@@ -43,10 +47,10 @@ plot_images(Disks, shape=(25,25), max_val=c, figsize=(18, 4), layout=(2,8))
 Theta = np.random.uniform(size=800, low=0.0, high=2*np.pi)
 Disks = np.vstack([disk(theta) for theta in Theta])
 
-cover = LandmarkCover(Disks, k=12, scale=1.2)
+cover = LandmarkCover(Disks, n_sets=12, scale=1.2)
 # local_map = lambda x: pca(x, d=1)
-top = TALLEM(cover, local_map="pca2", n_components=2)
-emb = top.fit_transform(X=Disks, B=Disks)
+top = TALLEM(cover, local_map="pca2", D=2)
+emb = top.fit_transform(X=Disks)
 P = [
 	cmds(Disks, d=2),
 	isomap(Disks, d=2, p=0.15), 
@@ -170,40 +174,64 @@ import colorcet as cc
 from tallem import TALLEM
 from tallem.cover import *
 from tallem.datasets import *
-bar, c = mobius_bars(n_pixels=25, r=0.14, sigma=2.25)
+bar, c = white_bars(n_pixels=25, r=0.14, sigma=2.25)
 
 ## Show grid of simples
 samples = []
-for b in np.linspace(1.0, 0.0, num=9):
-	for theta in np.linspace(0, np.pi, num=11, endpoint=False):
-		samples.append(np.ravel(bar(b, theta)).flatten())
+for b in np.linspace(1.0, 0.0, num=9, endpoint=True):
+	for theta in np.linspace(0, np.pi, num=11, endpoint=True):
+		if (theta <= np.pi/2):
+			samples.append(np.ravel(bar(b, theta)).flatten())
+		else:
+			samples.append(np.ravel(bar(1.0 - b, theta)).flatten())
 samples = np.vstack(samples)
 fig, ax = plot_images(samples, shape=(25,25), max_val=c, layout=(9,11))
 
-R = np.random.uniform(size=5000, low=0.0, high=1.0)
-Theta = np.random.uniform(size=5000, low=0.0, high=np.pi)
+# R = np.random.uniform(size=5000, low=0.0, high=1.0)
+# Theta = np.random.uniform(size=5000, low=0.0, high=np.pi)
 
 ## Generate the data 
-bars = np.vstack([np.ravel(bar(b, theta)).flatten() for b, theta in zip(R, Theta)])
-params = np.vstack([(b, theta) for b, theta in zip(R, Theta)])
-
-## Landmark to get a nice sampling 
+# bars = np.vstack([np.ravel(bar(b, theta)).flatten() for b, theta in zip(R, Theta)])
+# params = np.vstack([(b, theta) for b, theta in zip(R, Theta)])
 from tallem.samplers import landmarks
+bars, params = [], []
+for b in np.linspace(1.0, 0.0, num=100, endpoint=True):
+	for theta in np.linspace(0, np.pi, num=100, endpoint=True):
+		if (theta <= np.pi/2):
+			bars.append(np.ravel(bar(b, theta)).flatten())
+			params.append(np.array([b, theta]))
+		else:
+			bars.append(np.ravel(bar(1.0-b, theta)).flatten())
+			params.append(np.array([b, theta])) # trick the parameterization
+bars = np.vstack(bars)
+params = np.vstack(params)
+
+## Choose landmarks on the image metric 
 Lind, Lrad = landmarks(bars, 1200)
 X = bars[Lind,:]
 p = params[Lind,:]
 
-## Draw random samples
+## Choose landmarks using the intrinsic metric 
+Lind, Lrad = landmarks(params, 1200)
+X = bars[Lind,:]
+p = params[Lind,:]
+
+## Showa grid of random samples
 idx = np.random.choice(X.shape[0], size=25*25, replace=False)
 fig, ax = plot_images(X[idx,:], shape=(25,25), max_val=c, layout=(9,11))
 
-cover = LandmarkCover(X, k=20, scale=1.1)
-assert np.all(np.array([len(s) for s in cover.values()]) > 1)
-assert validate_cover(X.shape[0], cover)
+## Show parameterization
+%matplotlib inline
+scatter2D(p[:,[1,0]], c = p[:,1], s = 30.30)
+scatter2D(p[:,[1,0]], c = p[:,0], s = 30.30)
 
-top = TALLEM(cover, local_map="iso3", n_components=3)
-emb = top.fit_transform(X=X, B=X)
+from tallem.alignment import opa
 
+cover = LandmarkCover(X, n_sets=20, scale=1.1)
+top = TALLEM(cover, local_map="iso3", D=3)
+emb = top.fit_transform(X=X)
+
+%matplotlib
 scatter3D(emb, c=p[:,1])
 
 ## Use parameters for color
@@ -220,23 +248,21 @@ Z = isomap(Y, 3, p = 0.15)
 scatter3D(Z, figsize=(8, 6), c=p[:,1])
 
 scatter3D(isomap(X, 3, p = 0.15), figsize=(8, 6), c=p[:,1])
-best_iso = isomap(X, 3, p = 0.15)
-scatter3D(best_iso, c=p[:,1])
 
 ## Use circular coordinate
 polar_coordinate = p[:,1]
-m_dist = lambda x,y: np.minimum(abs(x - y), (np.pi) - abs(x - y))
-cover = IntervalCover(polar_coordinate, n_sets=12, overlap=0.60, metric=m_dist, space=[0, np.pi])
+cover = CircleCover(polar_coordinate, n_sets=20, scale=1.5, lb=0, ub=np.pi) # 20, 1.5 is best
+top = TALLEM(cover, local_map="pca3", D=3, pou="triangular")
+emb = top.fit_transform(X=X)
 
-np.array([len(s) for s in cover.values()])
-assert np.all(np.array([len(s) for s in cover.values()]) > 0)
-
-top = TALLEM(cover, local_map="iso3", n_components=3, pou="triangular")
-emb = top.fit_transform(X=X, B=polar_coordinate)
+from bokeh.io import output_notebook
+output_notebook()
+top.plot_nerve(vertex_scale=10, layout="hausdorff", edge_color="frame")
 
 # angles = np.linspace(0, 360, num=6, endpoint=False)
 # scatter3D(emb, c=params[:,0], angles=angles, layout=(2, 3), figsize=(14,10))
-fig, ax = scatter3D(emb, c=p[:,1])
+%matplotlib
+fig, ax = scatter3D(emb, c=polar_coordinate)
 # import matplotlib.pyplot as plt
 # plt.imshow(X[0,:].reshape((25,25)), aspect='auto')
 # https://stackoverflow.com/questions/13570287/image-overlay-in-3d-plot-using-python
@@ -549,53 +575,6 @@ def greedy_weighted_set_cover(n, S, W):
 ## Estimate tangent spacees 
 
 
-
-
-
-
-
-
-## TODO: try out randomized LP solution 
-# Let U = { u_1, u_2, ..., u_n } denote the universe/set of elements to cover
-# Let S = { s_1, s_2, ..., s_m } denote the set of subsets with weights w = { w_1, w_2, ..., w_m }
-# Let y = { y_1, y_2, ..., y_m } denote the binary variables s.t. y_i = 1 <=> s_i included in solution 
-# The goal is to find the assignment Y producing a cover S* of minimal weight 
-# If k > 0 is specified and one wants |S*| = k, then this is the decision variant of the weighted set cover problem
-# The ILP formulation: 
-# 	minimize sum_{s_j in S} w_j*s_j
-# 	subject to
-# 		sum_{x in S, s_j in S} y_j >= 1 for each x \in X
-# 		y_j \in { 0, 1 } 
-# 
-# The ILP can be relaxed to LP via letting y_j vary \in [0, 1].
-# Let A \in R^{n x m} where A(i,j) = 1 if u_i \in s_j and b = { 1, 1, ..., 1 } w/ |b| = m. 
-# The corresponding LP is: 
-# 	minimize 			 w^T * y
-# 	subject to 		 Ay >= b 
-# 								 0 <= y_j <= 1 		for all j in [m]
-#
-# From here, we have two strategies (http://theory.stanford.edu/~trevisan/cs261/lecture08.pdf): 
-#   1. Rounding approach: If we know each u belongs to at most *k* sets, then we may choose
-#  		 y_j = 1 if y_j >= 1/k and y_j = 0 otherwise. This guarentees a feasible cover which is 
-# 		 a k-approximation of the objective y*.  
-#   2. Randomized approach: Interpret each y_j as probability of including subset s_j, sample from Y*
-#			 using y_j as probabilities. Due to LP, expected cost of resulting assignment is upper bounded 
-#      the weight of cost(Y*). 
-# Note that (1) can only be used if one knows each u belongs to at most *k* sets. However, even in this case 
-# if this is known, k may be large, yielding a poor approximation (k = n/2 => ) (see https://www.cs.cmu.edu/~anupamg/adv-approx/lecture2.pdf). 
-# Suppose we solve the LP once, obtaining y. Interpreting each y \in [0,1], we let C = {} and repeat:
-#   - While C does not cover U:
-# 	- 	For each j in [m]:
-# 	- 		Assign y_j = 1 w/ probability y_j
-# Assume n >= 2. Then:
-# 	a. P(u_i not covered) after k iterations = e^{-k} => take e.g. k = c lg n, then P(u_i not covered) <= 1/(n^c)
-# 	b. P(there exists u_i not covered) <= \sum\limits_{i=0}^n P(u_i no covered) = n*(1/n^c) = n^(1-c). 
-# Thus, for k = c lg(n). One can show that the randomized approach: 
-# 	=> produces a feasible cover after k iterations with probability >= 1/(1 - n^(1-c))
-# 	=> produces an assignment \hat{y}* with expected cost c*ln(n)*opt(y*)
-# In particular, if c = 2 then then with probability p = 1 - 1/n, we will have a 2*ln(n)-approximation after 2*lg(n) iterations.
-# At best, we have a \Theta(ln n)-approximation using the LP rounding. 
-# (Ideally we wanted (1-\eps)lg(n) approximation! )
 
 
 def proj_subspace(X: ArrayLike, U: ArrayLike):
@@ -950,6 +929,12 @@ ax.set_xlim(left=np.min(emb[:,0]), right=np.max(emb[:,0]))
 ax.set_ylim(bottom=np.min(emb[:,1]), top=np.max(emb[:,1]))
 
 
+
+feature_types = ['type-2-x', 'type-2-y'] # To speed up the example, extract the two types of features only
+features = np.vstack([extract_feature_image(img.reshape((20,28)), feature_types) for img in ff])
+
+
+
 # %% MNIST 
 import pickle
 import pathlib
@@ -1008,3 +993,98 @@ import numpy as np
 x = np.random.uniform(size=(100,2))
 y = np.random.uniform(size=(100,2))
 
+
+
+# %% Haar-like features 
+from skimage.data import lfw_subset
+from skimage.transform import integral_image
+from skimage.feature import haar_like_feature
+from skimage.feature import haar_like_feature_coord
+from skimage.feature import draw_haar_like_feature
+
+
+def extract_feature_image(img, feature_type, feature_coord=None):
+	"""Extract the haar feature for the current image"""
+	ii = integral_image(img)
+	return haar_like_feature(
+		ii, 0, 0, ii.shape[0], ii.shape[1],
+		feature_type=feature_type,
+		feature_coord=feature_coord
+	)
+
+images = lfw_subset()
+feature_types = ['type-2-x', 'type-2-y'] # To speed up the example, extract the two types of features only
+
+features = np.vstack([extract_feature_image(img, feature_types) for img in images])
+
+
+feature_coord, feature_type = haar_like_feature_coord(
+	width=images.shape[2], height=images.shape[1],
+	feature_type=feature_types
+)
+
+from tallem import TALLEM
+from tallem.cover import LandmarkCover
+from tallem.dimred import pca, cmds
+from tallem.datasets import *
+from tallem.samplers import landmarks
+from tallem.distance import dist
+
+# E1 = pca(features, d=2)
+E1 = cmds(features, d=2)
+s = 0.02*np.max(dist(E1))
+
+Lind, Lrad = landmarks(E1, k = 50)
+fig, ax = scatter2D(E1, alpha=0.20, s=10)
+for i in Lind: 
+	bbox = np.array([E1[i,0] + s*np.array([-1.0, 1.0]), E1[i,1] + s*np.array([-1.0, 1.0])]).flatten()
+	face_im = ax.imshow(images[i,:,:], origin='upper', extent=bbox, cmap='gray', vmin=0.0, vmax=1.0, aspect ='auto')
+	face_im.set_zorder(20)
+ax.set_xlim(left=np.min(E1[:,0]), right=np.max(E1[:,0]))
+ax.set_ylim(bottom=np.min(E1[:,1]), top=np.max(E1[:,1]))
+
+cover = LandmarkCover(features, n_sets = 25, scale = 1.4)
+top = TALLEM(cover, local_map="cmds2", D=3)
+emb = top.fit_transform(features)
+
+## Rotate and view
+angles = np.linspace(0, 360, num=12, endpoint=False)
+scatter3D(emb, angles=angles, figsize=(16, 8), layout=(2,6), c=polar_coordinate)
+
+
+
+## HOW TO REDUCE DIMENT MEANINGFUL COVER COORDINATES 
+## ... OR HOW TO MAKE COVER SETS APPROX. UNIFORM IN SIZE
+
+
+
+# %%  
+import numpy as np
+import matplotlib.pyplot as plt
+from sklearn.datasets import make_s_curve
+from tallem.dimred import rnn_graph, pca
+
+S, p = make_s_curve(250, noise=0.15)
+G = rnn_graph(S, p = 0.05)
+d = 2 ## dimension of local tangent space! 
+
+
+epi_kernel = lambda x: np.maximum(0.0, (3/4)*(1 - (2*x - 1)**2)) # todo: make on [0,1]
+
+def tangent_space():
+	for i, N_i in enumerate(G):
+		neighbor_ind = N_i.indices
+		M = np.cov(S[neighbor_ind,:], rowvar=False)
+		evals, evecs = np.linalg.eigh(M)
+		tangent, normal = np.hsplit(evecs[:,np.flip(np.argsort(evals))], [d])
+
+		pca(S[neighbor_ind,:], coords=False, center=False)
+	
+for i, N_i in enumerate(G):
+	x_neighbors = np.append(np.flatnonzero(N_i.A), i)
+	if len(x_neighbors) > 1:
+		M = np.cov(S[x_neighbors,:], rowvar=False)
+		U, s, Vt = np.linalg.svd(M, full_matrices=False)
+		
+		## Use largest *d* subspaces as representation of tangent space
+		U = U[:,:d]

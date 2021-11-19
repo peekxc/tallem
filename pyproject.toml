@@ -7,14 +7,14 @@ repository = "https://github.com/peekxc/tallem"
 # python -m build --wheel + pip install dist/*.whl also works! 
 # setuptools is only non-working builder
 [build-system]
-requires = ["setuptools>=42", "build", "wheel", "poetry>=1.0.10", "meson>=0.51.0", "ninja", "cmake", "Cython", "numpy", "scipy>=1.6"]
+requires = ["setuptools>=42", "build", "wheel", "poetry>=1.0.10", "meson>=0.60", "ninja", "cmake", "Cython", "numpy", "scipy>=1.6"]
 build-backend = "poetry.masonry.api" # for developing using poetry 
-# requires = ["setuptools>=42", "build", "wheel", "meson>=0.51.0", "ninja", "cmake", "Cython", "numpy", "scipy>=1.6"]
+# requires = ["setuptools>=42", "build", "wheel", "meson>=0.60", "ninja", "cmake", "Cython", "numpy", "scipy>=1.6"]
 # build-backend = "setuptools.build_meta"
 
 [tool.poetry]
 name = "tallem"
-version = "0.2.2"
+version = "0.2.5"
 description = "Topological Assembly of Locally Euclidean Models"
 license = "Apache-2.0"
 authors = ["Matt Piekenbrock <matt.piekenbrock@gmail.com>"]
@@ -42,7 +42,7 @@ include = [
 [tool.poetry.dependencies]
 python = ">=3.8,<3.10"
 scipy = ">=1.6"
-numpy = "^1.21.3"
+numpy = ">=1.20"
 autograd = {version = ">=.3", optional = true}
 pymanopt = {version = ">=0.2.5", optional = true}
 scikit-learn = {version = ">=1.0", optional = true}
@@ -50,11 +50,11 @@ scikit-learn = {version = ">=1.0", optional = true}
 # Need to keep build-time dependencies as dev-dependencies 
 # for now, see: https://github.com/python-poetry/poetry/issues/2789
 [tool.poetry.dev-dependencies]
-Cython = "^0.29.24"
-meson = "^0.51.0"
-ninja = "^1.10.2"
-cmake = "^3.21.4"
-numpy = "^1.21.3"
+Cython = ">=0.29"
+meson = ">=0.60"
+ninja = ">=1.10"
+cmake = ">=3"
+numpy = ">=1.20"
 scipy = ">=1.6"
 pytest = ">=3.4"
 

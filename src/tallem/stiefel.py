@@ -34,7 +34,7 @@ def _initial_frame(D, phi, n):
 
 
 ## --- Optimization to find the best A matrix --- 
-def frame_reduction(alignments: Dict, pou: csc_matrix, D: int, optimize=False, fast_gradient=False):
+def frame_reduction(alignments: Dict, pou: csc_matrix, D: int, optimize=False, fast_gradient=False, **kwargs):
 	assert isinstance(pou, csc_matrix), "Partition of unity must be represented as a CSC sparse matrix"
 	n, J, d = pou.shape[0], pou.shape[1], len(alignments[list(alignments.keys())[0]]['translation'])
 	
