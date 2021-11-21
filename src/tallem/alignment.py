@@ -255,7 +255,7 @@ def opa(X, Y, coords=False, scale=True, fit='best'):
 			# optimum scaling of Y
 			b = traceTA * normX / normY
 
-			# standarised distance between X and b*Y*T + c
+			# standardised distance between X and b*Y*T + c
 			d = 1 - traceTA**2
 
 			# transformed coords
@@ -269,9 +269,12 @@ def opa(X, Y, coords=False, scale=True, fit='best'):
 	# transformation matrix
 	if my < m:
 			T = T[:my,:]
-	c = muX - b*np.dot(muY, T)
+	c = muX - b*np.dot(muY, T) # see Tallem paper equation (4) and compare
 	
 	#transformation values 
-	tform = {'rotation':T, 'scaling':b, 'translation':c, 'distance': d}
-	return tform
+	if coords:
+		return(Z)
+	else:
+		tform = {'rotation':T, 'scaling':b, 'translation':c, 'distance': d}
+		return tform
 

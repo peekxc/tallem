@@ -181,50 +181,80 @@ def white_bars(n_pixels: int, r: float, sigma: float = 1.0):
 	'''
 	from scipy.ndimage import gaussian_filter
 	import numpy as np
-	w = r*np.sqrt(2)
+	w = r
 	p = np.linspace(0, 1, n_pixels, False) + 1/(2*n_pixels) # center locations of pixels, in normalized space
 	x,y = np.meshgrid(p,p)
-	def bar(y_offset: float, theta: float):
-		assert y_offset >= 0.0 and y_offset <= 1.0 
-		assert theta >= 0.0 and theta <= np.pi
-		# z = np.array([0.5, y_offset]) # intercept
-		# dist_to_line = np.cos(theta)*(z[1] - y) - np.sin(theta)*(z[0]-x)
-		# dist_to_line = ((y - y_offset)/np.tan(theta))*np.sin(theta)
-		# Z = np.array([np.array([xi,yi]) for xi,yi in zip(x.flatten(),y.flatten())])
-		# fig,ax = scatter2D(Z, c="blue")
-		# fig,ax = scatter2D(np.array(P), c="red", fig=fig, ax=ax)
-		# fig,ax = scatter2D(np.array([0.5, 0.5]), c="green", fig=fig, ax=ax)
-		# fig,ax = scatter2D(np.c_[x.flatten(), x.flatten()*m + b], c="purple", fig=fig, ax=ax)
-		
-		m, b = np.tan(theta), y_offset
-		#pt = np.array([1.0, m + b])
-		z1 = np.array([0.50, b])
-		z2 = np.array([1.0, 1.0*m + b])
-		pt = z2 - z1
-		d = []
-		P = []
-		for xi,yi in zip(x.flatten(),y.flatten()):
-			u = pt / np.linalg.norm(pt)
-			v = np.array([xi,yi])
-			z = u*np.dot(v-np.array([0.5, b]), u)+np.array([0.5, b])
-			d.append(np.linalg.norm(z-v))
-			P.append(z)
-		dist_to_line = np.array(d)
-		# fig, ax = scatter2D(np.array(P))
-
-		I = abs(dist_to_line.reshape((n_pixels, n_pixels)))
-		I = np.flipud(I) # make origin lower-left, not top-left 
-		# I = (np.sqrt(2)/2)*(I/np.max(I))
-		I[I > w] = np.sqrt(2)
-		I = np.sqrt(2) - I ## invert intensity 
-		# I[I < (np.sqrt(2) - w)] = 0.0
-		# B = I.copy()
-		# I[I <= w] = -1.0
-		# I[I > w] = 0.0
-		# I[I == -1.0] = np.max(B[B <= w]) - B[B <= w] # 1.0 
+	def bar(theta: float, d: float):
+		assert d >= -1.0 and d <= 1.0, "d must be in the range [-1, 1]"
+		assert theta >= 0.0 and theta <= np.pi, "theta must be in the range [0, pi]"
+		u = np.array([ 1.0, np.tan(theta) ])
+		u = u / np.linalg.norm(u)
+		c = np.array([0.5, 0.5]) 	# center of image
+		d = d * (np.sqrt(2) / 2)  # scale where to place center of bar 
+		# if theta > np.pi/2:
+		# 	d = -d
+		b = c + d*u 							# center of bar 
+		D = np.zeros(np.prod(x.shape))
+		for i, (xi,yi) in enumerate(zip(x.flatten(),y.flatten())):
+			p = np.array([xi,yi])
+			D[i] = np.dot(p-b, u)# np.linalg.norm(z-v)
+		I = abs(D.reshape((n_pixels, n_pixels))).T
+		# I = np.flipud(I)
+		I[I > w] = 1
+		I = 1.0 - I
 		return(gaussian_filter(I, sigma=sigma))
 	c = np.max(bar(0.0, 0.0))
 	return(bar, c)
+
+
+
+
+	# from scipy.ndimage import gaussian_filter
+	# import numpy as np
+	# w = r*np.sqrt(2)
+	# p = np.linspace(0, 1, n_pixels, False) + 1/(2*n_pixels) # center locations of pixels, in normalized space
+	# x,y = np.meshgrid(p,p)
+	# def bar(y_offset: float, theta: float):
+	# 	assert y_offset >= 0.0 and y_offset <= 1.0 
+	# 	assert theta >= 0.0 and theta <= np.pi
+	# 	# z = np.array([0.5, y_offset]) # intercept
+	# 	# dist_to_line = np.cos(theta)*(z[1] - y) - np.sin(theta)*(z[0]-x)
+	# 	# dist_to_line = ((y - y_offset)/np.tan(theta))*np.sin(theta)
+	# 	# Z = np.array([np.array([xi,yi]) for xi,yi in zip(x.flatten(),y.flatten())])
+	# 	# fig,ax = scatter2D(Z, c="blue")
+	# 	# fig,ax = scatter2D(np.array(P), c="red", fig=fig, ax=ax)
+	# 	# fig,ax = scatter2D(np.array([0.5, 0.5]), c="green", fig=fig, ax=ax)
+	# 	# fig,ax = scatter2D(np.c_[x.flatten(), x.flatten()*m + b], c="purple", fig=fig, ax=ax)
+		
+	# 	m, b = np.tan(theta), y_offset
+	# 	#pt = np.array([1.0, m + b])
+	# 	z1 = np.array([0.50, b])
+	# 	z2 = np.array([1.0, 1.0*m + b])
+	# 	pt = z2 - z1
+	# 	d = []
+	# 	P = []
+	# 	for xi,yi in zip(x.flatten(),y.flatten()):
+	# 		u = pt / np.linalg.norm(pt)
+	# 		v = np.array([xi,yi])
+	# 		z = u*np.dot(v-np.array([0.5, b]), u)+np.array([0.5, b])
+	# 		d.append(np.linalg.norm(z-v))
+	# 		P.append(z)
+	# 	dist_to_line = np.array(d)
+	# 	# fig, ax = scatter2D(np.array(P))
+
+	# 	I = abs(dist_to_line.reshape((n_pixels, n_pixels)))
+	# 	I = np.flipud(I) # make origin lower-left, not top-left 
+	# 	# I = (np.sqrt(2)/2)*(I/np.max(I))
+	# 	I[I > w] = np.sqrt(2)
+	# 	I = np.sqrt(2) - I ## invert intensity 
+	# 	# I[I < (np.sqrt(2) - w)] = 0.0
+	# 	# B = I.copy()
+	# 	# I[I <= w] = -1.0
+	# 	# I[I > w] = 0.0
+	# 	# I[I == -1.0] = np.max(B[B <= w]) - B[B <= w] # 1.0 
+	# 	return(gaussian_filter(I, sigma=sigma))
+	# c = np.max(bar(0.0, 0.0))
+	# return(bar, c)
 
 # def _gaussian_pixel(d, n_pixels):
 # 	from scipy.stats import norm

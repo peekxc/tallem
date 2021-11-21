@@ -34,7 +34,7 @@ numpy = ">=1.12"
 
 [[package]]
 name = "cmake"
-version = "3.21.4"
+version = "3.22.0"
 description = "CMake is an open-source, cross-platform family of tools designed to build, test and package software"
 category = "dev"
 optional = false
@@ -97,7 +97,7 @@ typing = ["mypy", "typing-extensions"]
 
 [[package]]
 name = "ninja"
-version = "1.10.2.2"
+version = "1.10.2.3"
 description = "Ninja is a small build system with a focus on speed"
 category = "dev"
 optional = false
@@ -266,22 +266,22 @@ autograd = [
     {file = "autograd-1.3.tar.gz", hash = "sha256:a15d147577e10de037de3740ca93bfa3b5a7cdfbc34cfb9105429c3580a33ec4"},
 ]
 cmake = [
-    {file = "cmake-3.21.4-py2.py3-none-macosx_10_9_universal2.macosx_10_9_x86_64.macosx_11_0_arm64.macosx_11_0_universal2.whl", hash = "sha256:edba9012ee4b4dd25d5a58facd3c70f0a4412838d6e03714036f90ce04acd7ee"},
-    {file = "cmake-3.21.4-py2.py3-none-manylinux_2_12_i686.manylinux2010_i686.whl", hash = "sha256:c970fb61b81c9fc7ca08329ce2b01235323292b52994bc97956d47967c4499dc"},
-    {file = "cmake-3.21.4-py2.py3-none-manylinux_2_12_x86_64.manylinux2010_x86_64.whl", hash = "sha256:05e3248e84150a1292600bc671cb311c4a9bdb0af64d5045c27d4ed3b7813be7"},
-    {file = "cmake-3.21.4-py2.py3-none-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:c2d93cec76e23dae10ef4a91e24ddb544422e6231cf06d2e602976c2e078977e"},
-    {file = "cmake-3.21.4-py2.py3-none-manylinux_2_17_ppc64le.manylinux2014_ppc64le.whl", hash = "sha256:6e8ae2e7da141e768e29bd9d140c7feed4479ac21251a2550d027cb9f9a349db"},
-    {file = "cmake-3.21.4-py2.py3-none-manylinux_2_17_s390x.manylinux2014_s390x.whl", hash = "sha256:9b00f557b9269d3d79cb5feb76c1a69e8aa5f608c617c08f82c94d6af4178f14"},
-    {file = "cmake-3.21.4-py2.py3-none-manylinux_2_5_i686.manylinux1_i686.whl", hash = "sha256:399f9219ba38ceba4d38f8b1150b9a2b11960bb4ed481a9686b522884d17e9f9"},
-    {file = "cmake-3.21.4-py2.py3-none-manylinux_2_5_x86_64.manylinux1_x86_64.whl", hash = "sha256:e0db55681ed10b7175f7fd8e8f31ab18bc299bf534cc8fd31917bb2ffd3596ce"},
-    {file = "cmake-3.21.4-py2.py3-none-musllinux_1_1_aarch64.whl", hash = "sha256:d84a7903ba73a453c7566f015a072c65b3a26d9acbcbbed0ec8582c6c81c4c84"},
-    {file = "cmake-3.21.4-py2.py3-none-musllinux_1_1_i686.whl", hash = "sha256:dc8c851bdd5c18f2238fcc86778285b14a9f5846d2f7e9c426ed52c636d4071c"},
-    {file = "cmake-3.21.4-py2.py3-none-musllinux_1_1_ppc64le.whl", hash = "sha256:13798c525cca8cb57598f0f7040a1a81579b9d08188950d9595ef2c2eff10a84"},
-    {file = "cmake-3.21.4-py2.py3-none-musllinux_1_1_s390x.whl", hash = "sha256:3673a1fab9f249f606ecfd73248fbeea66f3ed9d3c12dfe539b2b6aa63614ef9"},
-    {file = "cmake-3.21.4-py2.py3-none-musllinux_1_1_x86_64.whl", hash = "sha256:36cf800ff3286980f4717852b7d4dd89aa66568e1d793fa5e3276361f1241ef8"},
-    {file = "cmake-3.21.4-py2.py3-none-win32.whl", hash = "sha256:cb59e6add997e40af53e83288dd74b111732adb455548d52940b1ef1f6f43589"},
-    {file = "cmake-3.21.4-py2.py3-none-win_amd64.whl", hash = "sha256:d7bbf5e3f7bedcb8ab7478c383739098af11170edad204659e6191ff95b960f4"},
-    {file = "cmake-3.21.4.tar.gz", hash = "sha256:30fa5ed8a5ad66dcd263adb87f3ce3dc2d0ec0ac3958f5becff577e4b62cd065"},
+    {file = "cmake-3.22.0-py2.py3-none-macosx_10_9_universal2.macosx_10_9_x86_64.macosx_11_0_arm64.macosx_11_0_universal2.whl", hash = "sha256:99b53d7c4aeea6ec6c61929c642b20265f56d3471a0c38858ea4894d1554683a"},
+    {file = "cmake-3.22.0-py2.py3-none-manylinux_2_12_i686.manylinux2010_i686.whl", hash = "sha256:282dbb00f1c0aeb58243b490cb1e033ac159b9c13154c78afb08f18126472660"},
+    {file = "cmake-3.22.0-py2.py3-none-manylinux_2_12_x86_64.manylinux2010_x86_64.whl", hash = "sha256:4f9f672a556921c92033dc084425990a8823d23ff468a24d154729f4418710ab"},
+    {file = "cmake-3.22.0-py2.py3-none-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:e45e4499572fe3d76123c1d18d5065a5babad3ed5020465fdf88749205ee8dc2"},
+    {file = "cmake-3.22.0-py2.py3-none-manylinux_2_17_ppc64le.manylinux2014_ppc64le.whl", hash = "sha256:7d7f6b9a2d31e7a94b989cc672f242a0286a5f6a2bbc0057e6e9455794f7c127"},
+    {file = "cmake-3.22.0-py2.py3-none-manylinux_2_17_s390x.manylinux2014_s390x.whl", hash = "sha256:d9904ca81ac2a3dc4c27886c8411e90ca8b0f447f6b16a7caf545078a9979730"},
+    {file = "cmake-3.22.0-py2.py3-none-manylinux_2_5_i686.manylinux1_i686.whl", hash = "sha256:cda7e807c7c5a0a4f2df8e3f10a9871a292d0114a1f055b8c4c599911ab8f506"},
+    {file = "cmake-3.22.0-py2.py3-none-manylinux_2_5_x86_64.manylinux1_x86_64.whl", hash = "sha256:57e44238d36f4ffffe6e31b064687ce03fae6dc46ec4766b5d82638a2c0c8be4"},
+    {file = "cmake-3.22.0-py2.py3-none-musllinux_1_1_aarch64.whl", hash = "sha256:0aa6bb09eef0c927669d3c9f48d54f28968da7d2c916e693e626814b2e0b3865"},
+    {file = "cmake-3.22.0-py2.py3-none-musllinux_1_1_i686.whl", hash = "sha256:72a13c7d59cd4af9d62da3bd19b4b509e353b7fcebef9887f73d23bbfd82a7b5"},
+    {file = "cmake-3.22.0-py2.py3-none-musllinux_1_1_ppc64le.whl", hash = "sha256:fc62764c07d49607aefa79be05023f1a7698614d03e2f28b5116a977841423b1"},
+    {file = "cmake-3.22.0-py2.py3-none-musllinux_1_1_s390x.whl", hash = "sha256:78b2a8e23cbcd054d63be38b88c5920b48d68d0d620a7ad3389577e370e7a91a"},
+    {file = "cmake-3.22.0-py2.py3-none-musllinux_1_1_x86_64.whl", hash = "sha256:1b24893566cf60350a4601c28f3111c55b48e9da1104f591170748404e8d27b8"},
+    {file = "cmake-3.22.0-py2.py3-none-win32.whl", hash = "sha256:8affabaa556acbf3ef863d453b35193f208618e2f2e7955a9eeaf431bd9ebd4c"},
+    {file = "cmake-3.22.0-py2.py3-none-win_amd64.whl", hash = "sha256:c268288cb088c3de4afc73e10830f64494db2ea78c457f287cb8ccafdffd1eb9"},
+    {file = "cmake-3.22.0.tar.gz", hash = "sha256:5a3ccf93dea99791db93cd8babb52e4b70f92d2b380705ee35570cdd5b7a8e8b"},
 ]
 colorama = [
     {file = "colorama-0.4.4-py2.py3-none-any.whl", hash = "sha256:9f47eda37229f68eee03b24b9748937c7dc3868f906e8ba69fbcbdd3bc5dc3e2"},
@@ -344,20 +344,20 @@ meson = [
     {file = "meson-0.60.1.tar.gz", hash = "sha256:5add789c953d984b500858b2851ee3d7add0460cf1a6f852f0a721af17384e13"},
 ]
 ninja = [
-    {file = "ninja-1.10.2.2-py2.py3-none-macosx_10_9_universal2.macosx_10_9_x86_64.macosx_11_0_arm64.macosx_11_0_universal2.whl", hash = "sha256:ddc7319a705f352aca53783af60d719b18beee6dce4450873c2cf3fc2a431858"},
-    {file = "ninja-1.10.2.2-py2.py3-none-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:ea58fe7dbb15425e839185dd2b62898cc623fde81342a50ed5dce99344e74a34"},
-    {file = "ninja-1.10.2.2-py2.py3-none-manylinux_2_17_ppc64le.manylinux2014_ppc64le.whl", hash = "sha256:83c1f38996b8b0446fcfefff4cd2d0c88fb0a691f41de1422bf65f1bd8c2f562"},
-    {file = "ninja-1.10.2.2-py2.py3-none-manylinux_2_17_s390x.manylinux2014_s390x.whl", hash = "sha256:510d14aaf1fa10c48cae012a31408982158478620384b31961977a0402a76f62"},
-    {file = "ninja-1.10.2.2-py2.py3-none-manylinux_2_5_i686.manylinux1_i686.whl", hash = "sha256:6dd57dd01bfb73f3b52c760c10d89f19d95b1216f9afdc37d9c36179213b5172"},
-    {file = "ninja-1.10.2.2-py2.py3-none-manylinux_2_5_x86_64.manylinux1_x86_64.whl", hash = "sha256:7aa5bcdcef993869f0431b3203679313ee09883e4c80c0098fc93094f4385929"},
-    {file = "ninja-1.10.2.2-py2.py3-none-musllinux_1_1_aarch64.whl", hash = "sha256:bf03193cd34d4afcb0040da65715cd176958325eac7580e5de67577ae3be7b6f"},
-    {file = "ninja-1.10.2.2-py2.py3-none-musllinux_1_1_i686.whl", hash = "sha256:c94f62d74aff38c5a7b9ee533597a7365d5f5b683b548df60bc1ffae94b1a86d"},
-    {file = "ninja-1.10.2.2-py2.py3-none-musllinux_1_1_ppc64le.whl", hash = "sha256:bee21e3ae56ad79b17170947d5dc2cec19e2aee83b3c09d7054696d17ee11ded"},
-    {file = "ninja-1.10.2.2-py2.py3-none-musllinux_1_1_s390x.whl", hash = "sha256:b51e9c2049a9773a7a037597ca49a3883650f7505bb28bed733c6d5139c94cbf"},
-    {file = "ninja-1.10.2.2-py2.py3-none-musllinux_1_1_x86_64.whl", hash = "sha256:23b01780debf1fd8977ddcec3639364a414b2c6ed0e32cb29d1395ab00aa38d9"},
-    {file = "ninja-1.10.2.2-py2.py3-none-win32.whl", hash = "sha256:325798418e0e3daa327ec98b5eb9ae37762dbdb34799720233e21aa95c8388b5"},
-    {file = "ninja-1.10.2.2-py2.py3-none-win_amd64.whl", hash = "sha256:b8eba6f2b075098761a7396355af33075a8e2cbbe70203089c4af2346b824da3"},
-    {file = "ninja-1.10.2.2.tar.gz", hash = "sha256:3f8a75acd929abb9f003d3aa5bc299cea30b9db0dfa18669877e9c02ddcf530d"},
+    {file = "ninja-1.10.2.3-py2.py3-none-macosx_10_9_universal2.macosx_10_9_x86_64.macosx_11_0_arm64.macosx_11_0_universal2.whl", hash = "sha256:d5e0275d28997a750a4f445c00bdd357b35cc334c13cdff13edf30e544704fbd"},
+    {file = "ninja-1.10.2.3-py2.py3-none-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:5ea785bf6a15727040835256577239fa3cf5da0d60e618c307aa5efc31a1f0ce"},
+    {file = "ninja-1.10.2.3-py2.py3-none-manylinux_2_17_ppc64le.manylinux2014_ppc64le.whl", hash = "sha256:29570a18d697fc84d361e7e6330f0021f34603ae0fcb0ef67ae781e9814aae8d"},
+    {file = "ninja-1.10.2.3-py2.py3-none-manylinux_2_17_s390x.manylinux2014_s390x.whl", hash = "sha256:21a1d84d4c7df5881bfd86c25cce4cf7af44ba2b8b255c57bc1c434ec30a2dfc"},
+    {file = "ninja-1.10.2.3-py2.py3-none-manylinux_2_5_i686.manylinux1_i686.whl", hash = "sha256:9ca8dbece144366d5f575ffc657af03eb11c58251268405bc8519d11cf42f113"},
+    {file = "ninja-1.10.2.3-py2.py3-none-manylinux_2_5_x86_64.manylinux1_x86_64.whl", hash = "sha256:279836285975e3519392c93c26e75755e8a8a7fafec9f4ecbb0293119ee0f9c6"},
+    {file = "ninja-1.10.2.3-py2.py3-none-musllinux_1_1_aarch64.whl", hash = "sha256:cc8b31b5509a2129e4d12a35fc21238c157038022560aaf22e49ef0a77039086"},
+    {file = "ninja-1.10.2.3-py2.py3-none-musllinux_1_1_i686.whl", hash = "sha256:688167841b088b6802e006f911d911ffa925e078c73e8ef2f88286107d3204f8"},
+    {file = "ninja-1.10.2.3-py2.py3-none-musllinux_1_1_ppc64le.whl", hash = "sha256:840a0b042d43a8552c4004966e18271ec726e5996578f28345d9ce78e225b67e"},
+    {file = "ninja-1.10.2.3-py2.py3-none-musllinux_1_1_s390x.whl", hash = "sha256:84be6f9ec49f635dc40d4b871319a49fa49b8d55f1d9eae7cd50d8e57ddf7a85"},
+    {file = "ninja-1.10.2.3-py2.py3-none-musllinux_1_1_x86_64.whl", hash = "sha256:6bd76a025f26b9ae507cf8b2b01bb25bb0031df54ed685d85fc559c411c86cf4"},
+    {file = "ninja-1.10.2.3-py2.py3-none-win32.whl", hash = "sha256:740d61fefb4ca13573704ee8fe89b973d40b8dc2a51aaa4e9e68367233743bb6"},
+    {file = "ninja-1.10.2.3-py2.py3-none-win_amd64.whl", hash = "sha256:0560eea57199e41e86ac2c1af0108b63ae77c3ca4d05a9425a750e908135935a"},
+    {file = "ninja-1.10.2.3.tar.gz", hash = "sha256:e1b86ad50d4e681a7dbdff05fc23bb52cb773edb90bc428efba33fa027738408"},
 ]
 numpy = [
     {file = "numpy-1.21.4-cp310-cp310-macosx_10_9_universal2.whl", hash = "sha256:8890b3360f345e8360133bc078d2dacc2843b6ee6059b568781b15b97acbe39f"},

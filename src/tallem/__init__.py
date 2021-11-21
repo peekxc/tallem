@@ -182,8 +182,8 @@ class TALLEM():
 	def plot_nerve(self, 
 		X: Optional[ArrayLike] = None, 
 		layout=["hausdorff", "spring"], edge_color=["alignment", "frame"], 
-		vertex_scale: float = 5.0, edge_scale: float = 8.0,
-		toolbar = False, 
+		vertex_scale: float = 15.0, edge_scale: float = 8.0,
+		toolbar = True, 
 		notebook=True,
 		**kwargs
 	):
@@ -194,7 +194,7 @@ class TALLEM():
 		from bokeh.io import output_notebook, show, save
 		from bokeh.transform import linear_cmap
 		from bokeh.layouts import column
-		if (notebook): output_notebook()
+		if (notebook): output_notebook(verbose=False, hide_banner=True)
 		G = self.nerve_graph()
 		ec = np.ones((len(G.edges),), dtype=float)
 		if (isinstance(edge_color, Iterable) and edge_color == ["alignment", "frame"]) or (isinstance(edge_color, str) and edge_color == "alignment"):
@@ -216,41 +216,74 @@ class TALLEM():
 				frame_error[(j,k)] = frame_error[(j,k)]/len(X_jk)
 				ec = np.array(list(frame_error.values()))
 				ec = ec / 2*np.sqrt(2)
+		elif isinstance(edge_color, str) and edge_color == "translation":
+			taus = self.translations
+			d = len(taus[0])
+			translation_error = {}
+			for (j,k) in self.alignments.keys():
+				omega_jk = self.alignments[(j,k)]['rotation']
+				tau_j, tau_k = taus[j].reshape((d, 1)), taus[k].reshape((d, 1))
+				tau_jk = self.alignments[(j,k)]['translation']
+				tau_jk_approx = (omega_jk @ tau_j) - tau_k
+				tau_error = np.linalg.norm(tau_jk_approx - tau_jk)
+				tau_size_ratio = np.max([np.linalg.norm(tau_jk_approx)/np.linalg.norm(tau_jk), np.linalg.norm(tau_jk_approx)/np.linalg.norm(tau_jk)])
+				translation_error[(j,k)] = np.min([tau_error*tau_size_ratio, 5.0]) # 5x ratio should be quite bad
+			ec = np.array(list(translation_error.values()))/5.0
 		else: 
-			raise ValueError("kajd")
+			raise ValueError("Invalid edge metric")
 
 		from scipy.spatial.distance import directed_hausdorff
 		from itertools import combinations
 		from tallem.dimred import cmds
+		use_grid_lines = False
 		if (X is None) or isinstance(layout, str) and layout == "spring":
 			import networkx as nx
 			layout = np.array(list(nx.spring_layout(G).values()))
-		elif (isinstance(layout, Iterable) and layout == ["hausdorff", "spring"]) or (isinstance(layout, str) and layout == "hausdorff"):
+		elif (isinstance(layout, str) and layout == "hausdorff"):
 			assert isinstance(X, np.ndarray)
 			index_set = list(self.cover.keys())
 			d_h1 = np.array([directed_hausdorff(X[self.cover[i],:], X[self.cover[j],:])[0] for i,j in combinations(index_set, 2)])
 			d_h2 = np.array([directed_hausdorff(X[self.cover[j],:], X[self.cover[i],:])[0] for i,j in combinations(index_set, 2)])
 			d_H = np.maximum(d_h1, d_h2)
 			layout = cmds(d_H**2)
+			use_grid_lines = True
 		else:
 			raise ValueError("Unimplemented layout")
 			
 		## Vertex sizes == size of each preimage
 		v_sizes = np.array([len(subset) for index, subset in self.cover.items()])
-		v_sizes = (v_sizes / np.max(v_sizes))*vertex_scale
+		v_widths = (v_sizes / np.max(v_sizes))*vertex_scale
+
+		# edge_sizes = {}
+		# for i,j in top.alignments.keys():
+		# 	ij_ind = np.intersect1d(cover[i], cover[j], return_indices=False)
+		# 	edge_sizes[(i,j)] = len(ij_ind)
+
+		TOOLTIPS = [
+				("index", "$index"),
+				("size", "@n"),
+		]
+
+
 
 		#Create a plot — set dimensions, toolbar, and title
 		x_rng = np.array([np.min(layout[:,0]), np.max(layout[:,0])])*[0.90, 1.10]
 		y_rng = np.array([np.min(layout[:,1]), np.max(layout[:,1])])*[0.90, 1.10]
 		p = figure(
-			tools="pan,wheel_zoom,save,reset", 
+			tools="pan,wheel_zoom,lasso_select,reset", 
 			active_scroll=None,
 			active_drag="auto",
 			x_range=x_rng, 
 			y_range=y_rng, 
-			title="TALLEM Nerve complex", 
+			title="Nerve complex of the Cover", 
+			tooltips=TOOLTIPS,
+			plot_width=300, 
+			plot_height=300,
 			**kwargs
 		)
+		p.axis.visible = False
+		p.xgrid.visible = use_grid_lines
+		p.ygrid.visible = use_grid_lines
 		edge_x = [layout[e,0] for e in G.edges]
 		edge_y = [list(layout[e,1]) for e in G.edges]
 
@@ -261,13 +294,31 @@ class TALLEM():
 			X_jk = np.intersect1d(self.cover[index_set[j]], self.cover[index_set[k]])
 			e_sizes.append(len(X_jk))
 		e_sizes = np.array(e_sizes)
-		e_sizes = (e_sizes / np.max(e_sizes))*edge_scale
+		e_widths = (e_sizes / np.max(e_sizes))*edge_scale
 
 		from tallem.color import bin_color, colors_to_hex, linear_gradient
 		ec = bin_color(ec, linear_gradient(["gray", "red"], 100)['hex'], min_x = 0.0, max_x=1.0)
 
-		p.multi_line(edge_x, edge_y, color=ec, alpha=0.80, line_width=e_sizes)
-		p.circle(layout[:,0], layout[:,1], size=v_sizes, color="navy", alpha=1.0)
+		edge_data = {
+			'xs' : edge_x,
+			'ys' : edge_y,
+			'color' : ec,
+			'line_width': e_widths,
+			'n' : e_sizes
+		}
+		edge_source = ColumnDataSource(data=edge_data)
+
+		p.multi_line('xs', 'ys', color='color', line_width='line_width', alpha=0.80, source=edge_source)
+		
+		node_data = {
+			'x' : layout[:,0],
+			'y' : layout[:,1],
+			'size' : v_widths,
+			'n' : v_sizes
+		}
+		node_source = ColumnDataSource(data=node_data)
+
+		p.circle('x', 'y', size='size', color="navy", alpha=1.0, source=node_source)
 
 		p.toolbar.logo = None
 		if toolbar == False: p.toolbar_location = None

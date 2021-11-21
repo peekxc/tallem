@@ -66,7 +66,6 @@ def cmds(a: npt.ArrayLike, d: int = 2, coords: bool = True, method="fortran"):
 		evals[ni] = 0.0
 		return(evals, evecs)
 
-
 def landmark_mds(X: ArrayLike, d: int = 2, L: Union[ArrayLike, int, str] = "default", normalize=False, ratio=1.0, prob=1.0):
 	''' 
 	Landmark Multi-Dimensional Scaling 
@@ -331,6 +330,34 @@ def nmds(a: npt.ArrayLike, d: int = 2, **kwargs):
 	ask_package_install("sklearn")
 	from sklearn.manifold import MDS
 	embedding = MDS(n_components=d, metric=False, random_state=0, **kwargs)
+	return(embedding.fit_transform(a))
+
+def lle(a: npt.ArrayLike, d: int = 2, **kwargs):
+	''' Thin wrapper around sklearn's LocallyLinearEmbedding '''
+	ask_package_install("sklearn")
+	from sklearn.manifold import LocallyLinearEmbedding
+	embedding = LocallyLinearEmbedding(n_components=d, random_state=0, method="standard", **kwargs)
+	return(embedding.fit_transform(a))
+
+def hessian_lle(a: npt.ArrayLike, d: int = 2, **kwargs):
+	''' Thin wrapper around sklearn's LocallyLinearEmbedding '''
+	ask_package_install("sklearn")
+	from sklearn.manifold import LocallyLinearEmbedding
+	embedding = LocallyLinearEmbedding(n_components=d, random_state=0, method="hessian", **kwargs)
+	return(embedding.fit_transform(a))
+
+def ltsa(a: npt.ArrayLike, d: int = 2, **kwargs):
+	''' Thin wrapper around sklearn's LocallyLinearEmbedding '''
+	ask_package_install("sklearn")
+	from sklearn.manifold import LocallyLinearEmbedding
+	embedding = LocallyLinearEmbedding(n_components=d, random_state=0, method="ltsa", **kwargs)
+	return(embedding.fit_transform(a))
+
+def laplacian_eigenmaps(a: npt.ArrayLike, d: int = 2, **kwargs):
+	''' Thin wrapper around sklearn's SpectralEmbedding '''
+	ask_package_install("sklearn")
+	from sklearn.manifold import SpectralEmbedding
+	embedding = SpectralEmbedding(n_components=d, random_state=0, **kwargs)
 	return(embedding.fit_transform(a))
 
 # Do not require cover to be CoverLike
