@@ -10,7 +10,7 @@ polar_coordinate = B[:,[1]]
 
 ## Run TALLEM on interval cover using polar coordinate information
 cover = CircleCover(polar_coordinate, n_sets=15, scale=1.50)
-top = TALLEM(cover, local_map="pca3", D=3)
+top = TALLEM(cover, local_map="pca2", D=3)
 emb = top.fit_transform(X, fit="best", scale=True)
 
 # %matplotlib

@@ -167,6 +167,11 @@ def rotating_disk(n_pixels: int, r: float, sigma: float = 1.0):
 		return(np.ravel(gaussian_filter(D, sigma=1.0)).flatten())
 	return(disk_image, 1.0)
 
+# D = np.zeros(np.prod(x.shape))
+# for i, (xi,yi) in enumerate(zip(x.flatten(),y.flatten())):
+# 	p = np.array([xi,yi])
+# 	D[i] = np.dot(p-b, u)# np.linalg.norm(z-v)
+
 def white_bars(n_pixels: int, r: float, sigma: float = 1.0):
 	''' 
 	Returns a parameterization that yields a white vertical bar at various orientations in an image. 
@@ -184,30 +189,44 @@ def white_bars(n_pixels: int, r: float, sigma: float = 1.0):
 	w = r
 	p = np.linspace(0, 1, n_pixels, False) + 1/(2*n_pixels) # center locations of pixels, in normalized space
 	x,y = np.meshgrid(p,p)
+	c = np.array([0.5, 0.5]) 	# center of image
 	def bar(theta: float, d: float):
-		assert d >= -1.0 and d <= 1.0, "d must be in the range [-1, 1]"
-		assert theta >= 0.0 and theta <= np.pi, "theta must be in the range [0, pi]"
+		assert np.all(np.bitwise_and(d >= -1.0, d <= 1.0)), "d must be in the range [-1, 1]"
+		assert np.all(np.bitwise_and(theta >= 0.0, theta <= np.pi)), "theta must be in the range [0, pi]"
 		u = np.array([ 1.0, np.tan(theta) ])
 		u = u / np.linalg.norm(u)
 		c = np.array([0.5, 0.5]) 	# center of image
 		d = d * (np.sqrt(2) / 2)  # scale where to place center of bar 
-		# if theta > np.pi/2:
-		# 	d = -d
+		if theta > np.pi/2:
+			d = -d
 		b = c + d*u 							# center of bar 
 		D = np.zeros(np.prod(x.shape))
 		for i, (xi,yi) in enumerate(zip(x.flatten(),y.flatten())):
 			p = np.array([xi,yi])
 			D[i] = np.dot(p-b, u)# np.linalg.norm(z-v)
 		I = abs(D.reshape((n_pixels, n_pixels))).T
-		# I = np.flipud(I)
 		I[I > w] = 1
 		I = 1.0 - I
 		return(gaussian_filter(I, sigma=sigma))
 	c = np.max(bar(0.0, 0.0))
 	return(bar, c)
 
-
-
+	# u = np.array([ 1.0, np.tan(theta) ])
+	# u = u / np.linalg.norm(u)
+	# d = np.array([-di if ti <= np.pi/2 else di for di,ti in zip(d, theta)])*(np.sqrt(2) / 2)
+	# U = np.c_[np.repeat(1.0, len(theta)), theta]
+	# U = U / np.linalg.norm(U, axis = 1, keepdims = True)
+	# B = c + d.reshape((len(d), 1)) * U 	# center of bars
+	# D = [abs((x - b[0])*u[0] + (y - b[1])*u[1]).T for (u, b) in zip(U, B)]
+	# # b = c + d*u 							# center of bar 
+	# # D = (x - b[0])*u[0] + (y - b[1])*u[1]
+	# # I = abs(D.reshape((n_pixels, n_pixels))).T
+	# images = np.zeros((B.shape[0], n_pixels**2))
+	# for i, img in enumerate(D):
+	# 	img[img > w] = 1
+	# 	img = 1.0 - img
+	# 	images[i,:] = np.ravel(gaussian_filter(img, sigma=sigma).flatten())
+	# return(images)
 
 	# from scipy.ndimage import gaussian_filter
 	# import numpy as np
@@ -356,7 +375,22 @@ def white_dot(n_pixels: int, r: float, n: Optional[int], method: Optional[str] =
 	return(samples, params, blob, c)
 
 def mobius_band(n_polar=66, n_wide=9, scale_band=0.25):
-	''' Generates samples on a Mobius band embedded in R^3 '''
+	''' 
+	Generates stratified samples on a Mobius band embedded in R^3 
+
+	To get uniform samples, N = (n_polar*n_wide) uniformly spaced coordinates are generated initially 
+	from the intrinsic space of M. These points are converted to their extrinsic (3D) coordinates and 
+	are then triangulated using a Delaunay triangulation. Finally, using the Delaunay triangles as stratum, 
+	a stratified sampling scheme is employed by sampling randomly from each triangle using its barycentric 
+	coordinates. This stratification ensures the samples are both sufficiently random but sufficiently "uniformly 
+	spaced" around the band. 
+	
+	Returns: 
+		- M := (n x 3) matrix of embedding coordinates 
+		- B := (n x 2) matrix of intrinsic coordinates
+		
+	In the intrinsic coordinates, B[:,0] is the width parameter and B[:,1] is the angular coordinate
+	'''
 
 	## Generate random (deterministic) polar coordinates around Mobius Band
 	np.random.seed(0) 

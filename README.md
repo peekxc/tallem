@@ -6,42 +6,34 @@ Given some data set *X* and a map <img class='latex-inline math' style="backgrou
 
 TODO: describe TALLEM more
 
-## Installing + Dependencies 
+## Dependencies 
 
 `tallem`'s run-time dependencies are fairly minimal. They include:  
 
 1. _Python >= 3.8.0_ 
-2. *NumPy (>= 1.20)* and *SciPy* *(>=1.6)*
+2. *NumPy (>= 1.20)* and *SciPy* *(>=1.5)*
 
-The details of the rest of package requirements are listed in [pyproject.toml](https://github.com/peekxc/tallem/blob/main/pyproject.toml). These are automatically downloaded and installed via `pip`: 
+Package requirement details are listed in the [pyproject.toml](https://github.com/peekxc/tallem/blob/main/pyproject.toml). 
+These are automatically downloaded using either of the installation methods described below.
 
+Some functions which extend TALLEM's core functionality require additional dependencies to be called---they include *autograd*, *pymanopt*, *scikit-learn*, and *bokeh*. These packages are optional--they are not needed to get the embedding.
 
+### Installing from pre-built wheels 
 
-Some functions which extend TALLEM's core functionality require additional dependencies to be called---they include *autograd*, *pymanopt*, *scikit-learn*, and *bokeh*. These  packages are completely optional, i.e. they are not needed to get the resulting embedding. Nonetheless, if you would like these package as well, use: 
-
-
-
-
-
-###Installing from cibuildwheels
-
-TODO
+TODO: Make `tallem` pip-installeable by finishing wheel builds w/ cibuildwheels 
 
 ### Installing from source
 
-To install `tallem` from source, clone the repository and install the package via: 
+The recommended way to build `tallem` distributions (source or built) is with [Poetry](https://python-poetry.org/). Once installed, navigate to `tallem`'s directory and use: 
 
 ```bash
-python -m pip install .
+poetry install -vvv
 ```
 
-`tallem` relies on a few package dependencies in order to compile correctly when building from source. These libraries include: 
+The default build script attempts to resolve all dependencies needed by the package at build-time. This includes possible source-installs of prerequisite 
+C++ libraries and their associated build tools; `tallem` requires [Armadillo](http://arma.sourceforge.net/) (>= 10.5.2) for compilation of its [extension modules](https://docs.python.org/3/glossary.html#term-extension-module), whose builds are managed with [Meson](https://mesonbuild.com/) and [Ninja](https://ninja-build.org/). Since these source files are written in [C++17](https://en.wikipedia.org/wiki/C%2B%2B17), so a [C++17 compliant compiler](https://en.cppreference.com/w/cpp/compiler_support/17) will be needed. 
 
-* [Armadillo](http://arma.sourceforge.net/) >= 10.5.2 ([see here for installation options](http://arma.sourceforge.net/download.html))
-* [Poetry](https://python-poetry.org/) (for building the [source](https://packaging.python.org/glossary/#term-Source-Distribution-or-sdist) and [binary](https://packaging.python.org/glossary/#term-Wheel) distributions)
-* [Meson](https://mesonbuild.com/) and [Ninja](https://ninja-build.org/) (for building the [extension modules](https://docs.python.org/3/glossary.html#term-extension-module))
-
-An install attempt of these external dependencies is made if they are not available prior to call to `pip`, however these may require manual installation. Additionally, the current source files are written in [C++17](https://en.wikipedia.org/wiki/C%2B%2B17), so a [C++17 compliant compiler](https://en.cppreference.com/w/cpp/compiler_support/17) will be needed. If you have an installation problems or questions, feel free to [make a new issue](https://github.com/peekxc/tallem/issues).
+If you plan on changing the code in any way, see the [developer note](###-developer-note) about editeable installs. If you have an installation problems or questions, feel free to [make a new issue](https://github.com/peekxc/tallem/issues).
 
 ## Usage 
 
@@ -71,4 +63,25 @@ ax.scatter(*emb.T, marker='o', c=B_polar)
 ```
 
 ![mobius band](https://github.com/peekxc/tallem/blob/main/resources/tallem_polar.png?raw=true)
+
+
+
+### Developer note
+
+Installs from source using Poetry are done in [editeable mode](https://stackoverflow.com/questions/35064426/when-would-the-e-editable-option-be-useful-with-pip-install) by default: thus one should be able to freely manipulate the source code once `tallem` is installed 
+and see the changes immediately without restarting the session. If you're developing with Jupyter, be sure to add autoreload magics to the document: 
+
+```python
+%reload_ext autoreload
+%autoreload 2 
+# ... 
+```
+
+If you're developing with Microsoft's VSCode, you may want automating this via added the following to the settings.json file: 
+```json
+"jupyter.runStartupCommands": [
+  "%load_ext autoreload", "%autoreload 2"
+]
+```
+See [here](https://stackoverflow.com/questions/56059651/how-to-make-vscode-auto-reload-external-py-modules) for more details on this.
 

@@ -351,11 +351,6 @@ class IntervalCover(Cover):
 			cover_sets = { index : self.construct(a, index) for index in self.keys() }
 			return(cover_sets)
 
-# class AutoCover:
-# 	def __init__(self):
-# 		self.x = "x"
-
-
 ## Minimally, one must implement keys(), __getitem__(), and set_distance()	
 class CircleCover(Cover):
 	''' 
@@ -392,9 +387,8 @@ class CircleCover(Cover):
 			return(self.bump(self._x[a], index, normalize))
 		elif is_point_cloud(a) or (isinstance(a, np.ndarray) and a.ndim == 1):
 			a = np.reshape(a, (len(a), 1))
-			eps = self.base_width/2.0
 			centroid = self.lb + (index * self.base_width) + self.base_width/2.0
-			diff = np.minimum(np.abs(a - centroid), self.ub-np.abs(a - centroid)).flatten()
+			diff = np.minimum(np.abs(a - centroid), np.abs(self.ub-np.abs(a - centroid))).flatten()
 			sgn = np.array([1.0 if x else -1.0 for x in (diff <= self.set_width/2.0)])
 			diff = diff * sgn
 			return(diff/(self.set_width/2.0) if normalize else diff)
@@ -404,7 +398,7 @@ class CircleCover(Cover):
 	def construct(self, a: npt.ArrayLike, index: int = None):
 		if index is not None:
 			centroid = self.lb + (index * self.base_width) + self.base_width/2.0
-			diff = np.minimum(np.abs(a - centroid), self.ub - np.abs(a - centroid))
+			diff = np.minimum(np.abs(a - centroid), np.abs(self.ub - np.abs(a - centroid)))
 			return(np.flatnonzero(diff <= self.set_width/2.0))
 		else:
 			cover_sets = { index : self.construct(a, index) for index in self.keys() }
@@ -461,19 +455,20 @@ def dist_to_boundary(P: npt.ArrayLike, x: npt.ArrayLike):
 
 
 
-## A Partition of unity is 
-## phi := function mapping a subset of m points to (m x J) matrix 
-## cover := CoverLike that has a .bump() function
-## mollifer := string or Callable indicating the choice of mollifier
-## weights := not implemented
-## normalize := whether to request the bump functions normalize their output. Defaults to true. 
+## A Partition of unity is function mapping a set of points to weighted vectors
+## Parameters: 
+##  - cover := CoverLike that has a .bump() function
+##  - mollifer := string or Callable indicating the choice of mollifier
+##  - weights := not implemented
+##  - normalize := whether to request the bump functions normalize their output. Defaults to true. 
+## Returns: 
+##  - (m x J) sparse matrix whose row contains the result of the given 'mollifier' applied to the cover's bump function
 def partition_of_unity(cover: CoverLike, mollifier: Union[str, Callable] = "identity", weights: Optional[npt.ArrayLike] = None, check_subordinate=False, normalize=True) -> csc_matrix:
 	assert mollifier is not None, "mollifier must be a real-valued function, or a string indicating one of the precomputed ones."
 	assert isinstance(cover, CoverLike), "cover must be CoverLike"
 	assert "bump" in dir(cover), "cover must be bump() function to construct a partition of unity with a mollifier."
 
 	# Apply the phi map to each subset, collecting the results into lists
-	J = len(cover)
 	row_ind, col_ind, phi_image = array.array('I'), array.array('I'), array.array('f') 
 	for i, (index, subset) in enumerate(cover.items()): 
 		## Use mollified-bump function to construct "default" partition of unity
@@ -481,15 +476,20 @@ def partition_of_unity(cover: CoverLike, mollifier: Union[str, Callable] = "iden
 		dx = mollify(dx, mollifier)
 
 		## Record non-zero row indices + the function values themselves
-		ind = np.flatnonzero(dx >= 0.0)
+		ind = np.flatnonzero(dx > 0.0)
 		row_ind.extend(subset[ind])
-		col_ind.extend(np.repeat(i, len(subset)))
+		col_ind.extend(np.repeat(i, len(ind)))
 		phi_image.extend(np.ravel(dx[ind]).flatten())
 
 	## Use a CSC-sparse matrix to represent the partition of unity
 	R, C = np.frombuffer(row_ind, dtype=np.int32), np.frombuffer(col_ind, dtype=np.int32)
 	P = np.frombuffer(phi_image, dtype=np.float32)
 	pou = csc_matrix((P, (R, C)))
+	W = pou.sum(axis=1)
+	if np.any(W == 0.0):
+		ind = np.flatnonzero(W == 0.0)
+		print(ind)
+		raise ValueError("Invalid partition of unity--points detected having 0 mass in every set.")
 	pou = csc_matrix(pou / pou.sum(axis=1)) 
 
 	## This checks the support(pou) \subseteq closure(cover) property
