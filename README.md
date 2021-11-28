@@ -33,7 +33,7 @@ poetry install -vvv
 The default build script attempts to resolve all dependencies needed by the package at build-time. This includes possible source-installs of prerequisite 
 C++ libraries and their associated build tools; `tallem` requires [Armadillo](http://arma.sourceforge.net/) (>= 10.5.2) for compilation of its [extension modules](https://docs.python.org/3/glossary.html#term-extension-module), whose builds are managed with [Meson](https://mesonbuild.com/) and [Ninja](https://ninja-build.org/). Since these source files are written in [C++17](https://en.wikipedia.org/wiki/C%2B%2B17), so a [C++17 compliant compiler](https://en.cppreference.com/w/cpp/compiler_support/17) will be needed. 
 
-If you plan on changing the code in any way, see the [developer note](###-developer-note) about editeable installs. If you have an installation problems or questions, feel free to [make a new issue](https://github.com/peekxc/tallem/issues).
+If you plan on changing the code in any way, see the [developer note](#developer-note) about editeable installs. If you have an installation problems or questions, feel free to [make a new issue](https://github.com/peekxc/tallem/issues).
 
 ## Usage 
 

@@ -3,9 +3,9 @@ import numpy as np
 import numpy.typing as npt
 from typing import Iterable, Dict
 from itertools import combinations
-from scipy.linalg import orthogonal_procrustes
 from .sc import delta0D
 from .cover import CoverLike
+
 
 # %% Alignment definitions
 # This was taken from: https://gitlab.msu.edu/mikejosh/tallm/-/tree/master/PyTALLEM
@@ -40,7 +40,9 @@ def align_models(cover: CoverLike, models: Dict, **kwargs):
 		subset_i, subset_j, ii, jj = cover[i], cover[j], index_set.index(i), index_set.index(j)
 		ij_ind, i_idx, j_idx = np.intersect1d(subset_i, subset_j, return_indices=True)
 		if len(ij_ind) > 2:
-			PA_map[(ii,jj)] = opa(models[j][j_idx,:], models[i][i_idx,:], **kwargs)
+			# PA_map[(ii,jj)] = opa(models[j][j_idx,:], models[i][i_idx,:], scale=False, **kwargs)
+			PA_map[(ii,jj)] = procrustes(models[i][i_idx,:], models[j][j_idx,:], scale=False, **kwargs)
+			# PA_map[(ii,jj)] = procrustes(models[j][j_idx,:], models[i][i_idx,:], scale=False, **kwargs)
 	return(PA_map)
 
 # def opa(a: npt.ArrayLike, b: npt.ArrayLike, scale=True, coords=False, fit="best"):
@@ -112,60 +114,78 @@ def align_models(cover: CoverLike, models: Dict, **kwargs):
 # 		return(output)
 
 
-# def opa(a: npt.ArrayLike, b: npt.ArrayLike, coords=False, scale = False, fit="best"):
-# 	''' 
-# 	Ordinary Procrustes Analysis:
-# 	Determines the translation, orthogonal transformation, and uniform scaling of factor 
-# 	that when applied to 'a' yields a point set that is as close to the points in 'b' under
-# 	with respect to the sum of squared errors criterion.
-# 	Example: 
-# 		r,s,t,d = opa(a, b).values()
-		
-# 		## Rotate and scale a, then translate it => 'a' superimposed onto 'b'
-# 		aligned_a = s * a @ r + t
-# 	Returns:
-# 		dictionary with rotation matrix R, relative scaling 's', and translation vector 't' 
-# 		such that norm(b - (s * a @ r + t)) where norm(*) denotes the Frobenius norm.
-# 	'''
-# 	a, b = np.array(a, copy=False), np.array(b, copy=False)
+def procrustes(X: npt.ArrayLike, Y: npt.ArrayLike, coords=False, scale=False, fit="best"):
+	''' 
+	Ordinary Procrustes Analysis:
 	
-# 	# Translation
-# 	aC, bC = a.mean(0), b.mean(0) # centroids
-# 	A, B = a - aC, b - bC         # center
+	Determines the optimal translation, orthogonal transformation, and scaling factor 
+ 	that superimposes 'X' onto 'Y' with respect to the sum of squared errors criterion.
+
+	Here d-dimensional points are represented row-wise. 
+
+	Parameters: 
+		X := (n x d) matrix of n points in d dimensions
+		Y := (n x d) matrix of n points in d dimensions
+		coords := return only resulting coordinates
+		scale := whether to scale X and Y to unity
+		fit := one of ['best', 'rotation', 'reflection'] indicating the problem to solve
+
+	Example: 
+		## Rotate and scale a, then translate it => 'X' superimposed onto 'Y'
+		## Note: Assume X is centered here
+		aligned_x = s*(R @ X) + t ~= Y
+	Returns:
+		dictionary with key : value  
+			'rotation'    : (d x d) orthogonal matrix (R)
+			'scaling'     : float, relative scaling (s) representing size of Y wrt X 
+			'translation' : translation vector 't' (computed as: YC - s * (R @ XC))
+			'mean_X' 			: mean center of X (XC)
+			'mean_Y' 			: mean center of Y (YC)
+			'distance'		: procrustes error (computed after scaling if scale=True)
+	'''
+	assert isinstance(X, np.ndarray) and isinstance(Y, np.ndarray)
+	assert np.all(X.shape == Y.shape)
 	
-# 	# Scaling 
-# 	aS, bS = np.linalg.norm(A), np.linalg.norm(B)
-# 	A /= aS 
-# 	B /= bS
-
-# 	# Rotation / Reflection
-# 	U, Sigma, Vt = np.linalg.svd(A.T @ B, full_matrices=False)
-# 	R = U @ Vt
+	# Translation + convert to column-oriented
+	XC, YC = X.mean(axis=0), Y.mean(axis=0) # centroids
+	X, Y = (X - XC).T, (Y - YC).T           # center + make column-oriented
 	
-# 	# Correct to rotation if requested
-# 	if np.linalg.det(R) < 0:
-# 		d = np.sign(np.linalg.det(Vt.T @ U.T))
-# 		Sigma = np.append(np.repeat(1.0, len(Sigma)-1), d)
-# 		R = Vt.T @ np.diag(Sigma) @ U.T
+	# Scaling 
+	XS, YS = 1.0, 1.0
+	if scale:
+		XS, XS = np.linalg.norm(X), np.linalg.norm(Y)
+		X /= XS 
+		Y /= YS
 
-# 	# Normalize scaling + translation 
-# 	s = np.sum(Sigma) * (bS / aS)  	 # How big is B relative to A?
-# 	t = bC - s * aC @ R              # place translation vector relative to B
-
-# 	# Procrustes distance
-# 	# z = (s * a @ R + t)
-# 	# d = np.linalg.norm(z - b)**2
-# 	d = np.linalg.norm(A @ R - B, "fro")
+	# Rotation / Reflection
+	U, Sigma, Vt = np.linalg.svd(Y @ X.T, full_matrices=False)
+	R = U @ Vt
 	
-# 	# The transformed/superimposed coordinates
-# 	# Note: (s*bS) * np.dot(B, aR) + c
-# 	output = { "rotation": R, "scaling": s, "translation": t, "distance": d }
-# 	if coords: return(s * a @ R + t)
-# 	else:
-# 		return(output)
+	# Correct to rotation if requested
+	det_R = np.linalg.det(R)
+	Sigma = np.append(np.repeat(1.0, len(Sigma)-1), np.sign(det_R))
+	RM = U @ np.diag(Sigma) @ Vt # gaurenteed too have positive determinant <=> rotation
+	d = 0.0
+	if fit == 'best':
+		err1 = np.linalg.norm((R @ X) - Y, "fro")
+		err2 = np.linalg.norm((RM @ X) - Y, "fro") 
+		R, d = (RM, err2) if err2 < err1 else (R, err1)
+	elif fit == 'rotation':
+		R, d = RM, np.linalg.norm((RM @ X) - Y, "fro") 
+	else: 
+		raise ValueError(f"Unknown option '{fit}' passed to 'fit' parameter passed")
 
+	# Normalize scaling + translation 
+	s = (YS / XS)  	 							# How big is B relative to A?  
+	t = (YC - s * np.dot(R, XC))  # translation v's 
 
-
+	# Return desired output
+	output = { "rotation": R, "scaling": s, "translation": t, "mean_X": XC, "mean_Y": YC, "distance": d }
+	if coords: 
+		X_noncentered = (X.T + XC).T
+		return((s*(R @ X_noncentered).T + t))
+	else:
+		return(output)
 
 def opa(X, Y, coords=False, scale=True, fit='best'):
 	"""
@@ -242,11 +262,11 @@ def opa(X, Y, coords=False, scale=True, fit='best'):
 	# # does the current solution use a reflection?
 	# have_reflection = np.linalg.det(T) < 0
 
-	# if that's not what was specified, force another reflection
+	# # if that's not what was specified, force another reflection
 	# if have_reflection:
-	# 		V[:,-1] *= -1
-	# 		s[-1] *= -1
-	# 		T = np.dot(V, U.T)
+	# 	V[:,-1] *= -1
+	# 	s[-1] *= -1
+	# 	T = np.dot(V, U.T)
 
 	traceTA = s.sum()
 
@@ -277,4 +297,3 @@ def opa(X, Y, coords=False, scale=True, fit='best'):
 	else:
 		tform = {'rotation':T, 'scaling':b, 'translation':c, 'distance': d}
 		return tform
-

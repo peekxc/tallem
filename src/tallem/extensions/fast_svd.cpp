@@ -277,6 +277,8 @@ struct StiefelLoss {
 		return(carma::row_to_arr< unsigned long long >(std::move(u)));
 	}
 
+	// Populate the 'frames_sparse' arma::sp_mat member variable using the iota bijection
+	// Postcondition: self.frames_sparse is a sparse (dJ x dn) matrix representing the horizontal concatenation of all the Phi's for each x \in X
 	void populate_frames_sparse(py::array_t< arma::uword >& iota){
 		if (pou.n_cols != n){ throw std::invalid_argument("Invalid input. Must have one weight for each cover element."); }
 		const size_t J = pou.n_rows;

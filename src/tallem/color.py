@@ -77,10 +77,28 @@ def linear_gradient(colors, n):
 				gradient_dict[k] += next[k][1:] # Exclude first point to avoid duplicates
 	return gradient_dict
 
-def bin_color(x: ArrayLike, color_pal: List, min_x = "default", max_x = "default"):
+def hist_equalize(x, number_bins=100000):
+	h, bins = np.histogram(x.flatten(), number_bins, density=True)
+	cdf = h.cumsum() # cumulative distribution function
+	cdf = np.max(x) * cdf / cdf[-1] # normalize
+	return(np.interp(x.flatten(), bins[:-1], cdf))
+
+def bin_color(x: ArrayLike, color_pal: List, min_x = "default", max_x = "default", scaling="linear", **kwargs):
+	''' Bins non-negative values 'x' into appropriately scaled bins matched with the given color range. '''
 	x_min = np.min(x) if min_x == "default" else min_x
 	x_max = np.max(x) if max_x == "default" else max_x
 	assert isinstance(x_min, float) and isinstance(x_max, float)
+	if scaling == "linear":
+		x = x
+	elif scaling == "logarithmic":
+		x = np.log(x + x_min + 1.0)
+		x_min = np.log(x_min + 1.0)
+		x_max = np.log(x_max + 1.0)
+	elif scaling == "equalize":
+		x = hist_equalize(x, **kwargs)
+		x_min, x_max = np.min(x), np.max(x)
+	else:
+		raise ValueError(f"Unknown scaling option '{scaling}' passed. Must be one of 'linear', 'logarithmic', or 'equalize'. ")
 	ind = np.digitize(x, bins=np.linspace(x_min, x_max, len(color_pal)))
 	ind = np.minimum(ind, len(color_pal)-1) ## bound from above
 	ind = np.maximum(ind, 0)								## bound from below

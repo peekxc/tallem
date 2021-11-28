@@ -17,7 +17,7 @@ cover = LandmarkCover(D, 15)
 
 [len(cover[k]) for k in cover.keys()]
 
-m_dist(X[0,:], X[1,:])
+# m_dist(X[0,:], X[1,:])
 
 # %% Mobius band example again 
 import numpy as np
