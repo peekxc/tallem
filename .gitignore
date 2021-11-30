@@ -9,6 +9,11 @@ __pycache__/
 subprojects/arma
 *.whl
 Makefile
+notebooks/*.png 
+notebooks/*.jpeg
+notebooks/*.jpg
+notebooks/*.gif
+notebooks/*.tiff
 
 
 # Junk 

@@ -274,7 +274,7 @@ def enclosing_radius(a: npt.ArrayLike) -> float:
  
 def geodesic_dist(a: npt.ArrayLike):
 	d = dist(a, as_matrix=True) if not(is_distance_matrix(a)) else np.asanyarray(a)
-	if d.dtype != np.float64
+	if d.dtype != np.float64:
 		d = d.astype(np.float64)
 	floyd_warshall(d, directed=False, overwrite=True)
 	return(d)

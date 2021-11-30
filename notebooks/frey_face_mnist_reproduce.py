@@ -63,44 +63,24 @@ import scipy.io as sio
 mn = pickle.load(open('/Users/mpiekenbrock/tallem/data/mnist_eights.pickle', "rb")).T # 28 x 28
 rotate = lambda x: np.fliplr(x.T)
 mn = np.array([rotate(mn[:,:,i]).flatten() for i in range(mn.shape[2])])
-# pickle.dump(mn, open('/Users/mpiekenbrock/tallem/data/mnist_eights.pickle', 'wb'))
-# mn = np.array([mn[:,:,i].flatten() for i in range(mn.shape[2])])
 
-from tallem import TALLEM
-from tallem.dimred import *
-from tallem.cover import *
-from tallem.distance import dist 
-
-cover = LandmarkCover(mn, k=15)
+G = knn_graph(mn, k=20)
+D = floyd_warshall(G, directed=False)
+cover = LandmarkCover(D, n_sets=25, scale=1.15)
 top = TALLEM(cover, local_map="pca2", n_components=2)
-emb = top.fit_transform(X=mn, B=mn)
+emb = top.fit_transform(X=mn)
 
-s = 0.02*np.max(dist(emb))
-
-import matplotlib.pyplot as plt
-fig, ax = scatter2D(emb, alpha=0.20, s=10)
-
-
-from tallem.samplers import landmarks
+# %% Make scatter plot + images
+fig = plt.figure(figsize=(8, 8), dpi=300)
+ax = plt.gca()
+ax.axis('off')
+plt.scatter(*emb.T, alpha=0.70, s=8, edgecolor='gray',linewidth=0.30)
+Lind, Lrad = landmarks(emb, k = 120)
+img_width = 0.02*np.max(dist(emb)) 
 Lind, Lrad = landmarks(emb, k = 120)
 for i in Lind: 
-	bbox = np.array([emb[i,0] + s*np.array([-1.0, 1.0]), emb[i,1] + s*np.array([-1.0, 1.0])]).flatten()
+	bbox = np.array([emb[i,0] + img_width*np.array([-1.0, 1.0]), emb[i,1] + img_width*np.array([-1.0, 1.0])]).flatten()
 	face_im = ax.imshow(mn[i,:].reshape((28,28)), origin='upper', extent=bbox, cmap='gray', vmin=0, vmax=255)
-	face_im.set_zorder(20)
-ax.set_xlim(left=np.min(emb[:,0]), right=np.max(emb[:,0]))
-ax.set_ylim(bottom=np.min(emb[:,1]), top=np.max(emb[:,1]))
-
-
-
-
-from tallem.dimred import pca
-emb = pca(mn, 2)
-Lind, Lrad = landmarks(emb, k = 120)
-
-fig, ax = scatter2D(emb, alpha=0.20, s=10)
-for i in Lind: 
-	bbox = np.array([emb[i,0] + s*np.array([-1.0, 1.0]), emb[i,1] + s*np.array([-1.0, 1.0])]).flatten()
-	face_im = ax.imshow(mn[i,:].reshape((28,28)), origin='upper', extent=bbox, cmap='gray', vmin=0, vmax=255, aspect ='auto')
 	face_im.set_zorder(20)
 ax.set_xlim(left=np.min(emb[:,0]), right=np.max(emb[:,0]))
 ax.set_ylim(bottom=np.min(emb[:,1]), top=np.max(emb[:,1]))
