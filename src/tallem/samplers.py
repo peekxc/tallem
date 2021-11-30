@@ -41,6 +41,10 @@ def landmarks(a: ArrayLike, k: Optional[int] = 15, eps: Optional[float] = -1.0, 
 	eps = -1.0 if eps is None else float(eps)
 	seed = int(seed)
 	if is_dist_like(a):
+		if is_distance_matrix(a):
+			a = a[np.triu_indices(a.shape[0], k=1)]
+		if a.dtype != np.float64:
+			a = a.astype(np.float64)
 		indices, radii = landmark.maxmin(a, eps, k, True, seed)
 	elif metric == "euclidean" and is_point_cloud(a):
 		indices, radii = landmark.maxmin(a.T, eps, k, False, seed)

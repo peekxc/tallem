@@ -14,7 +14,7 @@ from scipy.sparse.linalg import eigs as truncated_eig
 from scipy.linalg import eigh, eig as dense_eig
 from scipy.spatial import KDTree
 from scipy.sparse import csc_matrix, csr_matrix
-from scipy.sparse.csgraph import minimum_spanning_tree, connected_components
+from scipy.sparse.csgraph import minimum_spanning_tree, connected_components, floyd_warshall
 
 # %%  Dimensionality reduction definitions
 def pca(x: npt.ArrayLike, d: int = 2, center: bool = False, coords: bool = True) -> npt.ArrayLike:
@@ -146,9 +146,9 @@ def landmark_isomap(X: ArrayLike, d: int = 2, L: Union[ArrayLike, int, str] = "d
 	## Compute the landmarks
 	if isinstance(L, str) and (L == "default"):
 		L = int(9*(ratio**2)*np.log(2*(d+1)/prob))
-		subset = landmarks(X, k=L)
+		subset, _ = landmarks(X, k=L)
 	elif isinstance(L, numbers.Integral):
-		subset = landmarks(X, k=L)
+		subset, _ = landmarks(X, k=L)
 	else: 
 		assert isinstance(L, np.ndarray)
 		subset = L
@@ -162,6 +162,7 @@ def landmark_isomap(X: ArrayLike, d: int = 2, L: Union[ArrayLike, int, str] = "d
 		G = rnn_graph(X, **kwargs) # should pick up defaults if given
 
 	## Compute the distances from every point to every landmark, and the landmark distance matrix
+	from scipy.sparse import csgraph
 	S = csgraph.dijkstra(G, directed=False, indices=subset, return_predecessors=False)
 	D = S[:,subset]
 	
@@ -172,7 +173,7 @@ def landmark_isomap(X: ArrayLike, d: int = 2, L: Union[ArrayLike, int, str] = "d
 	mean_landmark = np.mean(D, axis = 1).reshape((D.shape[0],1))
 	w = np.where(evals > 0)[0]
 	L_pseudo = evecs/np.sqrt(evals[w])
-	Y = np.zeros(shape=(n, d))
+	Y = np.zeros(shape=(X.shape[0], d))
 	Y[:,w] = (-0.5*(L_pseudo.T @ (S.T - mean_landmark.T).T)).T 
 
 	## Normalize using PCA, if requested
@@ -242,24 +243,24 @@ def neighborhood_list(centers: npt.ArrayLike, a: npt.ArrayLike, k: Optional[int]
 	G = csc_matrix((d, (r, c)), dtype=np.float32, shape=(max(max(r), n), max(max(c), m)))
 	return(G)
 
-def floyd_warshall(a: npt.ArrayLike):
-	'''floyd_warshall(adjacency_matrix) -> shortest_path_distance_matrix
-	Input
-			An NxN NumPy array describing the directed distances between N nodes.
-			adjacency_matrix[i,j] = distance to travel directly from node i to node j (without passing through other nodes)
-			Notes:
-			* If there is no edge connecting i->j then adjacency_matrix[i,j] should be equal to numpy.inf.
-			* The diagonal of adjacency_matrix should be zero.
-			Based on https://gist.github.com/mosco/11178777
-	Output
-			An NxN NumPy array such that result[i,j] is the shortest distance to travel between node i and node j. If no such path exists then result[i,j] == numpy.inf
-	'''
-	a = as_np_array(a)
-	n = a.shape[0]
-	a[a == 0.0] = np.inf
-	np.fill_diagonal(a, 0.0) # Ensure diagonal is 0!
-	for k in range(n): a = np.minimum(a, a[np.newaxis,k,:] + a[:,k,np.newaxis])
-	return(a)
+# def floyd_warshall(a: npt.ArrayLike):
+# 	'''floyd_warshall(adjacency_matrix) -> shortest_path_distance_matrix
+# 	Input
+# 			An NxN NumPy array describing the directed distances between N nodes.
+# 			adjacency_matrix[i,j] = distance to travel directly from node i to node j (without passing through other nodes)
+# 			Notes:
+# 			* If there is no edge connecting i->j then adjacency_matrix[i,j] should be equal to numpy.inf.
+# 			* The diagonal of adjacency_matrix should be zero.
+# 			Based on https://gist.github.com/mosco/11178777
+# 	Output
+# 			An NxN NumPy array such that result[i,j] is the shortest distance to travel between node i and node j. If no such path exists then result[i,j] == numpy.inf
+# 	'''
+# 	a = as_np_array(a)
+# 	n = a.shape[0]
+# 	a[a <= 10*np.finfo(np.float64).eps] = np.inf
+# 	np.fill_diagonal(a, 0.0) # Ensure diagonal is 0!
+# 	for k in range(n): a = np.minimum(a, a[np.newaxis,k,:] + a[:,k,np.newaxis])
+# 	return(a)
 
 def connected_radius(a: npt.ArrayLike) -> float:
 	''' Returns the smallest 'r' such that the union of balls of radius 'r' space is connected'''
@@ -273,7 +274,11 @@ def enclosing_radius(a: npt.ArrayLike) -> float:
  
 def geodesic_dist(a: npt.ArrayLike):
 	d = dist(a, as_matrix=True) if not(is_distance_matrix(a)) else np.asanyarray(a)
-	return(floyd_warshall(d))
+	if d.dtype != np.float64
+		d = d.astype(np.float64)
+	floyd_warshall(d, directed=False, overwrite=True)
+	return(d)
+
 
 def rnn_graph(a: npt.ArrayLike, r: Optional[float] = None, p = 0.15):
 	D = dist(a, as_matrix=True) if not(is_distance_matrix(a)) else np.asanyarray(a)
@@ -284,7 +289,6 @@ def rnn_graph(a: npt.ArrayLike, r: Optional[float] = None, p = 0.15):
 	return(neighborhood_graph(np.asanyarray(a), radius=r))
 
 def knn_graph(a: npt.ArrayLike, k: Optional[int] = 15):
-	D = dist(a, as_matrix=True) if not(is_distance_matrix(a)) else np.asanyarray(a)
 	if k is None: 
 		k = 15
 	return(neighborhood_graph(np.asanyarray(a), k = k))

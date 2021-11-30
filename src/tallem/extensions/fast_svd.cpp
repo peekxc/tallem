@@ -42,9 +42,8 @@ struct StiefelLoss {
 	const size_t D; // target dimension of coordinatization
 	index_mat_map rotations; // stores the rotation matrices (Omega)
 	
-	// TODO: test sparse implementation
 	arma::mat frames; // all column-stacked frames (dJ x dn) for some choice of iota, weighted by PoU
-	arma::sp_mat frames_sparse; 
+	arma::sp_mat frames_sparse; // same as frames, but as sp_mat. Only one should be used
 
 	arma::sp_mat pou; // (J x n) partition of unity
 	np_array_t output; // preallocated output for (A^T x Phi) => (D x dn)

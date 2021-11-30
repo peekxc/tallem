@@ -41,16 +41,16 @@ class TALLEM():
 		pou := partition of unity, either one of ['triangular', 'quadratic'], or an (n x J) ArrayLike object whose rows
 					 yield weights indicating the strength of membership of that point with each set in the cover.
 
-	fit(X, B, pou) -> (TALLEM instance): 
+	fit(X, pou) -> (TALLEM instance): 
 		X := an (n x p) numpy array representing *n* points in *p* space.
 		B := an (n x q) numpy array representing the image of f : X -> B, where f is a map that cpatures the topology and non-linearity of X. 
 
-	fit_transform(X, B, kwargs) -> ArrayLike:
+	fit_transform(X, kwargs) -> ArrayLike:
 		X := an (n x p) numpy array representing *n* points in *p* space.
 		B := an (n x q) numpy array representing the image of f : X -> B
 		kwargs := extra arguments passed to .fit(**kwargs)
 
-	transform() -> ArrayLike:
+	transform() -> ArrayLike (TODO)
 
 	'''
 	

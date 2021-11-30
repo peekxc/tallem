@@ -4,7 +4,7 @@ import matplotlib
 import numpy as np
 from tallem.datasets import *
 
-bar, c = white_bars(n_pixels=25, r=0.43, sigma=2.85)
+bar, c = white_bars(n_pixels=5, r=0.43, sigma=2.85)
 samples = []
 for d in np.linspace(-0.5, 0.5, num=9, endpoint=True):
 	for theta in np.linspace(0, np.pi, num=11, endpoint=True):
@@ -40,9 +40,16 @@ import ripser
 from tallem import TALLEM
 from tallem.cover import CircleCover
 polar_coordinate = BL[:,0]
-cover = CircleCover(polar_coordinate, n_sets=20, scale=1.8, lb=np.min(polar_coordinate), ub=np.max(polar_coordinate)) # 20, 1.5 is best
-top = TALLEM(cover, local_map="pca3", D=3, pou="quadratic").fit(X=XL)
-print(top)
+# polar_coordinate = BL
+cover = CircleCover(polar_coordinate, n_sets=16, scale=2.00, lb=np.min(polar_coordinate), ub=np.max(polar_coordinate)) # 20, 1.5 is best
+top = TALLEM(cover, local_map="iso2", D=3, pou="quadratic")
+
+emb = top.fit_transform(X=XL)
+fig, ax = scatter3D(emb, c=polar_coordinate)
+
+top.plot_nerve(X=XL, layout="hausdorff")
+
+scatter3D(top.models[1], c= BL[top.cover[1],0])
 
 # %% High dimension - Isomap 
 Y = top.assemble_high()
@@ -180,7 +187,7 @@ def Patches_Mobius(numpts,BW=1,aspect=3,ranseed = 123):
 
 
 import numpy as np
-(pts,dim,pm_params,ftype,dtype) = Patches_Mobius(8000, aspect=25, BW=0.4)
+(pts,dim,pm_params,ftype,dtype) = Patches_Mobius(8000, aspect=5, BW=0.4)
 # plot_image(pts[0,:].reshape((17,17)))
 
 from tallem.samplers import landmarks

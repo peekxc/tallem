@@ -9,7 +9,7 @@ from .cover import CoverLike
 
 # %% Alignment definitions
 # This was taken from: https://gitlab.msu.edu/mikejosh/tallm/-/tree/master/PyTALLEM
-def global_translations(cover: CoverLike, alignments: Dict):
+def global_translations(cover: CoverLike, alignments: Dict, k: int = 0):
 	## Get optimal translation vectors 
 	index_pairs = list(alignments.keys())
 	d = len(alignments[index_pairs[0]]['translation'])
