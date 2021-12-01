@@ -51,6 +51,19 @@ top.plot_nerve(X=XL, layout="hausdorff")
 
 scatter3D(top.models[1], c= BL[top.cover[1],0])
 
+# %% 
+from tallem import TALLEM
+from tallem.cover import LandmarkCover
+from tallem.dimred import geodesic_dist, rnn_graph
+
+D = rnn_graph(XL, p = 0.15).A
+D = geodesic_dist(np.ascontiguousarray(D, dtype=np.float64))
+cover = LandmarkCover(D, n_sets=16, scale=1.50) 
+top = TALLEM(cover, local_map="pca3", D=3, pou="gaussian")
+emb = top.fit_transform(X=XL)
+fig, ax = scatter3D(emb, c=BL[:,0])
+
+
 # %% High dimension - Isomap 
 Y = top.assemble_high()
 # Z = isomap(Y, d=3)
