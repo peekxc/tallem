@@ -41,8 +41,11 @@ def align_models(cover: CoverLike, models: Dict, **kwargs):
 		ij_ind, i_idx, j_idx = np.intersect1d(subset_i, subset_j, return_indices=True)
 		if len(ij_ind) > 2:
 			# PA_map[(ii,jj)] = opa(models[j][j_idx,:], models[i][i_idx,:], scale=False, **kwargs)
-			PA_map[(ii,jj)] = procrustes(models[i][i_idx,:], models[j][j_idx,:], scale=False, **kwargs)
-			# PA_map[(ii,jj)] = procrustes(models[j][j_idx,:], models[i][i_idx,:], scale=False, **kwargs)
+			# PA_map[(ii,jj)] = procrustes(models[i][i_idx,:], models[j][j_idx,:], scale=False, **kwargs)
+			PA_map[(ii,jj)] = procrustes(models[j][j_idx,:], models[i][i_idx,:], scale=False, **kwargs)
+			PA_map[(jj,ii)] = procrustes(models[i][i_idx,:], models[j][j_idx,:], scale=False, **kwargs)
+			# PA_map[(ii,jj)] = procrustes(models[i][i_idx,:], models[j][j_idx,:], scale=False, **kwargs)
+			# PA_map[(jj,ii)] = procrustes(models[j][j_idx,:], models[i][i_idx,:], scale=False, **kwargs)
 	return(PA_map)
 
 # def opa(a: npt.ArrayLike, b: npt.ArrayLike, scale=True, coords=False, fit="best"):
