@@ -62,7 +62,7 @@ def plot_images(P, shape, max_val = "default", figsize=(8,8), layout = None):
 		plt.imshow(P.reshape(shape), cmap='gray', vmin=0, vmax=max_val)
 		fig.gca().axes.get_xaxis().set_visible(False)
 		fig.gca().axes.get_yaxis().set_visible(False)
-		return(fig, ax)
+		return(fig, fig.gca())
 	else:
 		assert layout is not None, "missing layout"
 		fig, axs = plt.subplots(*layout, figsize=figsize)
@@ -428,7 +428,7 @@ def embed(a: ArrayLike, D: int, method="givens"):
 
 	## Append zero columns up to dimension d
 	d = a.shape[1]
-	a = np.hstack((a, np.zeros((mobius_sample.shape[0], D - d))))
+	a = np.hstack((a, np.zeros((a.shape[0], D - d))))
 
 	## Rotate into D-dimensions
 	from itertools import combinations

@@ -100,9 +100,9 @@ def landmark_mds(X: ArrayLike, d: int = 2, L: Union[ArrayLike, int, str] = "defa
 	'''
 	if isinstance(L, str) and (L == "default"):
 		L = int(9*(ratio**2)*np.log(2*(d+1)/prob))
-		subset = landmarks(X, k=L)
+		subset, _ = landmarks(X, k=L)
 	elif isinstance(L, numbers.Integral):
-		subset = landmarks(X, k=L)
+		subset, _ = landmarks(X, k=L)
 	else: 
 		assert isinstance(L, np.ndarray)
 		subset = L
@@ -276,6 +276,8 @@ def geodesic_dist(a: npt.ArrayLike):
 	d = dist(a, as_matrix=True) if not(is_distance_matrix(a)) else np.asanyarray(a)
 	if d.dtype != np.float64:
 		d = d.astype(np.float64)
+	if not(d.flags["C_CONTIGUOUS"]):
+		d = np.ascontiguousarray(d)
 	floyd_warshall(d, directed=False, overwrite=True)
 	return(d)
 

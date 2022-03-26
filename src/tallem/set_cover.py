@@ -49,8 +49,6 @@ def weighted_set_cover(C, W):
 	Parameters: 
 		C := (n x J) sparse matrix giving the set membership of n points on J subsets 
 		W := (J,) array of weights; one for each subset 
-		
-
 	'''
 	assert issparse(C), "cover must be sparse matrix"
 	n,J = C.shape
@@ -59,6 +57,8 @@ def weighted_set_cover(C, W):
 	# linprog(w, A_ub)
 
 
+# Greedy provides an H_k-approximation for the weight k set cover, where H_k = \sum\limits_{i=1}^k 1/i is the k-th harmonic number
+# http://citeseerx.ist.psu.edu/viewdoc/download?doi=10.1.1.96.1615&rep=rep1&type=pdf
 def greedy_weighted_set_cover(n, S, W):
 	''' 
 	Computes a set of indices I \in [m] whose subsets S[I] = { S_1, S_2, ..., S_k }
@@ -90,10 +90,11 @@ def greedy_weighted_set_cover(n, S, W):
 		not_covered = np.flatnonzero(np.logical_not(membership))
 		cost_effectiveness = []
 		for j in range(J):
-			S_j = np.flatnonzero(G[:,j].A)
+			S_j = np.flatnonzero(S[:,j].A)
 			size_uncovered = len(np.intersect1d(S_j, not_covered))
 			cost_effectiveness.append(size_uncovered/W[j])
 		C.append(np.argmax(cost_effectiveness))
+		# print(C[-1])
 		membership = covered(C)
 	
 	## Return the greedy cover

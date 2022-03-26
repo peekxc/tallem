@@ -46,8 +46,7 @@ def is_index_like(x: ArrayLike):
 	return(np.all([isinstance(el, numbers.Integral) for el in x]))
 
 def subset_dist(x: ArrayLike, I: Union[ArrayLike, Tuple]):
-	''' 
-	Used for subsetting dist-like objects
+	"""Subsets dist-like objects.
 	
 	Parameters: 
 		x := pairwise distances or distance matrix 
@@ -62,7 +61,11 @@ def subset_dist(x: ArrayLike, I: Union[ArrayLike, Tuple]):
 		D = subset_dist(d, [0,1,2,5,10]) 			## matrix of size (5, 5) containing distances for indices [0,1,2,5,10]
 		D = subset_dist(d, ([0,1], [2,5,10])) ## same as the vector example above
 
-	'''
+	See Also
+  --------
+	is_dist_like
+	
+	"""
 	from itertools import combinations
 	# assert is unique
 	if is_distance_matrix(x):

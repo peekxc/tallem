@@ -4,13 +4,13 @@ import matplotlib
 import numpy as np
 from tallem.datasets import *
 
-bar, c = white_bars(n_pixels=5, r=0.43, sigma=2.85)
+bar, c = white_bars(n_pixels=19, r=0.38, sigma=2.55)
 samples = []
 for d in np.linspace(-0.5, 0.5, num=9, endpoint=True):
 	for theta in np.linspace(0, np.pi, num=11, endpoint=True):
 		samples.append(np.ravel(bar(theta, d)).flatten())
 samples = np.vstack(samples)
-fig, ax = plot_images(samples, shape=(25,25), max_val=c, layout=(9,11))
+fig, ax = plot_images(samples, shape=(19,19), max_val=c, layout=(9,11))
 
 # %% Oversample  + landmarks to get a uniform sampling
 # n_params = 50

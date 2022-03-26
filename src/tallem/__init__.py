@@ -55,7 +55,7 @@ class TALLEM():
 	'''
 	
 	def __init__(self, cover: CoverLike, local_map: Union[str, Callable[npt.ArrayLike, npt.ArrayLike]], D: int = 2, pou: Union[str, csc_matrix] = "default"):
-		assert isinstance(cover, CoverLike), "cover argument must be an CoverLike."
+		# assert isinstance(cover, CoverLike), "cover argument must be an CoverLike."
 		
 		## Store callable as part of the cover's initialization
 		self.D = D ## Target dimension of the embedding 
@@ -338,3 +338,63 @@ class TALLEM():
 		self.fit(**kwargs)
 		profile.print_stats(output_unit=1e-3)
 	
+
+# %% AGA-tallem function
+import numpy as np
+from scipy.spatial.distance import directed_hausdorff
+
+def gamma_tau(top, node_path, verbose=0):
+	Gamma = np.eye(top.d)
+	for cc in range(len(node_path)-1):
+		k,l = node_path[cc], node_path[cc+1]
+		omega_k = top.alignments[(k, l)]['rotation']
+		Gamma = Gamma @ omega_k
+		if verbose > 0: print(f"({k}, {l})", end='')
+	if verbose > 0: print("")
+	return(Gamma)
+
+def aga_tallem(top, X):
+
+	## Start with MST 
+	import networkx as nx
+	G = nx.Graph()
+	G.add_nodes_from(range(len(top.cover)))
+	for (j,k) in top.alignments.keys():
+		d_jk = directed_hausdorff(X[top.cover[j],:], X[top.cover[k],:])[0]
+		d_kj = directed_hausdorff(X[top.cover[k],:], X[top.cover[j],:])[0]
+		G.add_edge(j, k, weight=np.maximum(d_jk, d_kj))
+	T = nx.minimum_spanning_tree(G) 
+
+	## Compute gammas + taus
+	Gammas, Taus = [], np.zeros(shape=(len(top.cover), top.d))
+	root_node = 0
+	for j in range(len(top.cover)):
+		node_path = nx.dijkstra_path(T, root_node, j)
+		omega_path = []
+		for cc in range(len(node_path)-1):
+			k, l = node_path[cc], node_path[cc+1]
+			omega_lk = top.alignments[(l,k)]['rotation']
+			v_lk = top.alignments[(l,k)]['translation']
+			omega_path.append(omega_lk)
+			Taus[l,:] = omega_lk @ Taus[k,:] - v_lk
+		Gammas.append(gamma_tau(top, node_path)) 
+
+	## Restrict data set to G / T 
+	T_edges = list(T.edges())
+	Y_ind = np.array(list(range(X.shape[0])))
+	for (j,k) in G.edges:
+		if not((j,k) in T_edges):
+			jk_ind = np.intersect1d(top.cover[j], top.cover[k])
+			Y_ind = np.setdiff1d(Y_ind, jk_ind)
+
+	## Compute the assembly 
+	Z = np.zeros((len(Y_ind), top.d))
+	for i, idx in enumerate(Y_ind):
+		vp = top.pou[idx,:].A.flatten()
+		pou_ind = np.flatnonzero(vp)
+		for j in pou_ind: 
+			lm_point_ind = np.searchsorted(top.cover[j], idx)
+			f_xi = top.models[j][lm_point_ind,:]
+			Z[i,:] += vp[j]*Gammas[j] @ (f_xi+Taus[j,:])
+
+	return(Z, T, Y_ind)
